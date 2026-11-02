@@ -94,7 +94,11 @@ export const TenantSchema = z.object({
   default_language: LanguageSchema.default('da-DK'),
   telephony_mode: TelephonyModeSchema.default('zero_cost_webrtc'),
   system_prompt_overrides: z.string().nullable().optional(),
+  customer_system_prompt: z.string().nullable().optional(),
+  copilot_system_prompt: z.string().nullable().optional(),
+  client_passkey: z.string().nullable().optional(),
   active_broadcast_message: z.string().nullable().optional(),
+  ai_auto_reply_default: z.boolean().default(true),
   business_hours: BusinessHoursSchema,
   pricing_catalog: z.array(PricingItemSchema).default([]),
   created_at: z.string(),
@@ -113,6 +117,8 @@ export const ContactSchema = z.object({
   lead_score: z.number().int().min(0).max(100).default(50),
   estimated_value_dkk: z.number().default(0),
   pipeline_stage: PipelineStageSchema.default('new_lead'),
+  ai_auto_reply_enabled: z.boolean().default(true),
+  last_human_takeover_at: z.string().nullable().optional(),
   shared_memory_summary: z.string().default(''),
   sentiment_score: z.number().min(0).max(10).default(7.5),
   metadata: z.record(z.unknown()).default({}),
@@ -248,6 +254,46 @@ export const LiveKitTokenRequestSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+export const ProvisionWizardRequestSchema = z.object({
+  mode: z.enum(['interview', 'generate']),
+  notes: z.string().min(1),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string(),
+      })
+    )
+    .optional()
+    .default([]),
+});
+
+export const ProvisionTenantPayloadSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  owner_name: z.string().min(1),
+  owner_phone: z.string().min(1),
+  owner_email: z.string().email(),
+  default_language: LanguageSchema.default('da-DK'),
+  telephony_mode: TelephonyModeSchema.default('zero_cost_webrtc'),
+  flynumber_did: z.string().nullable().optional(),
+  client_passkey: z.string().min(6),
+  customer_system_prompt: z.string().min(10),
+  copilot_system_prompt: z.string().min(10),
+  active_broadcast_message: z.string().nullable().optional(),
+  business_hours: BusinessHoursSchema,
+  pricing_catalog: z.array(PricingItemSchema).default([]),
+  knowledge_items: z
+    .array(
+      z.object({
+        category: z.string(),
+        title: z.string(),
+        content: z.string(),
+      })
+    )
+    .default([]),
+});
+
 // ==============================================================================
 // 5. INFERRED TYPESCRIPT TYPES
 // ==============================================================================
@@ -276,3 +322,5 @@ export type MetaWebhookPayload = z.infer<typeof MetaWebhookPayloadSchema>;
 export type WarmTransferAction = z.infer<typeof WarmTransferActionSchema>;
 export type OwnerCopilotCommand = z.infer<typeof OwnerCopilotCommandSchema>;
 export type LiveKitTokenRequest = z.infer<typeof LiveKitTokenRequestSchema>;
+export type ProvisionWizardRequest = z.infer<typeof ProvisionWizardRequestSchema>;
+export type ProvisionTenantPayload = z.infer<typeof ProvisionTenantPayloadSchema>;

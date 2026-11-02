@@ -108,24 +108,24 @@ export const InteractiveKanban: React.FC = () => {
           return (
             <div
               key={stage.key}
-              className={`p-3 rounded-2xl bg-gray-950/70 border ${stage.borderColor} backdrop-blur-md flex flex-col min-h-[500px]`}
+              className="p-3 rounded-2xl bg-[var(--bg-surface,#0A0D15)] border border-[var(--border-subtle,#1E2638)] backdrop-blur-md flex flex-col min-h-[500px] transition-colors"
             >
               {/* Column Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle,#1E2638)]">
                 <div className="flex items-center gap-2">
                   <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${stage.badgeColor}`}>
                     {stageContacts.length}
                   </span>
-                  <h3 className="text-xs font-bold text-gray-200 tracking-wide">
+                  <h3 className="text-xs font-bold text-[var(--text-primary,#FFFFFF)] tracking-wide">
                     {isDanish ? stage.titleDa : stage.titleEn}
                   </h3>
                 </div>
               </div>
 
               {/* Total DKK per Stage */}
-              <div className="py-2 text-[11px] font-mono text-gray-400 flex justify-between items-center">
+              <div className="py-2 text-[11px] font-mono text-[var(--text-muted,#8E9CAE)] flex justify-between items-center">
                 <span>{isDanish ? 'Værdi:' : 'Value:'}</span>
-                <span className="font-semibold text-gray-200">
+                <span className="font-semibold text-[var(--text-primary,#FFFFFF)] tabular-nums">
                   {stageValue.toLocaleString(isDanish ? 'da-DK' : 'en-US')} DKK
                 </span>
               </div>
@@ -143,34 +143,34 @@ export const InteractiveKanban: React.FC = () => {
                       transition={{ duration: 0.2 }}
                       whileHover={{ y: -2 }}
                       onClick={() => openContactDrawer(contact.id)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer bg-gray-900/80 hover:bg-gray-900 ${
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer bg-[var(--bg-raised,#121824)] hover:bg-[var(--bg-surface,#182133)] ${
                         contact.pipeline_stage === 'dire_escalated'
-                          ? 'border-red-500/80 shadow-lg shadow-red-950/50 bg-red-950/20'
-                          : 'border-gray-800 hover:border-gray-700'
+                          ? 'border-[var(--danger,#FF2A85)] shadow-lg shadow-[var(--danger,#FF2A85)]/20 bg-[var(--danger,#FF2A85)]/10'
+                          : 'border-[var(--border-subtle,#1E2638)] hover:border-[var(--border-strong,#2B374E)]'
                       }`}
                     >
                       {/* Contact Name & Channel */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white truncate max-w-[140px]">
-                          {contact.full_name || 'Ukendt Lead'}
+                        <span className="text-xs font-bold text-[var(--text-primary,#FFFFFF)] truncate max-w-[140px]">
+                          {contact.full_name || (isDanish ? 'Ukendt Lead' : 'Unknown Lead')}
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <span className="p-1 rounded-md bg-gray-800/80 border border-gray-700">
+                          <span className="p-1 rounded-md bg-[var(--bg-ground,#08090C)] border border-[var(--border-subtle,#1E2638)]">
                             {getChannelIcon(contact.preferred_channel)}
                           </span>
                         </div>
                       </div>
 
                       {/* Phone & Lead Score */}
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400 font-mono">
-                        <span>{contact.phone_number || 'Intet tlf.'}</span>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--text-secondary,#8E9CAE)] font-mono">
+                        <span>{contact.phone_number || (isDanish ? 'Intet tlf.' : 'No phone')}</span>
                         <span
-                          className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
+                          className={`font-bold px-1.5 py-0.2 rounded text-[10px] tabular-nums ${
                             contact.lead_score >= 80
-                              ? 'bg-emerald-950 text-emerald-300'
+                              ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60'
                               : contact.lead_score >= 50
-                              ? 'bg-purple-950 text-purple-300'
-                              : 'bg-gray-800 text-gray-400'
+                              ? 'bg-purple-950/80 text-purple-300 border border-purple-800/60'
+                              : 'bg-[var(--bg-ground,#08090C)] text-[var(--text-muted,#718096)] border border-[var(--border-subtle,#1E2638)]'
                           }`}
                         >
                           Score {contact.lead_score}
@@ -179,15 +179,15 @@ export const InteractiveKanban: React.FC = () => {
 
                       {/* Shared Memory Summary Preview */}
                       {contact.shared_memory_summary && (
-                        <p className="mt-2 text-[11px] text-gray-300 line-clamp-2 leading-relaxed bg-gray-950/50 p-1.5 rounded border border-gray-800/40">
+                        <p className="mt-2 text-[11px] text-[var(--text-secondary,#A0AEC0)] line-clamp-2 leading-relaxed bg-[var(--bg-ground,#08090C)]/60 p-1.5 rounded border border-[var(--border-subtle,#1E2638)]/60">
                           {contact.shared_memory_summary}
                         </p>
                       )}
 
                       {/* Estimated Value & Stage Shifter */}
-                      <div className="mt-3 pt-2.5 border-t border-gray-800/60 flex items-center justify-between">
-                        <span className="text-xs font-mono font-bold text-cyan-400">
-                          {Number(contact.estimated_value_dkk).toLocaleString('da-DK')} DKK
+                      <div className="mt-3 pt-2.5 border-t border-[var(--border-subtle,#1E2638)] flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-[var(--accent-primary,#00F5D4)] tabular-nums">
+                          {Number(contact.estimated_value_dkk).toLocaleString(isDanish ? 'da-DK' : 'en-US')} DKK
                         </span>
 
                         {/* Move Stage Selector */}
@@ -200,7 +200,7 @@ export const InteractiveKanban: React.FC = () => {
                             onChange={(e) =>
                               optimisticMoveDealStage(contact.id, e.target.value as PipelineStage)
                             }
-                            className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 rounded px-1.5 py-0.5 border border-gray-700 focus:outline-none focus:ring-1 focus:ring-cyan-400 cursor-pointer"
+                            className="text-[10px] bg-[var(--bg-ground,#08090C)] hover:bg-[var(--bg-raised,#121824)] text-[var(--text-secondary,#8E9CAE)] rounded px-1.5 py-0.5 border border-[var(--border-subtle,#1E2638)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary,#00F5D4)] cursor-pointer"
                           >
                             {STAGES.map((s) => (
                               <option key={s.key} value={s.key}>
@@ -216,8 +216,10 @@ export const InteractiveKanban: React.FC = () => {
 
                 {/* Empty State per Column */}
                 {stageContacts.length === 0 && (
-                  <div className="py-12 text-center border border-dashed border-gray-800/60 rounded-xl">
-                    <p className="text-xs text-gray-500 font-medium">Ingen sager</p>
+                  <div className="py-12 text-center border border-dashed border-[var(--border-subtle,#1E2638)] rounded-xl">
+                    <p className="text-xs text-[var(--text-muted,#718096)] font-medium">
+                      {isDanish ? 'Ingen sager' : 'No leads'}
+                    </p>
                   </div>
                 )}
               </div>

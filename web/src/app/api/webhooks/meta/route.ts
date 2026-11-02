@@ -41,13 +41,23 @@ export async function POST(req: NextRequest) {
     const messageText = messageItem.text?.body || messageItem.body || '';
     const contactProfile = value?.contacts?.[0]?.profile?.name || 'WhatsApp Lead';
 
-    // 1. Resolve Tenant (Map to primary tenant or phone number ID)
-    const { data: tenant } = await supabaseAdmin
-      .from('tenants')
-      .select('*')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single();
+    // 1. Multi-Tenant Resolution: Check query param, display phone number, or default
+    const tenantSlug = req.nextUrl.searchParams.get('tenant') || req.nextUrl.searchParams.get('slug');
+    const displayPhone = value?.metadata?.display_phone_number;
+    let tenant = null;
+
+    if (tenantSlug) {
+      const { data } = await supabaseAdmin.from('tenants').select('*').eq('slug', tenantSlug).maybeSingle();
+      tenant = data;
+    }
+    if (!tenant && displayPhone) {
+      const { data } = await supabaseAdmin.from('tenants').select('*').eq('flynumber_did', displayPhone).maybeSingle();
+      tenant = data;
+    }
+    if (!tenant) {
+      const { data } = await supabaseAdmin.from('tenants').select('*').order('created_at', { ascending: true }).limit(1).single();
+      tenant = data;
+    }
 
     if (!tenant) {
       return NextResponse.json({ error: 'No active tenant found' }, { status: 404 });
@@ -74,9 +84,8 @@ export async function POST(req: NextRequest) {
       lower.includes('akut') ||
       lower.includes('vandskade') ||
       lower.includes('oversvømmelse') ||
-      lower.includes('emergency');
-
-    const updateNote = `[WhatsApp - ${new Date().toLocaleTimeString()}]: "${messageText}"`;
+      lower.includes('emergency') ||
+      lower.includes('urgent');
 
     const isEnglish =
       tenant.default_language === 'en-US' ||
@@ -88,6 +97,8 @@ export async function POST(req: NextRequest) {
       lower.includes('hello') ||
       lower.includes('hi');
     const detectedLang = isEnglish ? 'en' : 'da';
+
+    const updateNote = `[WhatsApp - ${new Date().toLocaleTimeString()}]: "${messageText}"`;
 
     if (existingContact) {
       contactId = existingContact.id;
@@ -122,6 +133,7 @@ export async function POST(req: NextRequest) {
           pipeline_stage: isEmergency ? 'dire_escalated' : 'contacted',
           shared_memory_summary: updateNote,
           sentiment_score: isEmergency ? 3.0 : 8.0,
+          ai_auto_reply_enabled: true,
         })
         .select()
         .single();
@@ -152,7 +164,24 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    // 4. Generate AI WhatsApp Auto-Reply with 1-Tap Instant Call Magic Link
+    // 4. Check Human Takeover ("AI Auto-Pilot" state)
+    const isAiEnabled = existingContact ? (existingContact.ai_auto_reply_enabled ?? true) : true;
+    if (!isAiEnabled) {
+      // Live Human Takeover is active! Do NOT send automated AI response.
+      await supabaseAdmin.from('ui_command_events').insert({
+        tenant_id: tenant.id,
+        command_type: 'OPEN_CONTACT_DRAWER',
+        payload: { contactId, senderNumber, messageText, humanTakeoverActive: true },
+      });
+
+      return NextResponse.json({
+        success: true,
+        status: 'MESSAGE_LOGGED_AI_PAUSED_HUMAN_TAKEOVER',
+        contactId,
+      });
+    }
+
+    // 5. Generate AI WhatsApp Auto-Reply with 1-Tap Instant Call Magic Link
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nordic-omni.io';
     const instantCallUrl = `${baseUrl}/call/${contactId}`;
 
@@ -195,7 +224,7 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    // 5. Broadcast Realtime UI Command Event to dashboard
+    // 6. Broadcast Realtime UI Command Event to dashboard
     await supabaseAdmin.from('ui_command_events').insert({
       tenant_id: tenant.id,
       command_type: 'OPEN_CONTACT_DRAWER',

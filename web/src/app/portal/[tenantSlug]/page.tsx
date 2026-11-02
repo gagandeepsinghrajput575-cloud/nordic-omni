@@ -7,7 +7,10 @@ import { AvailabilityPricingMatrix } from '@/components/command-center/Availabil
 import { OwnerCopilotDock } from '@/components/command-center/OwnerCopilotDock';
 import { DireTransferModal } from '@/components/command-center/DireTransferModal';
 import { PitchSimulatorDrawer } from '@/components/command-center/PitchSimulatorDrawer';
+import { OwnerBroadcastBanner } from '@/components/command-center/OwnerBroadcastBanner';
+import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 import { TenantStoreHydrator } from './TenantStoreHydrator';
+import { MOCK_TENANTS, MOCK_CONTACTS, MOCK_CALL_LOGS } from '@/lib/mockData';
 
 interface PortalPageProps {
   params: Promise<{ tenantSlug: string }>;
@@ -15,35 +18,69 @@ interface PortalPageProps {
 
 export default async function TenantPortalPage({ params }: PortalPageProps) {
   const { tenantSlug } = await params;
-  const supabase = await createClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const isPlaceholderDb = !supabaseUrl || supabaseUrl.includes('your-project-id') || supabaseUrl.includes('placeholder');
 
   // Load Tenant data
-  const { data: tenant, error } = await supabase
-    .from('tenants')
-    .select('*')
-    .eq('slug', tenantSlug)
-    .single();
+  let tenant = null;
+  if (!isPlaceholderDb) {
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('slug', tenantSlug)
+        .single();
+      if (data) tenant = data;
+    } catch {}
+  }
 
-  if (error || !tenant) {
+  if (!tenant) {
+    tenant = MOCK_TENANTS.find((t) => t.slug === tenantSlug) || null;
+  }
+
+  if (!tenant) {
     notFound();
   }
 
   // Load initial contacts
-  const { data: contacts } = await supabase
-    .from('contacts')
-    .select('*')
-    .eq('tenant_id', tenant.id)
-    .order('updated_at', { ascending: false });
+  let contacts: any[] = [];
+  if (!isPlaceholderDb) {
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .order('updated_at', { ascending: false });
+      if (data && data.length > 0) contacts = data;
+    } catch {}
+  }
+
+  if (contacts.length === 0) {
+    contacts = MOCK_CONTACTS.filter((c) => c.tenant_id === tenant.id);
+  }
 
   // Load initial call logs
-  const { data: callLogs } = await supabase
-    .from('call_logs')
-    .select('*')
-    .eq('tenant_id', tenant.id)
-    .order('created_at', { ascending: false });
+  let callLogs: any[] = [];
+  if (!isPlaceholderDb) {
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from('call_logs')
+        .select('*')
+        .eq('tenant_id', tenant.id)
+        .order('created_at', { ascending: false });
+      if (data && data.length > 0) callLogs = data;
+    } catch {}
+  }
+
+  if (callLogs.length === 0) {
+    callLogs = MOCK_CALL_LOGS.filter((cl) => cl.tenant_id === tenant.id);
+  }
 
   return (
-    <main className="min-h-screen bg-[#06080D] text-white relative pb-28">
+    <main className="min-h-screen bg-[var(--bg-ground,#07090E)] text-[var(--text-primary,#F8FAFC)] relative pb-28 transition-colors">
       {/* Hydrates client-side Zustand store with server-fetched data */}
       <TenantStoreHydrator
         tenant={tenant}
@@ -52,33 +89,37 @@ export default async function TenantPortalPage({ params }: PortalPageProps) {
       />
 
       {/* Top Navigation Bar */}
-      <header className="border-b border-[#141A26] bg-[#0A0D15]/80 backdrop-blur-xl sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-[var(--border-subtle,#1E2638)] bg-[var(--bg-surface,#0D111A)]/90 backdrop-blur-xl sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between transition-colors">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00F5D4] to-[#7B61FF] p-[1px]">
-            <div className="w-full h-full bg-[#07090F] rounded-[11px] flex items-center justify-center font-bold text-xs text-[#00F5D4]">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[var(--accent-primary,#00F5D4)] to-[var(--accent-secondary,#7B61FF)] p-[1.5px] shadow-sm">
+            <div className="w-full h-full bg-[var(--bg-ground,#07090E)] rounded-[10px] flex items-center justify-center font-bold text-xs text-[var(--accent-primary,#00F5D4)]">
               {tenant.name.charAt(0)}
             </div>
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-sm font-bold tracking-tight text-[var(--text-primary,#FFFFFF)] flex items-center gap-2">
               {tenant.name}
-              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-[#182133] text-[#8E9CAE] border border-[#232F48]">
+              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-[var(--bg-raised,#171F2E)] text-[var(--text-secondary,#8E9CAE)] border border-[var(--border-subtle,#232F48)]">
                 {tenant.default_language === 'da-DK' ? '🇩🇰 Danish (da-DK)' : '🇬🇧 English (en-US)'}
               </span>
             </h1>
-            <p className="text-[11px] text-[#718096]">
+            <p className="text-[11px] text-[var(--text-muted,#718096)]">
               {tenant.flynumber_did ? `Inbound Line: ${tenant.flynumber_did}` : 'WebRTC Zero-Cost Mode Active'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 text-xs text-[#00F5D4] bg-[#00F5D4]/10 border border-[#00F5D4]/30 px-3 py-1.5 rounded-full font-mono">
-            <span className="w-2 h-2 rounded-full bg-[#00F5D4] animate-ping" />
+          <ThemeSwitcher />
+          <span className="flex items-center gap-1.5 text-xs text-[var(--accent-primary,#00F5D4)] bg-[var(--accent-primary,#00F5D4)]/10 border border-[var(--accent-primary,#00F5D4)]/30 px-3 py-1.5 rounded-xl font-mono">
+            <span className="w-2 h-2 rounded-full bg-[var(--accent-primary,#00F5D4)] animate-ping" />
             LiveKit & Supabase Realtime Connected
           </span>
         </div>
       </header>
+
+      {/* Owner Operational Broadcast Banner */}
+      <OwnerBroadcastBanner />
 
       {/* Main Container */}
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">

@@ -16,6 +16,17 @@ from tools.knowledge_tools import KnowledgeTools
 from tools.warm_transfer_tools import WarmTransferTools
 
 
+class CustomerAgentTools(CRMTools, KnowledgeTools, WarmTransferTools):
+    """
+    Unified FunctionContext inheriting all CRM, Knowledge base, and Warm Transfer
+    actions into a single agent tool context.
+    """
+    def __init__(self, tenant_id: str, contact_id: str, room_name: str, db: SupabaseService):
+        CRMTools.__init__(self, tenant_id, contact_id, db)
+        KnowledgeTools.__init__(self, tenant_id, db)
+        WarmTransferTools.__init__(self, tenant_id, contact_id, room_name, db)
+
+
 async def run_customer_agent(ctx: JobContext, tenant: dict, contact: dict):
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
@@ -25,24 +36,35 @@ async def run_customer_agent(ctx: JobContext, tenant: dict, contact: dict):
     language = contact.get("preferred_language") or default_lang
     is_danish = language.startswith("da")
 
-    # Assemble FunctionContext Tools
-    crm_tool = CRMTools(tenant["id"], contact["id"], db)
-    kb_tool = KnowledgeTools(tenant["id"], db)
-    wt_tool = WarmTransferTools(tenant["id"], contact["id"], room_name, db)
-
-    fnc_ctx = llm.FunctionContext()
-    fnc_ctx.add_context(crm_tool)
-    fnc_ctx.add_context(kb_tool)
-    fnc_ctx.add_context(wt_tool)
+    # Assemble Unified FunctionContext
+    fnc_ctx = CustomerAgentTools(tenant["id"], contact["id"], room_name, db)
 
     full_name = contact.get("full_name", "Kunde" if is_danish else "Customer")
     shared_memory = contact.get("shared_memory_summary", "New caller.")
 
-    system_prompt = f"""You are the inbound AI Voice Assistant for "{tenant['name']}".
+    base_custom_prompt = tenant.get("customer_system_prompt")
+    broadcast_notice = tenant.get("active_broadcast_message")
+
+    if base_custom_prompt:
+        system_prompt = f"""{base_custom_prompt}
+
+Context:
+Customer Name: {full_name}
+Shared Memory & History: {shared_memory}
+Active Operational Notice: {broadcast_notice or 'Standard response times active.'}
+
+Rules:
+1. Always adapt strictly to {'Danish' if is_danish else 'English'}.
+2. Keep responses brief, conversational, and natural for a phone call.
+3. If the customer reports an emergency, demands a human, or is angry, call `trigger_dire_escalation` immediately.
+"""
+    else:
+        system_prompt = f"""You are the inbound AI Voice Assistant for "{tenant['name']}".
 Your goal is to be exceptionally helpful, conversational, and solve the customer's needs instantly.
 Language: {'Danish' if is_danish else 'English'}.
 Customer Name: {full_name}
 Shared Memory & Context: {shared_memory}
+Active Operational Notice: {broadcast_notice or 'Standard response times active.'}
 
 Rules:
 1. Always adapt your language strictly to {'Danish' if is_danish else 'English'}.
@@ -80,7 +102,7 @@ Rules:
     )
 
     # Attach agent instance to WarmTransferTools for holding protocol control
-    wt_tool.agent = agent
+    fnc_ctx.agent = agent
 
     agent.start(ctx.room)
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/lib/theme/ThemeContext';
 
 export const metadata: Metadata = {
   title: 'NORDIC-OMNI | Multi-Tenant Voice & Meta AI Platform',
@@ -13,8 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="da" className="dark">
-      <body className="bg-[#06080D] text-white min-h-screen antialiased selection:bg-[#00F5D4] selection:text-black">
-        {children}
+      <body className="bg-[var(--bg-ground,#07090E)] text-[var(--text-primary,#F8FAFC)] min-h-screen antialiased selection:bg-[var(--accent-primary,#00F5D4)] selection:text-black">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

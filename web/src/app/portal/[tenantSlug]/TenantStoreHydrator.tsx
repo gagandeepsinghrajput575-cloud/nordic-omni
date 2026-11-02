@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUICommandStore } from '@/lib/store/ui-command-store';
 import { Tenant, Contact, CallLog } from '@/contracts/schemas';
 import { Lead360Drawer } from '@/components/command-center/Lead360Drawer';
+import { PasskeyAuthModal } from '@/components/auth/PasskeyAuthModal';
 
 interface TenantStoreHydratorProps {
   tenant: Tenant;
@@ -23,6 +24,8 @@ export function TenantStoreHydrator({
   const activeContactId = useUICommandStore((state) => state.activeContactId);
   const openContactDrawer = useUICommandStore((state) => state.openContactDrawer);
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!tenant.client_passkey);
+
   useEffect(() => {
     setCurrentTenant(tenant);
     setContacts(contacts);
@@ -36,6 +39,15 @@ export function TenantStoreHydrator({
 
   return (
     <>
+      {/* Passkey Authentication Shield */}
+      {!isAuthenticated && (
+        <PasskeyAuthModal
+          tenant={tenant}
+          onAuthenticated={() => setIsAuthenticated(true)}
+        />
+      )}
+
+      {/* Contact 360 Drawer with Live Human Takeover */}
       {activeContactId && (
         <Lead360Drawer
           contactId={activeContactId}

@@ -87,7 +87,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Upsert Contact Record
-    const sharedMemoryEntry = `[Lead Form Ingestion - ${new Date().toLocaleTimeString()}]: Indsendte forespørgsel: "${inquiryText}". Foretrækker ${channelPreference.toUpperCase()}.`;
+    const sharedMemoryEntry =
+      language === 'da'
+        ? `[Formular - ${new Date().toLocaleTimeString()}]: Forespørgsel: "${inquiryText}". Foretrækker ${channelPreference.toUpperCase()}.`
+        : `[Lead Form - ${new Date().toLocaleTimeString()}]: Inquiry: "${inquiryText}". Prefers ${channelPreference.toUpperCase()}.`;
 
     let contactId = '';
     const { data: existingContact } = await supabaseAdmin
@@ -165,37 +168,40 @@ export async function POST(req: NextRequest) {
     ]);
 
     // 5. Fire Instant WhatsApp / Meta Contextual Reply with Magic Call Link ($0 WebRTC)
+    const isAiEnabled = existingContact ? (existingContact.ai_auto_reply_enabled ?? true) : true;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nordic-omni.io';
     const instantCallUrl = `${baseUrl}/call/${contactId}`;
 
-    const autoReplyText =
-      language === 'da'
-        ? `Hej ${fullName}! Tak for din henvendelse til ${tenant.name}. Vi har modtaget din besked: "${inquiryText}". ` +
-          `Hvis du vil tale direkte med vores AI-receptionist lige nu, kan du trykke her: ${instantCallUrl} ` +
-          (tenant.flynumber_did ? `eller ringe på vores hovednummer ${tenant.flynumber_did}.` : '')
-        : `Hi ${fullName}! Thank you for reaching out to ${tenant.name}. We received your inquiry: "${inquiryText}". ` +
-          `You can speak with our AI agent immediately by tapping this instant call link: ${instantCallUrl} ` +
-          (tenant.flynumber_did ? `or dial our direct line at ${tenant.flynumber_did}.` : '');
+    if (isAiEnabled) {
+      const autoReplyText =
+        language === 'da'
+          ? `Hej ${fullName}! Tak for din henvendelse til ${tenant.name}. Vi har modtaget din besked: "${inquiryText}". ` +
+            `Hvis du vil tale direkte med vores AI-receptionist lige nu, kan du trykke her: ${instantCallUrl} ` +
+            (tenant.flynumber_did ? `eller ringe på vores hovednummer ${tenant.flynumber_did}.` : '')
+          : `Hi ${fullName}! Thank you for reaching out to ${tenant.name}. We received your inquiry: "${inquiryText}". ` +
+            `You can speak with our AI agent immediately by tapping this instant call link: ${instantCallUrl} ` +
+            (tenant.flynumber_did ? `or dial our direct line at ${tenant.flynumber_did}.` : '');
 
-    // Record Outbound Auto-Reply
-    await Promise.all([
-      supabaseAdmin.from('omnichannel_messages').insert({
-        tenant_id: tenant.id,
-        contact_id: contactId,
-        channel: channelPreference === 'instagram' ? 'instagram' : 'whatsapp',
-        direction: 'outbound',
-        content: autoReplyText,
-        metadata: { sent_by_ai: true, magic_call_link: instantCallUrl },
-      }),
-      supabaseAdmin.from('messages').insert({
-        tenant_id: tenant.id,
-        contact_id: contactId,
-        channel: channelPreference === 'instagram' ? 'instagram' : 'whatsapp',
-        sender: 'ai',
-        content: autoReplyText,
-        metadata: { sent_by_ai: true, magic_call_link: instantCallUrl },
-      }),
-    ]);
+      // Record Outbound Auto-Reply
+      await Promise.all([
+        supabaseAdmin.from('omnichannel_messages').insert({
+          tenant_id: tenant.id,
+          contact_id: contactId,
+          channel: channelPreference === 'instagram' ? 'instagram' : 'whatsapp',
+          direction: 'outbound',
+          content: autoReplyText,
+          metadata: { sent_by_ai: true, magic_call_link: instantCallUrl },
+        }),
+        supabaseAdmin.from('messages').insert({
+          tenant_id: tenant.id,
+          contact_id: contactId,
+          channel: channelPreference === 'instagram' ? 'instagram' : 'whatsapp',
+          sender: 'ai',
+          content: autoReplyText,
+          metadata: { sent_by_ai: true, magic_call_link: instantCallUrl },
+        }),
+      ]);
+    }
 
     // 6. Emit Reactive UI Command Event so lead flies into view on Kanban & Scorecards
     await supabaseAdmin.from('ui_command_events').insert({
@@ -219,7 +225,10 @@ export async function POST(req: NextRequest) {
           phoneNumber,
           reason: 'high_value_emergency',
           estimatedValueDkk,
-          aiBriefing: `Akut lead modtaget via formular: "${inquiryText}"`,
+          aiBriefing:
+            language === 'da'
+              ? `Akut lead modtaget via formular: "${inquiryText}"`
+              : `Emergency lead received via web form: "${inquiryText}"`,
         },
       });
     }

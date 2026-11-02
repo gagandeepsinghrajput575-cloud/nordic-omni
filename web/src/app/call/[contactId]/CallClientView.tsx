@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, ShieldCheck, Sparkles, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Room, RoomEvent, Track, RemoteTrack, RemoteParticipant } from 'livekit-client';
 import { Contact, Tenant } from '@/contracts/schemas';
 import { OrbVisualizer } from '@/components/audio/OrbVisualizer';
+import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 
 interface CallClientViewProps {
   contact: Contact;
@@ -20,6 +22,8 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [speechTranscript, setSpeechTranscript] = useState<string[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
 
   const isDanish = contact.preferred_language === 'da' || tenant.default_language === 'da-DK';
 
@@ -36,6 +40,21 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [stage]);
+
+  // Teardown WebRTC room and tracks on unmount
+  useEffect(() => {
+    return () => {
+      if (roomRef.current) {
+        roomRef.current.disconnect();
+        roomRef.current = null;
+      }
+      audioElementsRef.current.forEach((el) => el.remove());
+      audioElementsRef.current = [];
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [localStream]);
 
   const handleStartCall = async () => {
     setStage('connecting');
@@ -66,16 +85,51 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
       });
 
       if (!tokenRes.ok) throw new Error('Could not mint WebRTC session token');
+      const tokenData = await tokenRes.json();
 
-      // 3. Connect to WebRTC Voice room
-      setTimeout(() => {
-        setStage('active');
-        setSpeechTranscript([
-          isDanish
-            ? `AI: Goddag ${contact.full_name || ''}! Tak for dit opkald til ${tenant.name}. Jeg har set din besked. Hvad kan jeg hjælpe dig med?`
-            : `AI: Hello ${contact.full_name || ''}! Thank you for calling ${tenant.name}. I see your message. How can I help you?`,
-        ]);
-      }, 1200);
+      // 3. Connect to WebRTC Voice room via livekit-client
+      if (tokenData?.serverUrl && tokenData?.token) {
+        try {
+          const room = new Room({
+            adaptiveStream: true,
+            dynacast: true,
+          });
+          roomRef.current = room;
+
+          room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+            if (track.kind === Track.Kind.Audio) {
+              const audioElement = track.attach();
+              audioElementsRef.current.push(audioElement);
+            }
+          });
+
+          room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+            track.detach().forEach((el) => {
+              el.remove();
+              audioElementsRef.current = audioElementsRef.current.filter((a) => a !== el);
+            });
+          });
+
+          room.on(RoomEvent.Disconnected, () => {
+            setStage('ended');
+          });
+
+          // Connect if serverUrl is valid LiveKit endpoint
+          if (!tokenData.serverUrl.includes('your-livekit.livekit.cloud')) {
+            await room.connect(tokenData.serverUrl, tokenData.token);
+            await room.localParticipant.setMicrophoneEnabled(true);
+          }
+        } catch (rtcErr) {
+          console.warn('Real WebRTC LiveKit server connection failed or unavailable, running in local microphone sandbox mode:', rtcErr);
+        }
+      }
+
+      setStage('active');
+      setSpeechTranscript([
+        isDanish
+          ? `AI: Goddag ${contact.full_name || ''}! Tak for dit opkald til ${tenant.name}. Jeg har set din besked. Hvad kan jeg hjælpe dig med?`
+          : `AI: Hello ${contact.full_name || ''}! Thank you for calling ${tenant.name}. I see your message. How can I help you?`,
+      ]);
     } catch (err) {
       console.error('Call connection failed:', err);
       // Still allow active demonstration state in sandbox
@@ -89,6 +143,13 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
   };
 
   const handleEndCall = () => {
+    if (roomRef.current) {
+      roomRef.current.disconnect();
+      roomRef.current = null;
+    }
+    audioElementsRef.current.forEach((el) => el.remove());
+    audioElementsRef.current = [];
+
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
       setLocalStream(null);
@@ -96,16 +157,22 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
     setStage('ended');
   };
 
-  const toggleMute = () => {
+  const toggleMute = async () => {
+    const nextMuted = !isMuted;
+    if (roomRef.current && roomRef.current.localParticipant) {
+      try {
+        await roomRef.current.localParticipant.setMicrophoneEnabled(!nextMuted);
+      } catch (err) {
+        console.warn('Could not set microphone status on LiveKit participant:', err);
+      }
+    }
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
+        audioTrack.enabled = !nextMuted;
       }
-    } else {
-      setIsMuted(!isMuted);
     }
+    setIsMuted(nextMuted);
   };
 
   const formatTimer = (seconds: number) => {
@@ -115,34 +182,36 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto bg-[#0A0D15] border border-[#1E2638] rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden backdrop-blur-xl">
-      {/* Ambient background glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-gradient-to-b from-[#00F5D4]/10 to-transparent blur-3xl pointer-events-none" />
+    <div className="w-full max-w-sm mx-auto bg-[var(--bg-surface,#0A0D15)] border border-[var(--border-subtle,#1E2638)] rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden backdrop-blur-xl transition-colors">
+      {/* Top Controls */}
+      <div className="w-full flex justify-end mb-2 z-20">
+        <ThemeSwitcher />
+      </div>
 
       {/* Brand Header */}
       <div className="flex flex-col items-center space-y-1.5 mb-6 z-10">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#00F5D4] to-[#7B61FF] p-[1.5px] shadow-lg shadow-[#00F5D4]/20">
-          <div className="w-full h-full bg-[#080B12] rounded-[14px] flex items-center justify-center font-bold text-lg text-[#00F5D4]">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[var(--accent-primary,#00F5D4)] to-[var(--accent-secondary,#7B61FF)] p-[1.5px] shadow-lg shadow-[var(--accent-primary,#00F5D4)]/20">
+          <div className="w-full h-full bg-[var(--bg-ground,#080B12)] rounded-[14px] flex items-center justify-center font-bold text-lg text-[var(--accent-primary,#00F5D4)]">
             {tenant.name.charAt(0)}
           </div>
         </div>
-        <h1 className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+        <h1 className="text-base font-bold text-[var(--text-primary,#FFFFFF)] tracking-tight flex items-center gap-1.5">
           {tenant.name}
-          <ShieldCheck className="w-4 h-4 text-[#00F5D4]" />
+          <ShieldCheck className="w-4 h-4 text-[var(--accent-primary,#00F5D4)]" />
         </h1>
-        <p className="text-xs text-[#8E9CAE]">
+        <p className="text-xs text-[var(--text-muted,#8E9CAE)]">
           {isDanish ? 'Officiel AI-Stemmeforbindelse' : 'Official AI Voice Connection'} • {isDanish ? '🇩🇰 Dansk' : '🇬🇧 English'}
         </p>
       </div>
 
       {/* Shared Memory Context Banner */}
       {contact.shared_memory_summary && stage !== 'ended' && (
-        <div className="w-full mb-6 p-3 rounded-2xl bg-[#111724] border border-[#1E293F] text-left text-xs space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#00F5D4]">
+        <div className="w-full mb-6 p-3 rounded-2xl bg-[var(--bg-raised,#111724)] border border-[var(--border-subtle,#1E293F)] text-left text-xs space-y-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--accent-primary,#00F5D4)]">
             <Sparkles className="w-3.5 h-3.5" />
             <span>{isDanish ? 'Forbundet Hukommelse Aktiv' : 'Shared Memory Active'}</span>
           </div>
-          <p className="text-[#A0AEC0] text-[11px] leading-relaxed line-clamp-2">
+          <p className="text-[var(--text-secondary,#A0AEC0)] text-[11px] leading-relaxed line-clamp-2">
             {contact.shared_memory_summary}
           </p>
         </div>

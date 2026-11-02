@@ -83,22 +83,22 @@ export const AvailabilityPricingMatrix: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* 1. WEEKLY BUSINESS HOURS MATRIX */}
-      <div className="p-5 rounded-2xl bg-gray-950/80 border border-gray-800/80 backdrop-blur-md shadow-xl">
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-800/80">
+      <div className="p-5 rounded-2xl bg-[var(--bg-surface,#0A0D15)] border border-[var(--border-subtle,#1E2638)] backdrop-blur-md shadow-xl transition-colors">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-subtle,#1E2638)]">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-cyan-950/60 border border-cyan-800/60 text-cyan-400">
+            <div className="p-1.5 rounded-lg bg-[var(--accent-primary,#00F5D4)]/10 border border-[var(--accent-primary,#00F5D4)]/30 text-[var(--accent-primary,#00F5D4)]">
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white tracking-wide">
+              <h3 className="text-xs font-bold text-[var(--text-primary,#FFFFFF)] tracking-wide">
                 {isDanish ? 'Ugentlige Åbningstider' : 'Weekly Business Hours'}
               </h3>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-[var(--text-muted,#718096)]">
                 {isDanish ? 'Telefon- og kalendertider styret af AI' : 'Phone & calendar availability managed by AI'}
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-mono uppercase bg-gray-800 px-2 py-0.5 rounded text-gray-300">
+          <span className="text-[10px] font-mono uppercase bg-[var(--bg-raised,#141A26)] px-2 py-0.5 rounded text-[var(--text-secondary,#A0AEC0)] border border-[var(--border-subtle,#1E2638)]">
             {isDanish ? 'Dansk Tid (CET)' : 'Local Time (CET)'}
           </span>
         </div>
@@ -114,28 +114,28 @@ export const AvailabilityPricingMatrix: React.FC = () => {
                 animate={
                   isHighlighted
                     ? {
-                        borderColor: '#00F5D4',
+                        borderColor: 'var(--accent-primary, #00F5D4)',
                         backgroundColor: 'rgba(0, 245, 212, 0.1)',
                         scale: [1, 1.02, 1],
                       }
                     : {
-                        borderColor: 'rgba(31, 41, 55, 0.6)',
-                        backgroundColor: 'rgba(17, 24, 39, 0.5)',
+                        borderColor: 'var(--border-subtle, #1E2638)',
+                        backgroundColor: 'var(--bg-raised, #121824)',
                       }
                 }
                 transition={{ duration: 0.3 }}
                 className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                  isHighlighted ? 'border-cyan-400 shadow-md shadow-cyan-500/20' : 'border-gray-800'
+                  isHighlighted ? 'border-[var(--accent-primary,#00F5D4)] shadow-md shadow-[var(--accent-primary,#00F5D4)]/20' : 'border-[var(--border-subtle,#1E2638)]'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="w-20 font-bold text-gray-200">{dayLabels[dayKey] || dayKey}</span>
+                  <span className="w-20 font-bold text-[var(--text-primary,#FFFFFF)]">{dayLabels[dayKey] || dayKey}</span>
                   {dayHours.closed ? (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-800 text-gray-400">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[var(--bg-ground,#08090C)] text-[var(--text-muted,#718096)] border border-[var(--border-subtle,#1E2638)]">
                       {isDanish ? 'Lukket for faste bookinger' : 'Closed for bookings'}
                     </span>
                   ) : (
-                    <span className="font-mono text-gray-300">
+                    <span className="font-mono text-[var(--text-secondary,#A0AEC0)] tabular-nums">
                       {dayHours.open} - {dayHours.close}
                     </span>
                   )}
@@ -159,22 +159,22 @@ export const AvailabilityPricingMatrix: React.FC = () => {
       </div>
 
       {/* 2. DKK SERVICE PRICING CATALOG */}
-      <div className="p-5 rounded-2xl bg-gray-950/80 border border-gray-800/80 backdrop-blur-md shadow-xl">
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-800/80">
+      <div className="p-5 rounded-2xl bg-[var(--bg-surface,#0A0D15)] border border-[var(--border-subtle,#1E2638)] backdrop-blur-md shadow-xl transition-colors">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border-subtle,#1E2638)]">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-purple-950/60 border border-purple-800/60 text-purple-400">
+            <div className="p-1.5 rounded-lg bg-[var(--accent-secondary,#7B61FF)]/10 border border-[var(--accent-secondary,#7B61FF)]/30 text-[var(--accent-secondary,#7B61FF)]">
               <Tag className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white tracking-wide">
+              <h3 className="text-xs font-bold text-[var(--text-primary,#FFFFFF)] tracking-wide">
                 {isDanish ? 'Priskatalog & Ydelser (DKK)' : 'Services & Pricing Catalog (DKK)'}
               </h3>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-[var(--text-muted,#718096)]">
                 {isDanish ? 'Realtidspriser oplyst af DeepSeek & LiveKit' : 'Real-time rates synced with voice & chat AI'}
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/60">
+          <span className="text-[10px] font-mono text-[var(--accent-primary,#00F5D4)] bg-[var(--accent-primary,#00F5D4)]/10 px-2 py-0.5 rounded border border-[var(--accent-primary,#00F5D4)]/30">
             {isDanish ? 'Live Overstyring' : 'Live Overrides'}
           </span>
         </div>
@@ -190,23 +190,23 @@ export const AvailabilityPricingMatrix: React.FC = () => {
                 animate={
                   isHighlighted
                     ? {
-                        borderColor: '#00F5D4',
+                        borderColor: 'var(--accent-primary, #00F5D4)',
                         backgroundColor: 'rgba(0, 245, 212, 0.1)',
                         scale: [1, 1.02, 1],
                       }
                     : {
-                        borderColor: 'rgba(31, 41, 55, 0.6)',
-                        backgroundColor: 'rgba(17, 24, 39, 0.5)',
+                        borderColor: 'var(--border-subtle, #1E2638)',
+                        backgroundColor: 'var(--bg-raised, #121824)',
                       }
                 }
                 transition={{ duration: 0.3 }}
                 className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                  isHighlighted ? 'border-cyan-400 shadow-md shadow-cyan-500/20' : 'border-gray-800'
+                  isHighlighted ? 'border-[var(--accent-primary,#00F5D4)] shadow-md shadow-[var(--accent-primary,#00F5D4)]/20' : 'border-[var(--border-subtle,#1E2638)]'
                 }`}
               >
                 <div className="flex-1 mr-3">
-                  <span className="font-semibold text-gray-200 block">{item.service}</span>
-                  <span className="text-[10px] text-gray-400 font-mono uppercase">
+                  <span className="font-semibold text-[var(--text-primary,#FFFFFF)] block">{item.service}</span>
+                  <span className="text-[10px] text-[var(--text-muted,#718096)] font-mono uppercase">
                     {isDanish ? 'Enhed:' : 'Unit:'} {item.unit}
                   </span>
                 </div>
@@ -218,12 +218,12 @@ export const AvailabilityPricingMatrix: React.FC = () => {
                         type="number"
                         value={editPriceVal}
                         onChange={(e) => setEditPriceVal(Number(e.target.value))}
-                        className="w-20 px-2 py-1 bg-gray-900 border border-cyan-400 rounded text-xs font-mono text-white focus:outline-none"
+                        className="w-20 px-2 py-1 bg-[var(--bg-ground,#08090C)] border border-[var(--accent-primary,#00F5D4)] rounded text-xs font-mono text-[var(--text-primary,#FFFFFF)] focus:outline-none"
                         autoFocus
                       />
                       <button
                         onClick={() => handleSavePricing(item)}
-                        className="p-1 rounded bg-cyan-400 text-black hover:bg-cyan-300"
+                        className="p-1 rounded bg-[var(--accent-primary,#00F5D4)] text-black hover:brightness-110 font-bold"
                         title={isDanish ? 'Gem' : 'Save'}
                       >
                         <Check className="w-3.5 h-3.5" />
@@ -231,12 +231,12 @@ export const AvailabilityPricingMatrix: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-white text-sm">
+                      <span className="font-mono font-bold text-[var(--accent-primary,#00F5D4)] text-sm tabular-nums">
                         {item.price_dkk.toLocaleString(isDanish ? 'da-DK' : 'en-US')} DKK
                       </span>
                       <button
                         onClick={() => handleStartEditPricing(item)}
-                        className="p-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+                        className="p-1 rounded bg-[var(--bg-ground,#08090C)] hover:bg-[var(--bg-raised,#121824)] text-[var(--text-muted,#718096)] hover:text-[var(--text-primary,#FFFFFF)] transition-colors border border-[var(--border-subtle,#1E2638)]"
                         title={isDanish ? 'Redigér pris' : 'Edit rate'}
                       >
                         <Edit2 className="w-3 h-3" />
@@ -249,8 +249,8 @@ export const AvailabilityPricingMatrix: React.FC = () => {
           })}
 
           {pricingCatalog.length === 0 && (
-            <div className="py-8 text-center border border-dashed border-gray-800 rounded-xl">
-              <p className="text-xs text-gray-500">
+            <div className="py-8 text-center border border-dashed border-[var(--border-subtle,#1E2638)] rounded-xl">
+              <p className="text-xs text-[var(--text-muted,#718096)]">
                 {isDanish ? 'Ingen ydelser oprettet' : 'No services configured'}
               </p>
             </div>
