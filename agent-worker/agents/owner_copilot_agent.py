@@ -1,75 +1,86 @@
-import os
-from livekit.agents import JobContext, AutoSubscribe, llm
-from livekit.agents.pipeline import VoicePipelineAgent
-from livekit.plugins import openai, deepgram, azure
-from services.supabase_service import SupabaseService
+"""Owner-facing co-pilot ("God mode") voice agent.
+
+Rewritten for LiveKit Agents 1.x, same as the customer agent: one `Agent`
+subclass, tools as methods, no FunctionContext inheritance.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from livekit.agents import Agent, RunContext, function_tool
+
+from services.db import Database
 
 
-class OwnerGodModeTools(llm.FunctionContext):
-    def __init__(self, tenant_id: str, db: SupabaseService):
-        super().__init__()
-        self.tenant_id = tenant_id
+def build_preamble(tenant: dict[str, Any]) -> str:
+    danish = str(tenant.get("default_language", "da-DK")).lower().startswith("da")
+    business_prompt = (tenant.get("copilot_system_prompt") or "").strip()
+    if not business_prompt:
+        business_prompt = (
+            f"You are the operations co-pilot for the owner of {tenant['name']}."
+        )
+
+    language = "Always speak Danish." if danish else "Always speak English."
+
+    return f"""{business_prompt}
+
+LANGUAGE
+{language}
+
+RULES
+1. Be brief and operational. The owner is busy.
+2. Never invent figures. If you do not know something, say so.
+3. Only change availability when the owner explicitly asks you to.
+"""
+
+
+class OwnerCopilotAgent(Agent):
+    def __init__(self, *, tenant: dict[str, Any], db: Database) -> None:
+        self.tenant = tenant
         self.db = db
+        super().__init__(instructions=build_preamble(tenant))
 
-    @llm.ai_callable(desc="Modifies business hours, closing the shop, or setting custom availability.")
-    async def mutate_availability(self, day: str, status: str, note: str = "") -> str:
-        self.db.trigger_ui_event(
-            self.tenant_id,
-            "HIGHLIGHT_AVAILABILITY",
-            {"day": day, "status": status, "note": note},
+    @function_tool()
+    async def brief_owner(self, context: RunContext) -> str:
+        """Give the owner a short spoken summary of today's pipeline."""
+        rows = await self.db.pool.fetch(
+            """
+            SELECT
+              count(*)                                                  AS leads,
+              coalesce(sum(estimated_value_dkk), 0)                      AS value,
+              count(*) FILTER (WHERE pipeline_stage = 'booked')          AS booked,
+              count(*) FILTER (WHERE pipeline_stage = 'dire_escalated')  AS dire
+            FROM contacts
+            WHERE tenant_id = $1
+            """,
+            str(self.tenant["id"]),
         )
-        return f"Availability mutated to {status} on screen and in DB."
-
-    @llm.ai_callable(desc="Provides a spoken executive summary of pipeline value and active leads.")
-    async def brief_owner(self) -> str:
-        self.db.trigger_ui_event(
-            self.tenant_id,
-            "FOCUS_SCORECARD",
-            {"metric": "pipeline_value"},
+        r = rows[0]
+        return (
+            f"{r['leads']} leads, total pipeline {int(r['value'])} DKK, "
+            f"{r['booked']} booked, {r['dire']} open emergencies."
         )
-        return "I am highlighting the scorecards on your command center now."
 
+    @function_tool()
+    async def set_broadcast(self, context: RunContext, message: str) -> str:
+        """Set the operational notice shown to customers and used by the agent.
 
-async def run_owner_copilot_agent(ctx: JobContext, tenant: dict):
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-
-    db = SupabaseService()
-    fnc_ctx = OwnerGodModeTools(tenant["id"], db)
-
-    is_danish = tenant.get("default_language", "da-DK").startswith("da")
-
-    system_prompt = f"""You are the Executive AI Operations Co-Pilot (God Mode) for {tenant.get('owner_name', 'Owner')} at {tenant['name']}.
-Your duty is to manage operations, adjust schedules, and brief the owner.
-Language: {'Danish' if is_danish else 'English'}.
-Speak highly professionally, authoritatively, and execute UI commands efficiently."""
-
-    llm_impl = openai.LLM(
-        api_key=os.getenv("DEEPSEEK_API_KEY", os.getenv("GROQ_API_KEY", "mock")),
-        base_url=(
-            "https://api.deepseek.com/v1"
-            if os.getenv("DEEPSEEK_API_KEY")
-            else "https://api.groq.com/openai/v1"
-        ),
-        model=(
-            "deepseek-chat"
-            if os.getenv("DEEPSEEK_API_KEY")
-            else "llama-3.3-70b-versatile"
-        ),
-    )
-
-    agent = VoicePipelineAgent(
-        vad=ctx.proc.userdata["vad"],
-        stt=deepgram.STT(language="da" if is_danish else "en"),
-        llm=llm_impl,
-        tts=azure.TTS(voice="da-DK-JeppeNeural" if is_danish else "en-US-AvaMultilingualNeural"),
-        fnc_ctx=fnc_ctx,
-        chat_ctx=llm.ChatContext().append(role="system", text=system_prompt),
-    )
-
-    agent.start(ctx.room)
-    greeting = (
-        "Godmorgen mester. Jeg er klar til dine instrukser."
-        if is_danish
-        else "Good morning. I am ready for your operational instructions."
-    )
-    await agent.say(greeting, allow_interruptions=True)
+        Args:
+            message: The notice to publish. Keep it under 200 characters.
+        """
+        await self.db.pool.execute(
+            """
+            UPDATE tenants
+               SET active_broadcast_message = $2, updated_at = now()
+             WHERE id = $1
+            """,
+            str(self.tenant["id"]),
+            message,
+        )
+        await self.db.emit_event(
+            str(self.tenant["id"]),
+            "PULSE_METRIC",
+            {"metricId": "broadcast_update", "message": message},
+        )
+        return "Broadcast updated."

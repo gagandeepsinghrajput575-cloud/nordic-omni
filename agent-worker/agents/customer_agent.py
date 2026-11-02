@@ -1,115 +1,236 @@
-import os
-import asyncio
-from livekit.agents import (
-    JobContext,
-    WorkerOptions,
-    run_app,
-    AutoSubscribe,
-    JobProcess,
-    llm,
+"""Customer-facing voice agent.
+
+This file replaces the previous implementation, which could not even be
+constructed: it used triple inheritance over `llm.FunctionContext`, and every
+parent called a bare `super().__init__()`, which resolves to the *next class in
+the instance's MRO* and immediately raised
+
+    TypeError: __init__() missing 2 required positional arguments
+
+It also imported `VoicePipelineAgent`, removed in LiveKit Agents 1.0.
+
+The correct v1 shape is a single `Agent` subclass whose tools are plain methods
+decorated with `@function_tool`. No inheritance chain, no shared FunctionContext.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from livekit.agents import Agent, RunContext, function_tool
+
+from services.db import Database
+
+VALID_STAGES = (
+    "new_lead",
+    "contacted",
+    "qualified",
+    "booked",
+    "dire_escalated",
+    "closed_lost",
 )
-from livekit.agents.pipeline import VoicePipelineAgent
-from livekit.plugins import openai, deepgram, azure
-from services.supabase_service import SupabaseService
-from tools.crm_tools import CRMTools
-from tools.knowledge_tools import KnowledgeTools
-from tools.warm_transfer_tools import WarmTransferTools
 
 
-class CustomerAgentTools(CRMTools, KnowledgeTools, WarmTransferTools):
-    """
-    Unified FunctionContext inheriting all CRM, Knowledge base, and Warm Transfer
-    actions into a single agent tool context.
-    """
-    def __init__(self, tenant_id: str, contact_id: str, room_name: str, db: SupabaseService):
-        CRMTools.__init__(self, tenant_id, contact_id, db)
-        KnowledgeTools.__init__(self, tenant_id, db)
-        WarmTransferTools.__init__(self, tenant_id, contact_id, room_name, db)
+def is_danish(tenant: dict[str, Any], contact: dict[str, Any]) -> bool:
+    lang = contact.get("preferred_language") or tenant.get("default_language") or "da-DK"
+    return str(lang).lower().startswith("da")
 
 
-async def run_customer_agent(ctx: JobContext, tenant: dict, contact: dict):
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+def build_prompt(tenant: dict[str, Any], contact: dict[str, Any], knowledge: str) -> str:
+    """Compose instructions from the tenant's agency-owned behaviour."""
+    danish = is_danish(tenant, contact)
 
-    db = SupabaseService()
-    room_name = ctx.room.name
-    default_lang = tenant.get("default_language", "da-DK").split("-")[0]
-    language = contact.get("preferred_language") or default_lang
-    is_danish = language.startswith("da")
+    language_rule = (
+        "Always speak Danish unless the caller clearly speaks English."
+        if danish
+        else "Always speak English unless the caller clearly speaks Danish."
+    )
 
-    # Assemble Unified FunctionContext
-    fnc_ctx = CustomerAgentTools(tenant["id"], contact["id"], room_name, db)
+    business_prompt = (tenant.get("customer_system_prompt") or "").strip()
+    if not business_prompt:
+        business_prompt = f"You are the inbound AI receptionist for {tenant['name']}."
 
-    full_name = contact.get("full_name", "Kunde" if is_danish else "Customer")
-    shared_memory = contact.get("shared_memory_summary", "New caller.")
+    broadcast = (tenant.get("active_broadcast_message") or "").strip()
 
-    base_custom_prompt = tenant.get("customer_system_prompt")
-    broadcast_notice = tenant.get("active_broadcast_message")
+    return f"""{business_prompt}
 
-    if base_custom_prompt:
-        system_prompt = f"""{base_custom_prompt}
+LANGUAGE
+{language_rule}
 
-Context:
-Customer Name: {full_name}
-Shared Memory & History: {shared_memory}
-Active Operational Notice: {broadcast_notice or 'Standard response times active.'}
+CALLER
+Name: {contact.get('full_name') or 'unknown'}
+Known context: {contact.get('shared_memory_summary') or 'No prior history.'}
 
-Rules:
-1. Always adapt strictly to {'Danish' if is_danish else 'English'}.
-2. Keep responses brief, conversational, and natural for a phone call.
-3. If the customer reports an emergency, demands a human, or is angry, call `trigger_dire_escalation` immediately.
-"""
-    else:
-        system_prompt = f"""You are the inbound AI Voice Assistant for "{tenant['name']}".
-Your goal is to be exceptionally helpful, conversational, and solve the customer's needs instantly.
-Language: {'Danish' if is_danish else 'English'}.
-Customer Name: {full_name}
-Shared Memory & Context: {shared_memory}
-Active Operational Notice: {broadcast_notice or 'Standard response times active.'}
+OPERATIONAL NOTICE
+{broadcast or 'Standard response times.'}
 
-Rules:
-1. Always adapt your language strictly to {'Danish' if is_danish else 'English'}.
-2. Keep responses brief, conversational, and natural for a phone call.
-3. If they are angry, demand a human, or have a severe emergency, invoke `trigger_dire_escalation` immediately.
+KNOWLEDGE
+{knowledge}
+
+RULES
+1. Keep replies to one or two short sentences. This is a phone call.
+2. Quote prices only from the knowledge base. Never invent a price.
+3. If the caller reports an emergency (burst pipe, flooding, water damage,
+   severe pain), call trigger_dire_escalation immediately, then tell them the
+   on-call person is being connected.
+4. If the caller asks for a human, call trigger_dire_escalation.
+5. When you learn something useful about the caller, call update_pipeline_stage
+   to record it. Never mention that you are doing this.
+6. Never claim to have booked something unless the caller confirmed a time.
 """
 
-    llm_impl = openai.LLM(
-        api_key=os.getenv("DEEPSEEK_API_KEY", os.getenv("GROQ_API_KEY", "mock")),
-        base_url=(
-            "https://api.deepseek.com/v1"
-            if os.getenv("DEEPSEEK_API_KEY")
-            else "https://api.groq.com/openai/v1"
-        ),
-        model=(
-            "deepseek-chat"
-            if os.getenv("DEEPSEEK_API_KEY")
-            else "llama-3.3-70b-versatile"
-        ),
-    )
 
-    stt_impl = deepgram.STT(language="multi")  # Auto-detects da / en-US
+def greeting_for(tenant: dict[str, Any], contact: dict[str, Any]) -> str:
+    script = (tenant.get("greeting_script") or "").strip()
+    if script:
+        return script
 
-    tts_impl = azure.TTS(
-        voice="da-DK-ChristelNeural" if is_danish else "en-US-AvaMultilingualNeural"
-    )
+    name = (contact.get("full_name") or "").split(" ")[0]
+    if is_danish(tenant, contact):
+        if name:
+            return f"Hej {name}, du er kommet til {tenant['name']}. Hvordan kan jeg hjalpe?"
+        return f"Hej, du er kommet til {tenant['name']}. Hvordan kan jeg hjalpe?"
+    if name:
+        return f"Hi {name}, you have reached {tenant['name']}. How can I help?"
+    return f"Hi, you have reached {tenant['name']}. How can I help?"
 
-    agent = VoicePipelineAgent(
-        vad=ctx.proc.userdata["vad"],
-        stt=stt_impl,
-        llm=llm_impl,
-        tts=tts_impl,
-        fnc_ctx=fnc_ctx,
-        chat_ctx=llm.ChatContext().append(role="system", text=system_prompt),
-    )
 
-    # Attach agent instance to WarmTransferTools for holding protocol control
-    fnc_ctx.agent = agent
+class CustomerAgent(Agent):
+    """Single class. Tools are methods. Nothing else inherits from anything."""
 
-    agent.start(ctx.room)
+    def __init__(
+        self,
+        *,
+        tenant: dict[str, Any],
+        contact: dict[str, Any],
+        db: Database,
+        room_name: str,
+        knowledge: str,
+    ) -> None:
+        self.tenant = tenant
+        self.contact = contact
+        self.db = db
+        self.room_name = room_name
+        self.danish = is_danish(tenant, contact)
 
-    first_name = full_name.split()[0] if full_name else ("Kunde" if is_danish else "there")
-    greeting = (
-        f"Hej {first_name}, hvordan kan jeg hjælpe dig i dag?"
-        if is_danish
-        else f"Hi {first_name}, how can I help you today?"
-    )
-    await agent.say(greeting, allow_interruptions=True)
+        super().__init__(instructions=build_prompt(tenant, contact, knowledge))
+
+    # --- Tools -----------------------------------------------------------------
+
+    @function_tool()
+    async def check_availability_and_pricing(self, context: RunContext, query: str) -> str:
+        """Look up opening hours, prices and business rules.
+
+        Args:
+            query: What the caller wants to know, e.g. "price for emergency call-out".
+        """
+        tenant = await self.db.get_tenant(str(self.tenant["id"]))
+        if not tenant:
+            return "I cannot look that up right now."
+
+        hours = tenant.get("business_hours") or {}
+        pricing = tenant.get("pricing_catalog") or []
+        knowledge = await self.db.get_knowledge(str(self.tenant["id"]))
+
+        price_lines = (
+            "\n".join(
+                f"- {p.get('service')}: {p.get('price_dkk')} DKK per {p.get('unit')}"
+                for p in pricing
+            )
+            or "No prices configured."
+        )
+
+        return (
+            f"Opening hours (JSON): {hours}\n"
+            f"Prices:\n{price_lines}\n"
+            f"Knowledge:\n{knowledge}"
+        )
+
+    @function_tool()
+    async def update_pipeline_stage(
+        self,
+        context: RunContext,
+        stage: str,
+        lead_score: int,
+        memory_update: str,
+    ) -> str:
+        """Record progress for this caller in the CRM.
+
+        Args:
+            stage: One of new_lead, contacted, qualified, booked, dire_escalated, closed_lost.
+            lead_score: Integer 0-100 estimating how valuable this lead is.
+            memory_update: One sentence summarising what you learned.
+        """
+        if stage not in VALID_STAGES:
+            return f"Unknown stage '{stage}'. Valid stages: {', '.join(VALID_STAGES)}."
+
+        score = max(0, min(100, int(lead_score)))
+
+        await self.db.update_contact_stage(
+            str(self.contact["id"]), stage, score, memory_update
+        )
+        await self.db.emit_event(
+            str(self.tenant["id"]), "FILTER_PIPELINE", {"stage": stage}
+        )
+        return f"CRM updated to {stage} with score {score}."
+
+    @function_tool()
+    async def trigger_dire_escalation(
+        self,
+        context: RunContext,
+        dire_reason: str,
+        briefing_for_owner: str,
+        estimated_value_dkk: float,
+    ) -> str:
+        """Ring the business owner immediately and put the caller on hold.
+
+        Args:
+            dire_reason: One of angry_customer, high_value_emergency, ai_unanswered_question.
+            briefing_for_owner: One or two sentences the owner needs before speaking.
+            estimated_value_dkk: Estimated value of the job in DKK.
+        """
+        reason = (
+            dire_reason
+            if dire_reason
+            in ("angry_customer", "high_value_emergency", "ai_unanswered_question")
+            else "high_value_emergency"
+        )
+
+        await self.db.update_contact_stage(
+            str(self.contact["id"]), "dire_escalated", 95, briefing_for_owner
+        )
+        await self.db.update_call_status(
+            room_name=self.room_name,
+            status="dire_hold_for_owner",
+            dire_reason=reason,
+            briefing=briefing_for_owner,
+        )
+
+        # Look the call log up properly. The old code fabricated an id with
+        # room_name.replace("call_", ""), which is not a UUID.
+        call_log_id = await self.db.ensure_call_log(
+            tenant_id=str(self.tenant["id"]),
+            contact_id=str(self.contact["id"]),
+            room_name=self.room_name,
+            channel="voice_instant_webrtc",
+        )
+
+        await self.db.emit_event(
+            str(self.tenant["id"]),
+            "TRIGGER_DIRE_MODAL",
+            {
+                "callLogId": call_log_id,
+                "contactId": str(self.contact["id"]),
+                "customerName": self.contact.get("full_name") or "Caller",
+                "phoneNumber": self.contact.get("phone_number") or "",
+                "reason": reason,
+                "estimatedValueDkk": float(estimated_value_dkk),
+                "aiBriefing": briefing_for_owner,
+            },
+        )
+
+        return (
+            "Escalation triggered. The owner is being alerted. Tell the caller that "
+            "the on-call person is being connected and they should stay on the line."
+        )
+
