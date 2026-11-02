@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/guard';
-import { getTenantOverview, listContacts } from '@/lib/db/queries';
+import { getTenantOverview, listContacts, getTenantFacts } from '@/lib/db/queries';
+import { CallPanel } from '@/components/call/CallPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,9 +17,10 @@ export default async function PortalOverviewPage() {
   if (!tenantId) redirect('/no-access');
 
   // Real aggregates from PostgreSQL. No invented deltas, no fake sparklines.
-  const [overview, recent] = await Promise.all([
+  const [overview, recent, tenant] = await Promise.all([
     getTenantOverview(session.userId, tenantId),
     listContacts(session.userId, tenantId, 6),
+    getTenantFacts(session.userId, tenantId),
   ]);
 
   const kpis = [
@@ -36,6 +38,16 @@ export default async function PortalOverviewPage() {
           Live figures from your workspace. Updated on every request.
         </p>
       </div>
+
+      {tenant && recent.length > 0 && (
+        <CallPanel
+          tenantId={tenant.id}
+          tenantSlug={tenant.slug}
+          contactId={recent[0].id}
+          contactName={recent[0].full_name ?? 'Caller'}
+          isDanish={tenant.default_language === 'da-DK'}
+        />
+      )}
 
       {overview.dire > 0 && (
         <div className="rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-4 py-3">
