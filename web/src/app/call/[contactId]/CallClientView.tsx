@@ -4,13 +4,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, ShieldCheck, Sparkles, CheckCircle, ArrowLeft } from 'lucide-react';
 import { Room, RoomEvent, Track, RemoteTrack, RemoteParticipant } from 'livekit-client';
-import { Contact, Tenant } from '@/contracts/schemas';
 import { OrbVisualizer } from '@/components/audio/OrbVisualizer';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 
 interface CallClientViewProps {
-  contact: Contact;
-  tenant: Tenant;
+  contact: {
+    id: string;
+    full_name: string | null;
+    phone_number: string | null;
+    preferred_language: string;
+    // Intentionally NOT exposed on the public call page: internal CRM notes.
+    shared_memory_summary?: string | null;
+  };
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+    default_language: string;
+  };
 }
 
 type CallStage = 'idle' | 'connecting' | 'active' | 'ended';
