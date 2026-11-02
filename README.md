@@ -1,3 +1,18 @@
+> ## ⚠️ HISTORICAL DOCUMENT — DO NOT TRUST
+>
+> This README describes a product that **never existed**. It was written before
+> the codebase was audited against its own source. Several "features" below were
+> verified to be non-functional or fabricated — the voice agent could not be
+> imported, no row-level security existed, and the test suite asserted its own
+> mock functions.
+>
+> **Read [`READMEFIRST.md`](./READMEFIRST.md) instead.** It is the current,
+> evidence-backed architecture document.
+>
+> This file is kept only for historical context and will be rewritten last.
+
+---
+
 # Project NORDIC-OMNI: "The Final Boss" Multi-Tenant Platform
 ### Real-Time Omnichannel Voice, Meta AI & Autonomous Dispatch Engine
 
