@@ -6,8 +6,9 @@ This document is the ground truth for the NORDIC-OMNI codebase. It records what
 was found, what was concluded, what was changed, and what is still fiction. It
 supersedes `README.md`, which describes a product that never existed.
 
-Last updated at commit `139c37f`. Later commits may have changed code but not
-this document; when that happens, trust the code and correct this file.
+Last updated at commit `80f3636` (M2 — create flows, frontend rebuild, agent
+depth). Later commits may have changed code but not this document; when that
+happens, trust the code and correct this file.
 
 ---
 
@@ -824,26 +825,42 @@ genuinely worked and were kept conceptually.
 
 ---
 
-## 11. What is NOT built yet
+## 11. What is built, and what is still missing
 
-Honest list. Nothing here should be described as working.
+Updated after M2 (`80f3636`). The previous version of this table listed 14 gaps;
+six of them are now closed. Nothing moved from "missing" to "done" without a test
+or an HTTP check behind it.
+
+### 11.1 Closed in M2
+
+| Was missing | Now | Evidence |
+|---|---|---|
+| **Create a caller** — no code path at all | `/portal/leads/new`, Zod-validated, duplicate-safe | `db/tests/create_probe.sql` + route 200 |
+| **Create a workspace / chatbot** — the UI literally said "provisioning arrives in the next milestone" | `/agency/clients/new`, tenant + agent config in one transaction | route 200, no fabricated rows |
+| **Client edits own facts** — `business_hours` had never had a form | `/portal/settings`: owner, broadcast, hours, price list | routes 200 |
+| **Knowledge CRUD** — read-only | `/agency/clients/[id]` → add/edit/delete | route 200 |
+| **Agent ignored `escalation_policy`** — fetched then discarded | Composed into the prompt; changes when the policy changes | `test_prompt.py` 43/43 |
+| **Agent ignored hours and prices** | Open/closed computed; price table injected | `test_prompt.py` |
+| **Plain frontend** — 102-line CSS, raw tables | Design system + shell + every page rebuilt | 40 files, +4,224 |
+
+### 11.2 Still open
 
 | # | Missing | Why it matters | Blocked on |
 |---|---|---|---|
-| 1 | **Audible call not yet confirmed** | Plumbing proven to connection; the last leg needs a human with a mic | a human |
-| 2 | **Meta + lead-form webhooks** | No channel can create a lead today. This is the entire omnichannel half | rebuild (§4.4) |
-| 3 | **Realtime (SSE) from `ui_command_events`** | The dire alert cannot fire on screen live without it. This is the demo's climax | `GET /api/stream/[tenantId]` |
-| 4 | **Client settings forms** (hours, pricing, broadcast) | The client currently has no way to change their own facts from the UI, even though RLS allows it. `business_hours` has *never* had a form | `(client)/portal/settings/*` |
-| 5 | **Agency provisioning wizard** | Cannot onboard a new client from the UI. The old one fabricated data | `(agency)/agency/clients/new` |
-| 6 | **Knowledge base CRUD** | `knowledge_items` is read-only in the UI; the agent cites whatever the seed inserted | `(agency)/.../knowledge` |
-| 7 | **Kanban board + Lead 360 drawer** | Deleted with the old store. The pipeline is a table right now | new components + SSE |
-| 8 | **Dire-transfer modal** | Deleted. The worker still emits `TRIGGER_DIRE_MODAL`; nothing listens | new component + SSE |
-| 9 | **Owner text co-pilot** | Deleted route. Was genuinely working | rebuild on server actions |
-| 10 | **Instagram channel** | Only WhatsApp is realistically testable without Meta app review | Meta |
-| 11 | **Call recording** | Egress was broken and was deleted rather than left lying | S3 credentials |
-| 12 | **`README.md` rewrite** | It still describes six features that never existed | last |
-| 13 | **Production build** | `next build` has not been run; the 8 GB machine needs a clean run with nothing else open | memory |
-| 14 | **EU region for LiveKit** | Current project is India South; latency penalty on every turn | recreate project |
+| 1 | **Audible call not confirmed by a human** | Plumbing proven to connection; the last leg needs ears | a human with a mic |
+| 2 | **Meta + lead-form webhooks** | No channel can create a lead except the UI. This is the omnichannel half | rebuild per §4.4 |
+| 3 | **Realtime (SSE) from `ui_command_events`** | The dire alert cannot fire on screen live without it | `GET /api/stream/[tenantId]` |
+| 4 | **Dire-transfer modal** | Worker still emits `TRIGGER_DIRE_MODAL`; nothing listens | new component + SSE |
+| 5 | **Kanban board** | Pipeline is bars and a table, not draggable cards | new component |
+| 6 | **Owner text co-pilot** | Deleted route; was genuinely working | rebuild on server actions |
+| 7 | **Agency edit path for client facts** | Agency can write them through RLS, but there is no agency-side form | reuse `/portal/settings` components |
+| 8 | **Member management** | No way to invite a second staff login for a client | `/agency/.../members` |
+| 9 | **Instagram channel** | Only WhatsApp is testable without Meta app review | Meta |
+| 10 | **Call recording** | Egress was broken and was deleted rather than left lying | S3 credentials |
+| 11 | **`README.md` rewrite** | It still describes six features that never existed | last |
+| 12 | **Production build** | `next build` has not been run; needs a clean run on the 8 GB machine | memory |
+| 13 | **EU region for LiveKit** | Current project is India South; latency penalty on every turn | recreate project |
+
 
 ---
 
@@ -1082,6 +1099,77 @@ because the tenancy model is settled.
 | `3257506` | `docs/STATUS.md` |
 | `cddeaf2` | voice worker rewritten for LiveKit Agents v1 |
 | `139c37f` | browser ↔ agent wiring + token endpoint security fix |
+| `5a7e521` | `READMEFIRST.md` — full architecture and audit record |
+| `80f3636` | **M2**: create flows, frontend rebuild, agent depth (§17) |
+
+---
+
+## 17. M2 addendum — the write surface and the design system
+
+This section exists because §13's file map predates M2. Read it alongside §11.
+
+### 17.1 The five statements that used to be the whole product
+
+Before M2, the only mutations reachable from the UI were:
+
+```
+insert into agent_config_history   (x2, snapshots)
+update tenant_agent_config         (x2, prompt save + rollback)
+insert into sessions               (login)
+```
+
+There was no `INSERT INTO contacts`. Not "the form was missing" — **the code path
+did not exist**. That is why a user could not create a caller or a chatbot.
+
+### 17.2 What was added
+
+```
+lib/db/mutations.ts            all writes, all inside withUser() so RLS decides
+lib/actions/scope.ts           clientScope() / agencyScope() — tenant from session
+lib/actions/types.ts           ActionState, so every form reports the same shape
+lib/slug.ts                    Danish-aware slugify (æ→ae, ø→oe, å→aa)
+
+(agency)/agency/clients/new/           create workspace + agent, one transaction
+(agency)/agency/clients/[id]/knowledge-actions.ts
+(agency)/agency/clients/[id]/KnowledgeEditor.tsx
+(agency)/agency/clients/[id]/KnowledgeForm.tsx
+
+(client)/portal/leads/new/             create caller
+(client)/portal/leads/[id]/            Lead 360 + CallPanel + conversation
+(client)/portal/settings/              owner, broadcast, hours, price list
+```
+
+### 17.3 Design system
+
+```
+lib:        globals.css — token layer only (radius, elevation, motion, derived
+            surfaces, focus ring, skeletons, reduced-motion)
+components/ui/core.tsx       cn, Card, CardHeader, Stat, Badge, StagePill
+components/ui/feedback.tsx   PageHeader, EmptyState, Avatar, ScoreBar, Skeleton
+components/ui/form.tsx       Label, Input, Textarea, Select, Field, FormAlert,
+                             buttonClass
+components/ui/SubmitButton   client component, disables itself while pending
+components/shell/AppShell    sidebar shell, icon nav, mobile drawer
+```
+
+Two rules the primitives enforce:
+
+1. **Nothing reads a raw hex.** Every colour is a `var(--token)`, so all three
+   themes work without touching a component.
+2. **No page hand-rolls a table.** If a table is needed it is a `Card` plus a
+   shared header row, not a bespoke `<table className="w-full">`.
+
+### 17.4 Three bugs this pass found in its own new code
+
+Worth recording, because each one was caught by running the thing rather than
+reading it.
+
+| Bug | How it showed up | Fix |
+|---|---|---|
+| Icons passed as components from a server layout into `AppShell` | `Functions cannot be passed directly to Client Components` — every route 500 | icons travel as string keys; the map lives client-side |
+| `listMessages` selected `body` | `column "body" does not exist` — Lead 360 500 | the column is `content` |
+| A Delete button rendered for clients | `DELETE 0` in the RLS probe: `contacts_delete` is `USING (is_agency())` | replaced with "archive" (an UPDATE the client may do), and the UI says why |
+
 
 ---
 
