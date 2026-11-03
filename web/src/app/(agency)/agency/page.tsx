@@ -1,8 +1,14 @@
 import Link from 'next/link';
+import { AlertTriangle, Building2, Plus, TrendingUp } from 'lucide-react';
 import { requireAgency } from '@/lib/auth/guard';
 import { listTenants } from '@/lib/db/queries';
+import { Badge, Card, Stat } from '@/components/ui/core';
+import { EmptyState, PageHeader, SectionTitle } from '@/components/ui/feedback';
+import { buttonClass } from '@/components/ui/form';
 
 export const dynamic = 'force-dynamic';
+
+const dkk = (n: number) => n.toLocaleString('da-DK', { maximumFractionDigits: 0 });
 
 export default async function AgencyPortfolioPage() {
   const session = await requireAgency();
@@ -10,104 +16,122 @@ export default async function AgencyPortfolioPage() {
 
   const totalPipeline = tenants.reduce((sum, t) => sum + t.pipeline_dkk, 0);
   const totalContacts = tenants.reduce((sum, t) => sum + t.contact_count, 0);
+  const totalCalls = tenants.reduce((sum, t) => sum + t.call_count, 0);
   const totalDire = tenants.reduce((sum, t) => sum + t.open_dire, 0);
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Portfolio</h1>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Every client workspace you operate. Figures are live from PostgreSQL.
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Agency"
+        title="Portfolio"
+        description="Every client workspace you operate. Figures are live from PostgreSQL — nothing here is a demo delta."
+        actions={
+          <>
+            <Link href="/agency/clients" className={buttonClass('secondary', 'md')}>
+              All clients
+            </Link>
+            <Link href="/agency/clients/new" className={buttonClass('primary', 'md')}>
+              <Plus size={14} />
+              New client
+            </Link>
+          </>
+        }
+      />
+
+      {totalDire > 0 ? (
+        <div className="animate-rise flex items-center gap-2.5 rounded-[var(--r-lg)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-4 py-3">
+          <AlertTriangle size={14} className="text-[var(--danger)]" />
+          <p className="text-xs font-semibold text-[var(--danger)]">
+            {totalDire} open {totalDire === 1 ? 'emergency' : 'emergencies'} across the portfolio
           </p>
         </div>
-        <Link
-          href="/agency/clients"
-          className="rounded-lg bg-[var(--accent-primary)] px-3 py-2 text-xs font-semibold text-[var(--accent-contrast)] transition hover:opacity-90"
-        >
-          Manage clients
-        </Link>
-      </div>
+      ) : null}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
-          <div className="text-xs text-[var(--text-secondary)]">Managed pipeline</div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="font-mono text-2xl font-bold tabular-nums">
-              {totalPipeline.toLocaleString('da-DK', { maximumFractionDigits: 0 })}
-            </span>
-            <span className="font-mono text-[11px] text-[var(--text-muted)]">DKK</span>
-          </div>
-        </div>
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
-          <div className="text-xs text-[var(--text-secondary)]">Active workspaces</div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="font-mono text-2xl font-bold tabular-nums">{tenants.length}</span>
-            <span className="font-mono text-[11px] text-[var(--text-muted)]">tenants</span>
-          </div>
-        </div>
-        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
-          <div className="text-xs text-[var(--text-secondary)]">Open emergencies</div>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span
-              className={`font-mono text-2xl font-bold tabular-nums ${
-                totalDire > 0 ? 'text-[var(--danger)]' : ''
-              }`}
-            >
-              {totalDire}
-            </span>
-            <span className="font-mono text-[11px] text-[var(--text-muted)]">
-              across {totalContacts} leads
-            </span>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          label="Managed pipeline"
+          value={dkk(totalPipeline)}
+          unit="DKK"
+          tone="accent"
+          icon={<TrendingUp size={14} />}
+        />
+        <Stat label="Workspaces" value={tenants.length} unit="clients" icon={<Building2 size={14} />} />
+        <Stat label="Callers" value={totalContacts} unit="across all" />
+        <Stat
+          label="Calls handled"
+          value={totalCalls}
+          unit="sessions"
+          tone={totalCalls > 0 ? 'success' : 'default'}
+        />
       </div>
 
       <section>
-        <h2 className="mb-3 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
+        <SectionTitle
+          action={
+            <Link
+              href="/agency/clients"
+              className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:text-[var(--accent-primary)]"
+            >
+              Manage →
+            </Link>
+          }
+        >
           Workspaces
-        </h2>
+        </SectionTitle>
 
         {tenants.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-10 text-center">
-            <p className="text-xs text-[var(--text-muted)]">No tenants yet.</p>
-          </div>
+          <Card>
+            <EmptyState
+              icon={<Building2 size={18} />}
+              title="No workspaces yet"
+              description="Create your first client. They get a portal, an AI receptionist and a pipeline in one step."
+              action={
+                <Link href="/agency/clients/new" className={buttonClass('primary', 'md')}>
+                  <Plus size={14} />
+                  Create a client
+                </Link>
+              }
+            />
+          </Card>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {tenants.map((t) => (
-              <Link
-                key={t.id}
-                href={`/agency/clients/${t.id}`}
-                className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 transition hover:border-[var(--border-strong)]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{t.name}</div>
-                    <div className="mt-0.5 font-mono text-[10px] text-[var(--text-muted)]">
-                      /{t.slug} · {t.default_language}
+              <Link key={t.id} href={`/agency/clients/${t.id}`} className="block">
+                <Card interactive className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                        {t.name}
+                      </div>
+                      <div className="mt-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+                        /{t.slug}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {t.open_dire > 0 ? (
+                        <Badge tone="danger" dot>
+                          {t.open_dire} dire
+                        </Badge>
+                      ) : null}
+                      <Badge tone={t.status === 'active' ? 'success' : 'warning'}>{t.status}</Badge>
                     </div>
                   </div>
-                  <span className="shrink-0 rounded border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[var(--text-muted)]">
-                    {t.status}
-                  </span>
-                </div>
 
-                <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--border-subtle)] pt-3">
-                  <div>
-                    <dt className="text-[10px] text-[var(--text-muted)]">Leads</dt>
-                    <dd className="font-mono text-sm tabular-nums">{t.contact_count}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] text-[var(--text-muted)]">Pipeline</dt>
-                    <dd className="font-mono text-sm tabular-nums">
-                      {t.pipeline_dkk.toLocaleString('da-DK', { maximumFractionDigits: 0 })}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] text-[var(--text-muted)]">Calls</dt>
-                    <dd className="font-mono text-sm tabular-nums">{t.call_count}</dd>
-                  </div>
-                </dl>
+                  <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--border-subtle)] pt-3">
+                    <div>
+                      <dt className="text-[10px] text-[var(--text-muted)]">Callers</dt>
+                      <dd className="font-mono text-sm tabular-nums">{t.contact_count}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-[var(--text-muted)]">Pipeline</dt>
+                      <dd className="font-mono text-sm tabular-nums">{dkk(t.pipeline_dkk)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] text-[var(--text-muted)]">Calls</dt>
+                      <dd className="font-mono text-sm tabular-nums">{t.call_count}</dd>
+                    </div>
+                  </dl>
+                </Card>
               </Link>
             ))}
           </div>
@@ -116,3 +140,4 @@ export default async function AgencyPortfolioPage() {
     </div>
   );
 }
+

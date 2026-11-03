@@ -1,12 +1,15 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/guard';
 import { getTenantFacts } from '@/lib/db/queries';
+import { AppShell, type NavItem } from '@/components/shell/AppShell';
 import { LogoutButton } from '@/components/shell/LogoutButton';
+import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+import { Badge } from '@/components/ui/core';
 
-const NAV = [
-  { href: '/portal', label: 'Overview' },
-  { href: '/portal/leads', label: 'Leads' },
+const NAV: NavItem[] = [
+  { href: '/portal', label: 'Overview', icon: 'dashboard', exact: true },
+  { href: '/portal/leads', label: 'Callers', icon: 'users' },
+  { href: '/portal/settings', label: 'Settings', icon: 'settings' },
 ];
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -19,40 +22,41 @@ export default async function ClientLayout({ children }: { children: React.React
   const tenant = await getTenantFacts(session.userId, tenantId);
   if (!tenant) redirect('/no-access');
 
+  const isDanish = tenant.default_language === 'da-DK';
+
   return (
-    <div className="min-h-screen bg-[var(--bg-ground)] text-[var(--text-primary)]">
-      <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex items-center gap-6 min-w-0">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-tight">{tenant.name}</div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                {tenant.default_language === 'da-DK' ? 'Dansk' : 'English'}
-                {tenant.flynumber_did ? ` · ${tenant.flynumber_did}` : ' · WebRTC'}
-              </div>
-            </div>
-
-            <nav className="hidden items-center gap-1 sm:flex">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--bg-raised)] hover:text-[var(--text-primary)]"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+    <AppShell
+      nav={NAV}
+      brandEyebrow={isDanish ? 'Arbejdsrum' : 'Workspace'}
+      brandName={tenant.name}
+      brandHref="/portal"
+      toolbar={
+        <>
+          <span className="hidden text-[11px] text-[var(--text-muted)] xl:inline">{session.email}</span>
+          <ThemeSwitcher />
+          <LogoutButton />
+        </>
+      }
+      footer={
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-2">
+            <span className="dot-live" aria-hidden />
+            <span className="text-[10px] font-medium text-[var(--text-secondary)]">
+              {tenant.flynumber_did ? tenant.flynumber_did : 'WebRTC only'}
+            </span>
+            <Badge tone="neutral" className="ml-auto">
+              {isDanish ? 'Dansk' : 'English'}
+            </Badge>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden text-[11px] text-[var(--text-muted)] md:inline">{session.email}</span>
+          <p className="truncate text-[10px] text-[var(--text-muted)]">{session.email}</p>
+          <div className="lg:hidden">
             <LogoutButton />
           </div>
         </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
-    </div>
+      }
+    >
+      {children}
+    </AppShell>
   );
 }
+

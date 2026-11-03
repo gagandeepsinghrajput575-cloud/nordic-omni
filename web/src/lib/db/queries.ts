@@ -70,26 +70,78 @@ export interface ContactRow {
   id: string;
   full_name: string | null;
   phone_number: string | null;
+  email: string | null;
   pipeline_stage: string;
   lead_score: number;
   estimated_value_dkk: number;
   ai_auto_reply_enabled: boolean;
   shared_memory_summary: string;
+  preferred_language: string;
+  sentiment_score: number;
+  created_at: string;
   updated_at: string;
 }
 
 export async function listContacts(userId: string, tenantId: string, limit = 50): Promise<ContactRow[]> {
   return withUser(userId, async (tx) => {
     const rows = await tx`
-      select id, full_name, phone_number, pipeline_stage::text as pipeline_stage,
+      select id, full_name, phone_number, email, pipeline_stage::text as pipeline_stage,
              lead_score, estimated_value_dkk::float as estimated_value_dkk,
-             ai_auto_reply_enabled, shared_memory_summary, updated_at
+             ai_auto_reply_enabled, shared_memory_summary,
+             preferred_language, sentiment_score::float as sentiment_score,
+             created_at, updated_at
       from contacts
       where tenant_id = ${tenantId}
       order by updated_at desc
       limit ${limit}
     `;
     return rows as unknown as ContactRow[];
+  });
+}
+
+/**
+ * One contact, by id. RLS decides whether this caller is even visible, so no
+ * tenant filter is written here — a cross-tenant id simply returns null.
+ */
+export async function getContact(userId: string, contactId: string): Promise<ContactRow | null> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, full_name, phone_number, email, pipeline_stage::text as pipeline_stage,
+             lead_score, estimated_value_dkk::float as estimated_value_dkk,
+             ai_auto_reply_enabled, shared_memory_summary,
+             preferred_language, sentiment_score::float as sentiment_score,
+             created_at, updated_at
+      from contacts
+      where id = ${contactId}
+      limit 1
+    `;
+    return (rows[0] as unknown as ContactRow) ?? null;
+  });
+}
+
+export interface MessageRow {
+  id: string;
+  direction: string;
+  sender: string;
+  content: string;
+  created_at: string;
+}
+
+/** Conversation history for one contact, oldest first (reads like a chat). */
+export async function listMessages(
+  userId: string,
+  contactId: string,
+  limit = 50
+): Promise<MessageRow[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, direction::text as direction, sender::text as sender, content, created_at
+      from messages
+      where contact_id = ${contactId}
+      order by created_at asc
+      limit ${limit}
+    `;
+    return rows as unknown as MessageRow[];
   });
 }
 
@@ -133,16 +185,17 @@ export interface KnowledgeItem {
   category: string;
   title: string;
   content: string;
+  priority: number;
   is_active: boolean;
 }
 
 export async function listKnowledge(userId: string, tenantId: string): Promise<KnowledgeItem[]> {
   return withUser(userId, async (tx) => {
     const rows = await tx`
-      select id, category, title, content, is_active
+      select id, category, title, content, priority, is_active
       from knowledge_items
       where tenant_id = ${tenantId}
-      order by category, title
+      order by priority desc, category, title
     `;
     return rows as unknown as KnowledgeItem[];
   });

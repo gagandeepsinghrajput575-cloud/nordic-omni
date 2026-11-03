@@ -9,6 +9,7 @@ import {
   listConfigHistory,
 } from '@/lib/db/queries';
 import { PromptEditor } from './PromptEditor';
+import { KnowledgeEditor } from './KnowledgeEditor';
 import { restoreAgentConfigForm } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -184,29 +185,16 @@ export default async function AgencyClientDetailPage({
       </section>
 
       {/* KNOWLEDGE */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">
-        <h2 className="mb-3 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-          Knowledge base ({knowledge.length})
-        </h2>
-        <ul className="divide-y divide-[var(--border-subtle)]">
-          {knowledge.map((k) => (
-            <li key={k.id} className="py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[9px] uppercase text-[var(--text-muted)]">
-                  {k.category}
-                </span>
-                <span className="text-xs font-medium">{k.title}</span>
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-                {k.content}
-              </p>
-            </li>
-          ))}
-          {knowledge.length === 0 && (
-            <li className="py-2 text-[11px] text-[var(--text-muted)]">No knowledge items.</li>
-          )}
-        </ul>
-      </section>
+      <KnowledgeEditor
+        tenantId={tenant.id}
+        items={knowledge.map((k) => ({
+          id: k.id,
+          title: k.title,
+          content: k.content,
+          category: String(k.category),
+          priority: k.priority,
+        }))}
+      />
 
       {/* HISTORY */}
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">

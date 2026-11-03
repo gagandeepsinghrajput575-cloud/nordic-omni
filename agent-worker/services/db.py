@@ -73,7 +73,7 @@ class Database:
             """
             SELECT title, content FROM knowledge_items
             WHERE tenant_id = $1 AND is_active = true
-            ORDER BY category, title
+            ORDER BY priority DESC, category, title
             """,
             tenant_id,
         )

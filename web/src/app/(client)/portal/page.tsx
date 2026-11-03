@@ -1,131 +1,251 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import {
+  AlertTriangle,
+  Banknote,
+  CalendarCheck,
+  Phone,
+  Plus,
+  TrendingUp,
+  Users,
+} from 'lucide-react';
 import { requireUser } from '@/lib/auth/guard';
 import { getTenantOverview, listContacts, getTenantFacts } from '@/lib/db/queries';
+import { Badge, Card, CardHeader, StagePill, Stat } from '@/components/ui/core';
+import { Avatar, EmptyState, PageHeader, SectionTitle } from '@/components/ui/feedback';
+import { buttonClass } from '@/components/ui/form';
 import { CallPanel } from '@/components/call/CallPanel';
 
 export const dynamic = 'force-dynamic';
 
-function dkk(n: number, locale: string) {
-  return n.toLocaleString(locale === 'da-DK' ? 'da-DK' : 'en-US', {
-    maximumFractionDigits: 0,
-  });
-}
+const dkk = (n: number) => n.toLocaleString('da-DK', { maximumFractionDigits: 0 });
+
+const STAGE_ORDER = [
+  ['new_lead', 'New'],
+  ['contact_made', 'Contacted'],
+  ['quote_sent', 'Quote'],
+  ['booked', 'Booked'],
+  ['completed', 'Done'],
+  ['dire_escalated', 'Emergency'],
+  ['closed_lost', 'Lost'],
+] as const;
 
 export default async function PortalOverviewPage() {
   const session = await requireUser();
   const tenantId = session.tenantIds[0];
   if (!tenantId) redirect('/no-access');
 
-  // Real aggregates from PostgreSQL. No invented deltas, no fake sparklines.
-  const [overview, recent, tenant] = await Promise.all([
+  const [overview, recent, tenant, all] = await Promise.all([
     getTenantOverview(session.userId, tenantId),
-    listContacts(session.userId, tenantId, 6),
+    listContacts(session.userId, tenantId, 5),
     getTenantFacts(session.userId, tenantId),
+    listContacts(session.userId, tenantId, 200),
   ]);
 
-  const kpis = [
-    { label: 'Pipeline value', value: dkk(overview.pipeline_dkk, 'da-DK'), unit: 'DKK' },
-    { label: 'Active leads', value: String(overview.contacts), unit: 'contacts' },
-    { label: 'Booked', value: String(overview.booked), unit: 'appointments' },
-    { label: 'Calls', value: String(overview.calls), unit: 'sessions' },
-  ];
+  if (!tenant) redirect('/no-access');
+  const isDanish = tenant.default_language === 'da-DK';
+
+  const byStage = new Map<string, number>();
+  for (const c of all) byStage.set(c.pipeline_stage, (byStage.get(c.pipeline_stage) ?? 0) + 1);
+  const maxStage = Math.max(1, ...Array.from(byStage.values()));
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight">Overview</h1>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Live figures from your workspace. Updated on every request.
-        </p>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow={isDanish ? 'Overblik' : 'Overview'}
+        title={tenant.name}
+        description={
+          isDanish
+            ? 'Live tal fra dit arbejdsrum. Opdateres ved hver sidevisning.'
+            : 'Live figures from your workspace. Refreshed on every page view.'
+        }
+        actions={
+          <Link href="/portal/leads/new" className={buttonClass('primary', 'md')}>
+            <Plus size={14} />
+            {isDanish ? 'Ny kunde' : 'New caller'}
+          </Link>
+        }
+      />
+
+      {overview.dire > 0 ? (
+        <div className="animate-rise flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-lg)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="animate-dire flex h-6 w-6 items-center justify-center rounded-full bg-[var(--danger)]/15">
+              <AlertTriangle size={13} className="text-[var(--danger)]" />
+            </span>
+            <p className="text-xs font-semibold text-[var(--danger)]">
+              {overview.dire}{' '}
+              {isDanish
+                ? 'akutte sager kræver din opmærksomhed'
+                : 'emergency cases need your attention'}
+            </p>
+          </div>
+          <Link
+            href="/portal/leads"
+            className="font-mono text-[10px] uppercase tracking-wider text-[var(--danger)] underline underline-offset-2"
+          >
+            {isDanish ? 'Se nu' : 'Review'}
+          </Link>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          label={isDanish ? 'Pipeline' : 'Pipeline value'}
+          value={dkk(overview.pipeline_dkk)}
+          unit="DKK"
+          tone="accent"
+          icon={<TrendingUp size={14} />}
+          hint={isDanish ? 'Sum af alle kunders værdi' : 'Sum of every caller’s value'}
+        />
+        <Stat
+          label={isDanish ? 'Kunder' : 'Callers'}
+          value={overview.contacts}
+          unit={isDanish ? 'i alt' : 'total'}
+          icon={<Users size={14} />}
+        />
+        <Stat
+          label={isDanish ? 'Booket' : 'Booked'}
+          value={overview.booked}
+          unit={isDanish ? 'aftaler' : 'appointments'}
+          tone={overview.booked > 0 ? 'success' : 'default'}
+          icon={<CalendarCheck size={14} />}
+        />
+        <Stat
+          label={isDanish ? 'Opkald' : 'Calls'}
+          value={overview.calls}
+          unit={isDanish ? 'sessioner' : 'sessions'}
+          icon={<Phone size={14} />}
+          hint={
+            overview.messages > 0
+              ? `${overview.messages} ${isDanish ? 'beskeder' : 'messages'}`
+              : undefined
+          }
+        />
       </div>
 
-      {tenant && recent.length > 0 && (
-        <CallPanel
-          tenantId={tenant.id}
-          tenantSlug={tenant.slug}
-          contactId={recent[0].id}
-          contactName={recent[0].full_name ?? 'Caller'}
-          isDanish={tenant.default_language === 'da-DK'}
-        />
-      )}
-
-      {overview.dire > 0 && (
-        <div className="rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-4 py-3">
-          <p className="text-xs font-semibold text-[var(--danger)]">
-            {overview.dire} emergency {overview.dire === 1 ? 'case needs' : 'cases need'} attention
-          </p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <div
-            key={k.label}
-            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4"
-          >
-            <div className="text-xs text-[var(--text-secondary)]">{k.label}</div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-mono text-2xl font-bold tabular-nums tracking-tight">
-                {k.value}
-              </span>
-              <span className="font-mono text-[11px] text-[var(--text-muted)]">{k.unit}</span>
-            </div>
+      {/* Pipeline + live call */}
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+        <Card>
+          <CardHeader
+            title={isDanish ? 'Pipeline' : 'Pipeline'}
+            hint={isDanish ? 'Hvor kunderne står lige nu' : 'Where your callers stand right now'}
+            action={<Banknote size={14} className="text-[var(--text-muted)]" />}
+          />
+          <div className="space-y-2.5 p-5">
+            {STAGE_ORDER.map(([key, label]) => {
+              const count = byStage.get(key) ?? 0;
+              const pct = Math.round((count / maxStage) * 100);
+              return (
+                <div key={key} className="flex items-center gap-3">
+                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                    {label}
+                  </span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--bg-raised)]">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-700"
+                      style={{
+                        width: `${pct}%`,
+                        background:
+                          key === 'dire_escalated'
+                            ? 'var(--danger)'
+                            : key === 'closed_lost'
+                              ? 'var(--warning)'
+                              : 'var(--accent-primary)',
+                      }}
+                    />
+                  </div>
+                  <span className="w-6 shrink-0 text-right font-mono text-[11px] tabular-nums text-[var(--text-secondary)]">
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        </Card>
+
+        {recent.length > 0 ? (
+          <Card>
+            <CardHeader
+              title={isDanish ? 'Test AI’en' : 'Test the AI'}
+              hint={isDanish ? 'Ring som kunden ville gøre' : 'Call the way a customer would'}
+              action={
+                <Badge tone="accent" dot>
+                  Live
+                </Badge>
+              }
+            />
+            <div className="p-5">
+              <CallPanel
+                tenantId={tenant.id}
+                tenantSlug={tenant.slug}
+                contactId={recent[0].id}
+                contactName={recent[0].full_name ?? 'Caller'}
+                isDanish={isDanish}
+              />
+            </div>
+          </Card>
+        ) : null}
       </div>
 
       <section>
-        <h2 className="mb-3 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-          Recent leads
-        </h2>
+        <SectionTitle
+          action={
+            <Link
+              href="/portal/leads"
+              className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:text-[var(--accent-primary)]"
+            >
+              {isDanish ? 'Se alle' : 'View all'} →
+            </Link>
+          }
+        >
+          {isDanish ? 'Seneste kunder' : 'Recent callers'}
+        </SectionTitle>
 
-        {recent.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-10 text-center">
-            <p className="text-xs text-[var(--text-muted)]">No leads yet.</p>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)]">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[var(--bg-raised)] text-[var(--text-muted)]">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Name</th>
-                  <th className="px-4 py-2.5 font-medium">Stage</th>
-                  <th className="px-4 py-2.5 text-right font-medium">Value</th>
-                  <th className="px-4 py-2.5 text-right font-medium">AI replies</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {recent.map((c) => (
-                  <tr key={c.id} className="bg-[var(--bg-surface)]">
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium">{c.full_name ?? '—'}</div>
-                      <div className="font-mono text-[10px] text-[var(--text-muted)]">
-                        {c.phone_number ?? 'no phone'}
+        <Card className="overflow-hidden">
+          {recent.length === 0 ? (
+            <EmptyState
+              icon={<Users size={18} />}
+              title={isDanish ? 'Ingen kunder endnu' : 'No callers yet'}
+              description={
+                isDanish
+                  ? 'Opret din første kunde for at se pipelinen og teste AI’en.'
+                  : 'Create your first caller to see the pipeline and test the AI.'
+              }
+              action={
+                <Link href="/portal/leads/new" className={buttonClass('primary', 'sm')}>
+                  <Plus size={13} />
+                  {isDanish ? 'Opret kunde' : 'Create caller'}
+                </Link>
+              }
+            />
+          ) : (
+            <ul className="divide-y divide-[var(--border-subtle)]">
+              {recent.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    href={`/portal/leads/${c.id}`}
+                    className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--bg-raised)]/50"
+                  >
+                    <Avatar name={c.full_name} size={30} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs font-medium text-[var(--text-primary)]">
+                        {c.full_name ?? '—'}
                       </div>
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
-                      {c.pipeline_stage.replace(/_/g, ' ')}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono tabular-nums">
-                      {dkk(c.estimated_value_dkk, 'da-DK')}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span
-                        className={
-                          c.ai_auto_reply_enabled
-                            ? 'text-[var(--success)]'
-                            : 'text-[var(--warning)]'
-                        }
-                      >
-                        {c.ai_auto_reply_enabled ? 'on' : 'paused'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      <div className="truncate font-mono text-[10px] text-[var(--text-muted)]">
+                        {c.phone_number ?? c.email ?? 'no contact detail'}
+                      </div>
+                    </div>
+                    <StagePill stage={c.pipeline_stage} />
+                    <span className="hidden font-mono text-[11px] tabular-nums text-[var(--text-secondary)] sm:inline">
+                      {dkk(c.estimated_value_dkk)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </section>
     </div>
   );
