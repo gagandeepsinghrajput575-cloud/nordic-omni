@@ -1170,6 +1170,95 @@ reading it.
 | `listMessages` selected `body` | `column "body" does not exist` — Lead 360 500 | the column is `content` |
 | A Delete button rendered for clients | `DELETE 0` in the RLS probe: `contacts_delete` is `USING (is_agency())` | replaced with "archive" (an UPDATE the client may do), and the UI says why |
 
+---
+
+## 18. API inventory — what you need, and what is proven
+
+Written because the fair question is *"do you actually have every API you need?"*
+The honest answer required testing each one, not asserting it.
+
+Reproduce the whole thing with:
+
+```bash
+cd agent-worker && .venv/bin/python tests/test_inference.py
+```
+
+### 18.1 The design decision that removes most keys
+
+The voice agent uses **LiveKit Inference** (`inference.STT / LLM / TTS`) rather
+than Deepgram + Azure + OpenAI plugins. Inference is billed against the same
+LiveKit Cloud project that already carries the media. Consequence: **there is no
+second provider to sign up for, and no second key to leak.**
+
+That is also why `DEEPSEEK_API_KEY` and `META_APP_SECRET` can sit empty without
+anything breaking — see 18.3.
+
+### 18.2 Proven working, on this machine, right now
+
+| Capability | Provider | Proof |
+|---|---|---|
+| Media / rooms | LiveKit Cloud `eu-project-qknk1tvv` | worker registers as `AW_JVmSSX8wpMd` |
+| **Speech → text** | `deepgram/nova-3` via inference | `"Mit hovedrør er sprunget"` → `"Mit hovedrør er sprunget."` (exact, on attempt 1) |
+| **Text → text** | `google/gemini-2.5-flash` via inference | prompt `"Svar kun med ordet: klar"` → `"klar"` |
+| **Text → speech** | `cartesia/sonic-3` via inference | 21 audio frames, 47,051 samples of Danish |
+| Database | PostgreSQL 17, port 54330 | 12 tables, 8/8 RLS assertions |
+| Session signing | `SESSION_SECRET`, 64 hex chars | login 200 / wrong 401 / unknown 401 |
+| Token minting | `LIVEKIT_API_KEY` + `SECRET` | JWT signed locally — **no network call at all** |
+
+The STT row is the important one. The probe synthesises Danish with TTS, feeds
+that audio back through STT, and asserts the transcript matches. It caught the
+exact escalation phrase, which means `trigger_dire_escalation` will actually
+fire on *"mit hovedrør er sprunget"*.
+
+**Be honest about the variance.** The probe retries up to three times, because
+it has no VAD: the real agent runs Silero inside `AgentSession` and detects
+end-of-speech properly, while the probe has to fake it with trailing silence.
+Observed across runs:
+
+```
+attempt 1  'Mit hovedrør er sprunget.'   exact
+attempt 3  'Mit hovedwire sprunget'      partial
+attempt 3  'Mit hoved rørsprunget'       partial
+```
+
+So STT is **working**, and on clean input it is **exact** — but transcribing
+synthetic TTS audio without a VAD is not deterministic. Two consequences:
+
+- The escalation phrase contains `hovedrør`, which survives even the partial
+  transcripts above, so escalation is robust to this.
+- Human Danish on a real phone line is a different input distribution. It may
+  be better (natural prosody) or worse (codec, background noise). **Only a real
+  call settles it**, which is why §18.4 exists.
+
+
+### 18.3 Present but deliberately empty
+
+| Key | Needed by | Status |
+|---|---|---|
+| `DEEPSEEK_API_KEY` | **nothing today** — reserved for the webhook rebuild | empty, and nothing reads it |
+| `META_VERIFY_TOKEN` | webhook GET verification | set, unused (route deleted) |
+| `META_APP_SECRET` | `X-Hub-Signature-256` verification | empty — **required before webhooks ship** |
+| `GROQ_API_KEY` | nothing | **removed** — it was in the Zod schema but never in `.env` and never used |
+
+`hasLlm` was exported from `lib/env.ts` and referenced by zero files. Dead. Removed.
+
+### 18.4 What this does NOT prove
+
+- **The full RTC loop.** Three APIs answer in isolation. That is not the same as
+  browser → room → agent → audio back into your ear. Only a human with a
+  microphone settles that.
+- **Free-tier limits.** LiveKit Cloud's free agent minutes are finite; a long
+  demo can exhaust them. Nothing in the code guards against that.
+- **Region.** The project reports `India South` from Denmark, which is a latency
+  tax on every turn, not a correctness problem.
+
+### 18.5 The one key you will need next
+
+`META_APP_SECRET`, and only when the Meta webhook is rebuilt (§4.4). Without it
+the webhook cannot verify `X-Hub-Signature-256`, and shipping an unverified
+public webhook is exactly the defect this project exists to remove.
+
+
 
 ---
 

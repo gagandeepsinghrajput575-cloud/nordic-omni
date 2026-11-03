@@ -31,8 +31,10 @@ const EnvSchema = z.object({
   LIVEKIT_API_SECRET: z.string().min(1).default('secret'),
 
   // --- LLM ---------------------------------------------------------------------
+  // Reserved for the Meta/lead-form webhook rebuild (READMEFIRST §4.4). The voice
+  // agent does NOT use these: it goes through LiveKit Inference, which is covered
+  // by LIVEKIT_API_KEY. Nothing in the running app reads them today.
   DEEPSEEK_API_KEY: z.string().optional(),
-  GROQ_API_KEY: z.string().optional(),
 
   // --- Meta --------------------------------------------------------------------
   META_VERIFY_TOKEN: z.string().default('nordic_omni_verify'),
@@ -60,6 +62,3 @@ function loadEnv(): Env {
 }
 
 export const env = loadEnv();
-
-/** True when an LLM key is configured. Used to label deterministic fallbacks. */
-export const hasLlm = Boolean(env.DEEPSEEK_API_KEY || env.GROQ_API_KEY);
