@@ -6,10 +6,12 @@ import { LogoutButton } from '@/components/shell/LogoutButton';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 import { Badge } from '@/components/ui/core';
 
-const NAV: NavItem[] = [
-  { href: '/portal', label: 'Overview', icon: 'dashboard', exact: true },
-  { href: '/portal/leads', label: 'Callers', icon: 'users' },
-  { href: '/portal/settings', label: 'Settings', icon: 'settings' },
+type NavSpec = Omit<NavItem, 'label'> & { labelDa: string; labelEn: string };
+
+const NAV: NavSpec[] = [
+  { href: '/portal', labelDa: 'Overblik', labelEn: 'Overview', icon: 'dashboard', exact: true },
+  { href: '/portal/leads', labelDa: 'Kunder', labelEn: 'Callers', icon: 'users' },
+  { href: '/portal/settings', labelDa: 'Indstillinger', labelEn: 'Settings', icon: 'settings' },
 ];
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -24,9 +26,14 @@ export default async function ClientLayout({ children }: { children: React.React
 
   const isDanish = tenant.default_language === 'da-DK';
 
+  const nav: NavItem[] = NAV.map(({ labelDa, labelEn, ...rest }) => ({
+    ...rest,
+    label: isDanish ? labelDa : labelEn,
+  }));
+
   return (
     <AppShell
-      nav={NAV}
+      nav={nav}
       brandEyebrow={isDanish ? 'Arbejdsrum' : 'Workspace'}
       brandName={tenant.name}
       brandHref="/portal"

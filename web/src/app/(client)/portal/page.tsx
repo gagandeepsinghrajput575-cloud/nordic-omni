@@ -21,13 +21,13 @@ export const dynamic = 'force-dynamic';
 const dkk = (n: number) => n.toLocaleString('da-DK', { maximumFractionDigits: 0 });
 
 const STAGE_ORDER = [
-  ['new_lead', 'New'],
-  ['contact_made', 'Contacted'],
-  ['quote_sent', 'Quote'],
-  ['booked', 'Booked'],
-  ['completed', 'Done'],
-  ['dire_escalated', 'Emergency'],
-  ['closed_lost', 'Lost'],
+  ['new_lead', 'Nye', 'New'],
+  ['contacted', 'Kontaktet', 'Contacted'],
+  ['qualified', 'Kvalificeret', 'Qualified'],
+  ['booked', 'Booket', 'Booked'],
+  ['dire_escalated', 'Akut', 'Emergency'],
+  ['closed_won', 'Vundet', 'Won'],
+  ['closed_lost', 'Tabt', 'Lost'],
 ] as const;
 
 export default async function PortalOverviewPage() {
@@ -74,10 +74,13 @@ export default async function PortalOverviewPage() {
               <AlertTriangle size={13} className="text-[var(--danger)]" />
             </span>
             <p className="text-xs font-semibold text-[var(--danger)]">
-              {overview.dire}{' '}
               {isDanish
-                ? 'akutte sager kræver din opmærksomhed'
-                : 'emergency cases need your attention'}
+                ? `${overview.dire} ${
+                    overview.dire === 1 ? 'akut sag kræver' : 'akutte sager kræver'
+                  } din opmærksomhed`
+                : `${overview.dire} ${
+                    overview.dire === 1 ? 'emergency case needs' : 'emergency cases need'
+                  } your attention`}
             </p>
           </div>
           <Link
@@ -114,7 +117,15 @@ export default async function PortalOverviewPage() {
         <Stat
           label={isDanish ? 'Opkald' : 'Calls'}
           value={overview.calls}
-          unit={isDanish ? 'sessioner' : 'sessions'}
+          unit={
+            isDanish
+              ? overview.calls === 1
+                ? 'session'
+                : 'sessioner'
+              : overview.calls === 1
+                ? 'session'
+                : 'sessions'
+          }
           icon={<Phone size={14} />}
           hint={
             overview.messages > 0
@@ -133,13 +144,13 @@ export default async function PortalOverviewPage() {
             action={<Banknote size={14} className="text-[var(--text-muted)]" />}
           />
           <div className="space-y-2.5 p-5">
-            {STAGE_ORDER.map(([key, label]) => {
+            {STAGE_ORDER.map(([key, da, en]) => {
               const count = byStage.get(key) ?? 0;
               const pct = Math.round((count / maxStage) * 100);
               return (
                 <div key={key} className="flex items-center gap-3">
                   <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-                    {label}
+                    {isDanish ? da : en}
                   </span>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--bg-raised)]">
                     <div
@@ -236,7 +247,7 @@ export default async function PortalOverviewPage() {
                         {c.phone_number ?? c.email ?? 'no contact detail'}
                       </div>
                     </div>
-                    <StagePill stage={c.pipeline_stage} />
+                    <StagePill stage={c.pipeline_stage} danish={isDanish} />
                     <span className="hidden font-mono text-[11px] tabular-nums text-[var(--text-secondary)] sm:inline">
                       {dkk(c.estimated_value_dkk)}
                     </span>

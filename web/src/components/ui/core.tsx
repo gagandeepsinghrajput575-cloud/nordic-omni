@@ -154,21 +154,35 @@ export function Badge({
   );
 }
 
-/** One colour story for pipeline stages, used everywhere a stage appears. */
+/** One colour story for pipeline stages, used everywhere a stage appears.
+ *  Keys MUST match the `pipeline_stage` enum in Postgres exactly. */
 const STAGE_TONE: Record<string, BadgeTone> = {
   new_lead: 'neutral',
-  contact_made: 'accent',
-  quote_sent: 'accent',
+  contacted: 'accent',
+  qualified: 'accent',
   booked: 'success',
-  completed: 'success',
   dire_escalated: 'danger',
+  closed_won: 'success',
   closed_lost: 'warning',
 };
 
-export function StagePill({ stage }: { stage: string }) {
+/** Danish labels, because a Danish workspace should not speak English. */
+const STAGE_DA: Record<string, string> = {
+  new_lead: 'ny kunde',
+  contacted: 'kontaktet',
+  qualified: 'kvalificeret',
+  booked: 'booket',
+  dire_escalated: 'akut',
+  closed_won: 'vundet',
+  closed_lost: 'tabt',
+};
+
+export function StagePill({ stage, danish = false }: { stage: string; danish?: boolean }) {
+  const fallback = stage.replace(/_/g, ' ');
+  const label = danish ? (STAGE_DA[stage] ?? fallback) : fallback;
   return (
     <Badge tone={STAGE_TONE[stage] ?? 'neutral'} dot>
-      {stage.replace(/_/g, ' ')}
+      {label}
     </Badge>
   );
 }

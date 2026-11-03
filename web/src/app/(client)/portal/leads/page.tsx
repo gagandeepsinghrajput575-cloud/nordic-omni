@@ -65,10 +65,12 @@ export default async function PortalLeadsPage() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)]">
-                  <th className="px-5 py-2.5 font-medium">Caller</th>
-                  <th className="px-3 py-2.5 font-medium">Stage</th>
+                  <th className="px-5 py-2.5 font-medium">{isDanish ? 'Kunde' : 'Caller'}</th>
+                  <th className="px-3 py-2.5 font-medium">{isDanish ? 'Stadie' : 'Stage'}</th>
                   <th className="px-3 py-2.5 font-medium">Score</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Value</th>
+                  <th className="px-3 py-2.5 text-right font-medium">
+                    {isDanish ? 'Værdi' : 'Value'}
+                  </th>
                   <th className="px-3 py-2.5 text-right font-medium">AI</th>
                   <th className="px-5 py-2.5" />
                 </tr>
@@ -93,7 +95,7 @@ export default async function PortalLeadsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <StagePill stage={c.pipeline_stage} />
+                      <StagePill stage={c.pipeline_stage} danish={isDanish} />
                     </td>
                     <td className="px-3 py-3">
                       <ScoreBar score={c.lead_score} />
@@ -117,7 +119,7 @@ export default async function PortalLeadsPage() {
                         href={`/portal/leads/${c.id}`}
                         className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)] transition-colors group-hover:text-[var(--accent-primary)]"
                       >
-                        Open →
+                        {isDanish ? 'Åbn' : 'Open'} →
                       </Link>
                     </td>
                   </tr>

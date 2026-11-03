@@ -20,13 +20,21 @@ import type { ActionState } from '@/lib/actions/types';
  * another tenant.
  */
 
+/**
+ * Mirrors the `pipeline_stage` enum in Postgres EXACTLY:
+ *   new_lead, contacted, qualified, booked, dire_escalated, closed_won, closed_lost
+ *
+ * An earlier version of this file invented `contact_made`, `quote_sent` and
+ * `completed`. Those do not exist in the enum, so choosing one raised
+ * `invalid input value for enum pipeline_stage` on write.
+ */
 const STAGES = [
   'new_lead',
-  'contact_made',
-  'quote_sent',
+  'contacted',
+  'qualified',
   'booked',
-  'completed',
   'dire_escalated',
+  'closed_won',
   'closed_lost',
 ] as const;
 

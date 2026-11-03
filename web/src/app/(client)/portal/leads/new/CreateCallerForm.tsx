@@ -9,18 +9,20 @@ import { Field, Input, Select, Textarea, FormAlert, buttonClass } from '@/compon
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
 const STAGES = [
-  ['new_lead', 'New lead'],
-  ['contact_made', 'Contact made'],
-  ['quote_sent', 'Quote sent'],
-  ['booked', 'Booked'],
-  ['completed', 'Completed'],
-  ['closed_lost', 'Closed lost'],
+  ['new_lead', 'Ny kunde', 'New lead'],
+  ['contacted', 'Kontaktet', 'Contacted'],
+  ['qualified', 'Kvalificeret', 'Qualified'],
+  ['booked', 'Booket', 'Booked'],
+  ['dire_escalated', 'Akut', 'Emergency'],
+  ['closed_won', 'Vundet', 'Won'],
+  ['closed_lost', 'Tabt', 'Lost'],
 ] as const;
 
 export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
   const [state, formAction] = useActionState(createCallerAction, EMPTY_STATE);
 
   const err = (f: string) => (state.field === f ? state.error : undefined);
+  const t = (da: string, en: string) => (isDanish ? da : en);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -30,7 +32,7 @@ export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             htmlFor="fullName"
-            label="Full name"
+            label={t('Fulde navn', 'Full name')}
             required
             error={err('fullName')}
             className="sm:col-span-2"
@@ -47,7 +49,7 @@ export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
 
           <Field
             htmlFor="phoneNumber"
-            label="Phone"
+            label={t('Telefon', 'Phone')}
             hint="+45 …"
             error={err('phoneNumber')}
           >
@@ -72,24 +74,24 @@ export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
             />
           </Field>
 
-          <Field htmlFor="preferredLanguage" label="Language">
+          <Field htmlFor="preferredLanguage" label={t('Sprog', 'Language')}>
             <Select id="preferredLanguage" name="preferredLanguage" defaultValue="da">
               <option value="da">Dansk</option>
               <option value="en">English</option>
             </Select>
           </Field>
 
-          <Field htmlFor="pipelineStage" label="Starting stage">
+          <Field htmlFor="pipelineStage" label={t('Startstadie', 'Starting stage')}>
             <Select id="pipelineStage" name="pipelineStage" defaultValue="new_lead">
-              {STAGES.map(([value, label]) => (
+              {STAGES.map(([value, da, en]) => (
                 <option key={value} value={value}>
-                  {label}
+                  {isDanish ? da : en}
                 </option>
               ))}
             </Select>
           </Field>
 
-          <Field htmlFor="leadScore" label="Lead score" hint="0–100">
+          <Field htmlFor="leadScore" label={t('Kundescore', 'Lead score')} hint="0–100">
             <Input
               id="leadScore"
               name="leadScore"
@@ -100,7 +102,7 @@ export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
             />
           </Field>
 
-          <Field htmlFor="estimatedValueDkk" label="Estimated value" hint="DKK">
+          <Field htmlFor="estimatedValueDkk" label={t('Anslået værdi', 'Estimated value')} hint="DKK">
             <Input
               id="estimatedValueDkk"
               name="estimatedValueDkk"
@@ -113,8 +115,8 @@ export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
 
           <Field
             htmlFor="summary"
-            label="What we know"
-            hint="The agent reads this before it speaks"
+            label={t('Hvad vi ved', 'What we know')}
+            hint={t('AI’en læser det før den taler', 'The agent reads this before it speaks')}
             className="sm:col-span-2"
           >
             <Textarea
@@ -132,9 +134,11 @@ export function CreateCallerForm({ isDanish }: { isDanish: boolean }) {
       </Card>
 
       <div className="flex items-center gap-2">
-        <SubmitButton pendingLabel="Creating…">Create caller</SubmitButton>
+        <SubmitButton pendingLabel={t('Opretter…', 'Creating…')}>
+          {t('Opret kunde', 'Create caller')}
+        </SubmitButton>
         <Link href="/portal/leads" className={buttonClass('ghost')}>
-          Cancel
+          {t('Annuller', 'Cancel')}
         </Link>
       </div>
     </form>

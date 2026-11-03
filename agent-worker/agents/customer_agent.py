@@ -28,6 +28,7 @@ VALID_STAGES = (
     "qualified",
     "booked",
     "dire_escalated",
+    "closed_won",
     "closed_lost",
 )
 

@@ -60,7 +60,7 @@ export default async function AgencyPortfolioPage() {
         <Stat
           label="Calls handled"
           value={totalCalls}
-          unit="sessions"
+          unit={totalCalls === 1 ? 'session' : 'sessions'}
           tone={totalCalls > 0 ? 'success' : 'default'}
         />
       </div>

@@ -30,7 +30,7 @@ export default async function NewCallerPage() {
         }
         actions={
           <Link href="/portal/leads" className={buttonClass('ghost', 'sm')}>
-            Back to callers
+            {isDanish ? 'Alle kunder' : 'Back to callers'}
           </Link>
         }
       />

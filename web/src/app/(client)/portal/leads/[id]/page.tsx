@@ -71,9 +71,16 @@ export default async function LeadDetailPage({
                     {contact.full_name ?? '—'}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <StagePill stage={contact.pipeline_stage} />
+                    <StagePill stage={contact.pipeline_stage} danish={isDanish} />
                     <Badge tone={contact.ai_auto_reply_enabled ? 'success' : 'warning'} dot>
-                      AI {contact.ai_auto_reply_enabled ? 'on' : 'paused'}
+                      AI{' '}
+                      {isDanish
+                        ? contact.ai_auto_reply_enabled
+                          ? 'til'
+                          : 'sat på pause'
+                        : contact.ai_auto_reply_enabled
+                          ? 'on'
+                          : 'paused'}
                     </Badge>
                     <Badge tone="neutral">
                       {contact.preferred_language === 'da' ? 'Dansk' : 'English'}
@@ -84,13 +91,13 @@ export default async function LeadDetailPage({
 
               <div className="flex items-center gap-6 text-right">
                 <div>
-                  <div className="text-eyebrow">Value</div>
+                  <div className="text-eyebrow">{isDanish ? 'Værdi' : 'Value'}</div>
                   <div className="mt-1 font-mono text-sm font-bold tabular-nums">
                     {dkk(contact.estimated_value_dkk)}
                   </div>
                 </div>
                 <div>
-                  <div className="text-eyebrow">Score</div>
+                  <div className="text-eyebrow">{isDanish ? 'Score' : 'Score'}</div>
                   <div className="mt-1">
                     <ScoreBar score={contact.lead_score} />
                   </div>

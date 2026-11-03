@@ -8,13 +8,13 @@ import { Field, Input, Select, Textarea, FormAlert } from '@/components/ui/form'
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
 const STAGES = [
-  ['new_lead', 'New lead'],
-  ['contact_made', 'Contact made'],
-  ['quote_sent', 'Quote sent'],
-  ['booked', 'Booked'],
-  ['completed', 'Completed'],
-  ['dire_escalated', 'Emergency'],
-  ['closed_lost', 'Closed lost'],
+  ['new_lead', 'Ny kunde', 'New lead'],
+  ['contacted', 'Kontaktet', 'Contacted'],
+  ['qualified', 'Kvalificeret', 'Qualified'],
+  ['booked', 'Booket', 'Booked'],
+  ['dire_escalated', 'Akut', 'Emergency'],
+  ['closed_won', 'Vundet', 'Won'],
+  ['closed_lost', 'Tabt', 'Lost'],
 ] as const;
 
 export function LeadDetailForm({
@@ -56,17 +56,17 @@ export function LeadDetailForm({
           ) : null}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field htmlFor="pipelineStage" label="Stage">
+            <Field htmlFor="pipelineStage" label={isDanish ? 'Stadie' : 'Stage'}>
               <Select id="pipelineStage" name="pipelineStage" defaultValue={defaultStage}>
-                {STAGES.map(([value, label]) => (
+                {STAGES.map(([value, da, en]) => (
                   <option key={value} value={value}>
-                    {label}
+                    {isDanish ? da : en}
                   </option>
                 ))}
               </Select>
             </Field>
 
-            <Field htmlFor="leadScore" label="Lead score" hint="0–100">
+            <Field htmlFor="leadScore" label={isDanish ? 'Kundescore' : 'Lead score'} hint="0–100">
               <Input
                 id="leadScore"
                 name="leadScore"
@@ -77,7 +77,7 @@ export function LeadDetailForm({
               />
             </Field>
 
-            <Field htmlFor="estimatedValueDkk" label="Value" hint="DKK">
+            <Field htmlFor="estimatedValueDkk" label={isDanish ? 'Værdi' : 'Value'} hint="DKK">
               <Input
                 id="estimatedValueDkk"
                 name="estimatedValueDkk"
