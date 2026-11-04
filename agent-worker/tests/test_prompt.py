@@ -138,7 +138,31 @@ def main() -> int:
     check("greets the caller by first name", "Morten" in greeting, greeting)
 
     danish_script = greeting_for(tenant(greeting_script="Hej med dig."), CONTACT)
-    check("DB greeting wins over the fallback", danish_script == "Hej med dig.")
+    check(
+        "DB greeting is the base of the spoken line",
+        danish_script.startswith("Hej med dig."),
+        danish_script,
+    )
+
+    print("\n=== recording consent is spoken, not hidden in config ===")
+    recording_on = greeting_for(tenant(record_calls=True), CONTACT)
+    check(
+        "consent line present when record_calls is true",
+        "Dette opkald bliver optaget" in recording_on,
+        recording_on,
+    )
+    recording_off = greeting_for(tenant(record_calls=False), CONTACT)
+    check(
+        "no consent line when recording is off",
+        "optaget" not in recording_off,
+        recording_off,
+    )
+    check(
+        "consent uses the tenant's language",
+        "This call is being recorded" in greeting_for(
+            tenant(record_calls=True, default_language="en-US"), {**CONTACT, "preferred_language": "en"}
+        ),
+    )
 
     print("\n=== VAL-AI-508 prompt is composed from parts ===")
     for header in (

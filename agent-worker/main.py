@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from typing import Any, Optional
 
 from dotenv import load_dotenv
@@ -34,6 +35,7 @@ from agents.customer_agent import CustomerAgent, greeting_for
 from agents.owner_copilot_agent import OwnerCopilotAgent
 from config import Config, load as load_config
 from services.db import Database
+from services.recordings import duration_seconds, history_to_turns, preserve
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -101,6 +103,68 @@ async def read_metadata(ctx: JobContext) -> dict[str, Any]:
 
     parsed.setdefault("participant_identity", getattr(participant, "identity", "") or "")
     return parsed
+
+
+async def finalise_call(
+    *,
+    ctx: JobContext,
+    db: Database,
+    tenant: dict[str, Any],
+    session: AgentSession,
+    started_at: float,
+    should_record: bool,
+) -> None:
+    """Persist transcript and recording when the job ends.
+
+    Every branch writes an explicit status. A silent failure here is exactly how
+    the previous recorder stayed broken for months without anyone noticing.
+    """
+    room = ctx.room.name
+
+    # 1. Transcript — read locally from session.history, never uploaded.
+    try:
+        turns = history_to_turns(session.history)
+        if turns:
+            await db.set_transcript(
+                room_name=room,
+                turns=turns,
+                duration=duration_seconds(started_at),
+            )
+            logger.info("Transcript saved for %s (%d turns)", room, len(turns))
+        else:
+            logger.warning("No transcript turns captured for %s", room)
+    except Exception:
+        logger.exception("Could not persist transcript for %s", room)
+
+    # 2. Recording.
+    if not should_record:
+        await db.set_recording(room_name=room, status="skipped")
+        logger.info("Recording disabled for tenant %s", tenant.get("slug"))
+        return
+
+    try:
+        result = preserve(
+            source_dir=ctx.session_directory,
+            tenant_slug=str(tenant.get("slug") or "unknown"),
+            room_name=room,
+        )
+        await db.set_recording(
+            room_name=room,
+            status=result["status"],
+            path=result.get("path"),
+            recorded_bytes=result.get("bytes"),
+            error=result.get("error"),
+        )
+        if result["status"] == "ok":
+            logger.info("Recording stored for %s -> %s", room, result.get("path"))
+        else:
+            logger.error("Recording FAILED for %s: %s", room, result.get("error"))
+    except Exception as exc:
+        logger.exception("Recording persistence crashed for %s", room)
+        try:
+            await db.set_recording(room_name=room, status="failed", error=str(exc))
+        except Exception:
+            logger.exception("Could not even record the recording failure")
 
 
 async def entrypoint(ctx: JobContext) -> None:
@@ -173,7 +237,32 @@ async def entrypoint(ctx: JobContext) -> None:
         knowledge=knowledge,
     )
 
-    await session.start(agent, room=ctx.room)
+    started_at = time.time()
+
+    # Recording is local: AgentSession writes audio.ogg into ctx.session_directory.
+    # `traces`, `logs` and `transcript` are switched OFF so a caller's conversation
+    # is never uploaded to a third party just to be read back — we take the
+    # transcript from session.history locally instead.
+    should_record = bool(tenant.get("record_calls", True))
+    record_opts = (
+        {"audio": True, "traces": False, "logs": False, "transcript": False}
+        if should_record
+        else False
+    )
+
+    async def on_shutdown() -> None:
+        await finalise_call(
+            ctx=ctx,
+            db=db,
+            tenant=tenant,
+            session=session,
+            started_at=started_at,
+            should_record=should_record,
+        )
+
+    ctx.add_shutdown_callback(on_shutdown)
+
+    await session.start(agent, room=ctx.room, record=record_opts)
     await session.generate_reply(instructions=greeting_for(tenant, contact))
 
 

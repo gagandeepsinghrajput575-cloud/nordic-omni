@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MessageSquare, Phone } from 'lucide-react';
 import { requireUser } from '@/lib/auth/guard';
-import { getContact, getTenantFacts, listMessages } from '@/lib/db/queries';
+import { getContact, getTenantFacts, listCallsForContact, listMessages } from '@/lib/db/queries';
 import { Badge, Card, CardHeader, StagePill } from '@/components/ui/core';
 import { Avatar, EmptyState, PageHeader, ScoreBar } from '@/components/ui/feedback';
 import { buttonClass } from '@/components/ui/form';
 import { CallPanel } from '@/components/call/CallPanel';
+import { CallRecording } from '@/components/call/CallRecording';
 import { LeadDetailForm } from './LeadDetailForm';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,7 @@ export default async function LeadDetailPage({
   if (!contact || !tenant) notFound();
 
   const messages = await listMessages(session.userId, contact.id);
+  const calls = await listCallsForContact(session.userId, contact.id);
   const isDanish = tenant.default_language === 'da-DK';
 
   return (
@@ -136,6 +138,24 @@ export default async function LeadDetailPage({
               />
             </div>
           </Card>
+
+          {calls.length > 0 ? (
+            <section className="space-y-3">
+              <p className="text-eyebrow flex items-center gap-1.5">
+                <Phone size={11} />
+                {isDanish ? 'Opkald' : 'Calls'} · {calls.length}
+              </p>
+              {calls.map((call, i) => (
+                <CallRecording
+                  key={call.id}
+                  call={call}
+                  isDanish={isDanish}
+                  index={i}
+                  total={calls.length}
+                />
+              ))}
+            </section>
+          ) : null}
 
           <Card>
             <CardHeader

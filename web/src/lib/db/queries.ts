@@ -119,6 +119,47 @@ export async function getContact(userId: string, contactId: string): Promise<Con
   });
 }
 
+export interface CallLogRow {
+  id: string;
+  room_name: string;
+  status: string;
+  created_at: string;
+  duration_seconds: number;
+  recording_url: string | null;
+  recording_status: 'ok' | 'failed' | 'skipped' | null;
+  recording_error: string | null;
+  recording_bytes: number | null;
+  transcript_full: Array<{ role: string; content: string }>;
+}
+
+/**
+ * Calls for one contact, newest first.
+ *
+ * `transcript_full` and `recording_url` are the two things that make a voice
+ * call reviewable: what was said, and the audio itself. Before this existed the
+ * worker wrote neither, so a finished call left no evidence in the portal.
+ */
+export async function listCallsForContact(
+  userId: string,
+  contactId: string,
+  limit = 10
+): Promise<CallLogRow[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, room_name, status::text as status, created_at, duration_seconds,
+             recording_url, recording_status, recording_error,
+             recording_bytes::float8 as recording_bytes,
+             transcript_full
+      from call_logs
+      where contact_id = ${contactId}
+      order by created_at desc
+      limit ${limit}
+    `;
+    return rows as unknown as CallLogRow[];
+  });
+}
+
+/** Conversation history for one contact, oldest first (reads like a chat). */
 export interface MessageRow {
   id: string;
   direction: string;
@@ -127,7 +168,6 @@ export interface MessageRow {
   created_at: string;
 }
 
-/** Conversation history for one contact, oldest first (reads like a chat). */
 export async function listMessages(
   userId: string,
   contactId: string,

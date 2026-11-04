@@ -158,3 +158,63 @@ class Database:
             command_type,
             json.dumps(payload),
         )
+
+    async def set_recording(
+        self,
+        *,
+        room_name: str,
+        status: str,
+        path: Optional[str] = None,
+        recorded_bytes: Optional[int] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        """Record the OUTCOME of a recording attempt, not just the attempt.
+
+        `recording_url` is derived from the row id here, so the public route is
+        `/api/recordings/<call_log_id>` and never a filesystem path. A path in a
+        URL would let one tenant probe another tenant's files.
+        """
+        await self.pool.execute(
+            """
+            UPDATE call_logs
+               SET recording_path   = $2,
+                   recording_bytes  = $3,
+                   recording_status = $4,
+                   recording_error  = $5,
+                   recording_url    = CASE WHEN $4 = 'ok'
+                                           THEN '/api/recordings/' || id::text
+                                           ELSE NULL END,
+                   updated_at       = now()
+             WHERE room_name = $1
+            """,
+            room_name,
+            path,
+            recorded_bytes,
+            status,
+            error,
+        )
+
+    async def set_transcript(
+        self,
+        *,
+        room_name: str,
+        turns: list[dict[str, Any]],
+        duration: int = 0,
+    ) -> None:
+        """Persist the conversation locally so it can be reviewed and shown.
+
+        This is what fills the "Samtale" panel and what you paste into a
+        reviewer to check whether the Danish was correct.
+        """
+        await self.pool.execute(
+            """
+            UPDATE call_logs
+               SET transcript_full  = $2::jsonb,
+                   duration_seconds = GREATEST(duration_seconds, $3),
+                   updated_at       = now()
+             WHERE room_name = $1
+            """,
+            room_name,
+            json.dumps(turns),
+            duration,
+        )

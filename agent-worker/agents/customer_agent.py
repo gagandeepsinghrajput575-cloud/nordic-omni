@@ -260,19 +260,33 @@ When you escalate, tell the caller that the on-call person is being connected, t
 
 def greeting_for(tenant: dict[str, Any], contact: dict[str, Any]) -> str:
     script = (tenant.get("greeting_script") or "").strip()
+    danish = is_danish(tenant, contact)
+
     if script:
-        return script
+        base = script
+    else:
+        name = (contact.get("full_name") or "").split(" ")[0]
+        company = tenant["name"]
+        if danish:
+            base = (
+                f"Hej {name}, du er kommet til {company}. Hvordan kan jeg hjælpe?"
+                if name
+                else f"Hej, du er kommet til {company}. Hvordan kan jeg hjælpe?"
+            )
+        else:
+            base = (
+                f"Hi {name}, you have reached {company}. How can I help?"
+                if name
+                else f"Hi, you have reached {company}. How can I help?"
+            )
 
-    name = (contact.get("full_name") or "").split(" ")[0]
-    company = tenant["name"]
+    # Recording consent. Danish rules require the caller to be told, and a
+    # business owner will ask "is that legal?" before they buy anything. Hearing
+    # the AI say it unprompted is the answer.
+    if tenant.get("record_calls", True):
+        base = f"{base} {'Dette opkald bliver optaget.' if danish else 'This call is being recorded.'}"
 
-    if is_danish(tenant, contact):
-        if name:
-            return f"Hej {name}, du er kommet til {company}. Hvordan kan jeg hjælpe?"
-        return f"Hej, du er kommet til {company}. Hvordan kan jeg hjælpe?"
-    if name:
-        return f"Hi {name}, you have reached {company}. How can I help?"
-    return f"Hi, you have reached {company}. How can I help?"
+    return base
 
 
 

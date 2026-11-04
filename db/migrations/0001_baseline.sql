@@ -616,10 +616,10 @@ INSERT INTO call_logs (id, tenant_id, contact_id, room_name, channel, status,
  'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
  'kbh-vvs_call_aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
  'voice_instant_webrtc', 'dire_hold_for_owner', 'high_value_emergency', 142,
- '[{"speaker":"agent","text":"Goddag! Du er kommet til Kobenhavn VVS Dogndvagt. Hvordan kan jeg hjalpe?","timestamp_ms":0},
-   {"speaker":"caller","text":"Hovedroret er sprunget under kokkenvasken! Vand fosser ud!","timestamp_ms":4000},
-   {"speaker":"agent","text":"Luk straks for hovedhanen. Jeg kobler vagten pa nu.","timestamp_ms":9000}]'::jsonb,
- 'Akut robrud i Kodbyen. Kraever ojeblikkelig udrykning.', 'Akut vandskade')
+ '[{"speaker":"agent","text":"Goddag! Du er kommet til København VVS Døgnvagt. Hvordan kan jeg hjælpe?","timestamp_ms":0},
+   {"speaker":"caller","text":"Hovedrøret er sprunget under køkkenvasken! Vand fosser ud!","timestamp_ms":4000},
+   {"speaker":"agent","text":"Luk straks for hovedhanen. Jeg kobler vagten på nu.","timestamp_ms":9000}]'::jsonb,
+ 'Akut rørbrud i Kødbyen. Kræver øjeblikkelig udrykning.', 'Akut vandskade')
 ON CONFLICT DO NOTHING;
 
 -- 13.7 Knowledge base (BEHAVIOUR - agency-owned)
