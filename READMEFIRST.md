@@ -6,9 +6,9 @@ This document is the ground truth for the NORDIC-OMNI codebase. It records what
 was found, what was concluded, what was changed, and what is still fiction. It
 supersedes `README.md`, which describes a product that never existed.
 
-Last updated at commit `80f3636` (M2 — create flows, frontend rebuild, agent
-depth). Later commits may have changed code but not this document; when that
-happens, trust the code and correct this file.
+Last updated at commit `0f7bdde` (M3 — local call recording, consent, and the
+telephony research). Later commits may have changed code but not this document;
+when that happens, trust the code and correct this file.
 
 ---
 
@@ -96,13 +96,26 @@ Anything in the left column was proven by executing it.
 | Two-app split | ✅ | `(client)/portal`, `(agency)/agency` |
 | Agency prompt editor + history + rollback | ✅ | `/agency/clients/[id]` |
 | Token endpoint authorization | ✅ | cross-tenant 403, own 200, anon+contact 200 |
-| Voice worker constructs | ✅ | `agent-worker/tests/test_agent_smoke.py` 17/17 |
+| Voice worker constructs | ✅ | `agent-worker/tests/test_agent_smoke.py` 21/21 |
 | Voice worker registers with cloud | ✅ | `registered worker {"id":"AW_JVmSSXr8wpMd"}` |
 | Browser → agent call panel | ✅ | renders, mints token (audio not yet heard) |
+| **All three inference APIs answer** | ✅ | `tests/test_inference.py` — TTS 52 KB of Danish, LLM replied, STT transcribed the escalation phrase (§18) |
+| **Created callers and workspaces** | ✅ | `/portal/leads/new`, `/agency/clients/new` → 200; RLS probe proves the write path |
+| **Recording pipeline** | ✅ (unit + HTTP) | `test_recordings.py` 23/23; own tenant 200 with byte-identical audio, cross-tenant 404 (§19) |
+| **Recording served through RLS** | ✅ | mette→jens's recording = 404, jens→own = 200 |
+| **Recording consent is spoken** | ✅ | `test_prompt.py` asserts present when on, absent when off |
+| **Prompt honours hours, prices, escalation** | ✅ | `test_prompt.py` 43/43 |
+| **pipeline_stage matches the DB enum** | ✅ | `db/tests/stage_enum_probe.sql` — 7 real values write, 1 invented rejected |
 | Typecheck | ✅ | `npx tsc --noEmit` → 0 errors |
 
-**Not verified:** that the agent audibly speaks. The plumbing is proven end to
-end up to connection; the final audio leg needs a human with a microphone.
+**Not verified — two things, both needing a human:**
+
+1. **That the agent audibly speaks.** The plumbing is proven up to connection and
+   all three APIs answer in isolation (§18), but no human has heard a live call.
+2. **That a recording is produced by a real call.** The chain is proven with a
+   real Ogg file, a real row and a real HTTP stream (§19.5), but
+   `AgentSession(record=True)` writing `audio.ogg` at the end of a *live* call has
+   not been observed.
 
 ---
 
@@ -831,7 +844,7 @@ Updated after M2 (`80f3636`). The previous version of this table listed 14 gaps;
 six of them are now closed. Nothing moved from "missing" to "done" without a test
 or an HTTP check behind it.
 
-### 11.1 Closed in M2
+### 11.1 Closed so far
 
 | Was missing | Now | Evidence |
 |---|---|---|
@@ -842,6 +855,9 @@ or an HTTP check behind it.
 | **Agent ignored `escalation_policy`** — fetched then discarded | Composed into the prompt; changes when the policy changes | `test_prompt.py` 43/43 |
 | **Agent ignored hours and prices** | Open/closed computed; price table injected | `test_prompt.py` |
 | **Plain frontend** — 102-line CSS, raw tables | Design system + shell + every page rebuilt | 40 files, +4,224 |
+| **Recording was fake** — the S3 recorder threw on every call | Local Ogg/Opus, verified, served through RLS | `test_recordings.py` + live HTTP (§19) |
+| **No transcript** — a finished call left no evidence | `transcript_full` written from `session.history` | fills the "Samtale" panel |
+| **Recording consent** — a legal risk nobody handled | Spoken line in the greeting, driven by `tenants.record_calls` | `test_prompt.py` |
 
 ### 11.2 Still open
 
@@ -856,7 +872,7 @@ or an HTTP check behind it.
 | 7 | **Agency edit path for client facts** | Agency can write them through RLS, but there is no agency-side form | reuse `/portal/settings` components |
 | 8 | **Member management** | No way to invite a second staff login for a client | `/agency/.../members` |
 | 9 | **Instagram channel** | Only WhatsApp is testable without Meta app review | Meta |
-| 10 | **Call recording** | Egress was broken and was deleted rather than left lying | S3 credentials |
+| 10 | **Recording retention** | Recordings grow forever; ~1 MB per 10 min, no delete-after-N-days policy | before real clients |
 | 11 | **`README.md` rewrite** | It still describes six features that never existed | last |
 | 12 | **Production build** | `next build` has not been run; needs a clean run on the 8 GB machine | memory |
 | 13 | **EU region for LiveKit** | Current project is India South; latency penalty on every turn | recreate project |
@@ -916,7 +932,7 @@ query layer.
 cd agent-worker && .venv/bin/python tests/test_agent_smoke.py
 ```
 
-17 checks, all pass, covering: imports, construction (the old `TypeError`),
+21 checks, all pass, covering: imports, construction (the old `TypeError`),
 tool registration on both agents, prompt/greeting composition, `main.py`
 wiring, and six regression guards that fail the build if anyone reintroduces
 `VoicePipelineAgent`, a first-tenant fallback, Supabase, or a second agent class.
@@ -998,7 +1014,7 @@ agent-worker/
   services/db.py                   160 lines, asyncpg (replaces supabase_service)
   agents/customer_agent.py         236 lines, ONE Agent class + 3 tools
   agents/owner_copilot_agent.py     86 lines, owner tools
-  tests/test_agent_smoke.py         17 checks incl. regression guards
+  tests/test_agent_smoke.py         21 checks incl. regression guards
   requirements.txt                  76 pinned packages
   .venv/                            gitignored
 ```
@@ -1009,24 +1025,42 @@ largest file now is the SQL baseline at 655 lines — a schema, not a component.
 
 ---
 
-## 14. Roadmap, in the order I would do it
+## 14. Roadmap — demo first
 
-| # | Task | Why now |
+The product is a demo. That reorders everything: what a prospect *sees* beats what
+is architecturally complete.
+
+### 14.1 Blocking the demo
+
+| # | Task | Why |
 |---|---|---|
-| 1 | Confirm the call audibly works | Nothing else matters until the core promise is real |
-| 2 | `GET /api/stream/[tenantId]` — SSE over `LISTEN/NOTIFY` | Unlocks the live dire alert, the demo's climax |
-| 3 | Dire-transfer modal, rebuilt small | Listens to that stream; rings on screen |
-| 4 | Kanban + Lead 360, rebuilt on server actions | The pipeline is a table today; this is what clients *see* |
-| 5 | Meta + lead-form webhooks (per §4.4) | Without these, no lead can ever enter the system |
-| 6 | Client settings forms (hours / pricing / broadcast) | RLS already permits it; the UI is simply missing |
-| 7 | Agency provisioning wizard, LLM-backed, failing loudly | You cannot onboard client #1 without it |
-| 8 | Knowledge base CRUD | The agent's accuracy depends on it |
-| 9 | EU LiveKit region | Removes 150-200 ms from every turn |
-| 10 | `next build` clean run | Before any deployment |
-| 11 | Rewrite `README.md` from the code | Last, so it cannot drift again |
+| 1 | **Make one real call and listen** | Every claim below is downstream of this. All three APIs answer (§18); nobody has heard a live conversation |
+| 2 | **`GET /api/stream/[tenantId]` — SSE over `LISTEN/NOTIFY`** | The worker emits `TRIGGER_DIRE_MODAL` and **nothing on screen listens**. This is the demo's climax |
+| 3 | **Dire-transfer modal** | Listens to that stream: rings mid-call with the caller, the DKK value and what the AI already said |
+| 4 | **Confirm a live call produces a recording** | `recording_status` should be `ok` after a real call (§19) |
 
-Each is independently shippable. None requires touching the schema again,
-because the tenancy model is settled.
+### 14.2 Makes the agency viable
+
+| # | Task | Why |
+|---|---|---|
+| 5 | **DeepSeek agent builder** — paste a knowledge base, draft the Danish prompt, prices, escalation policy | Onboarding one client by hand is fine; fifty is the whole job. Must **propose, never auto-write** |
+| 6 | **Azure voice A/B** — `da-DK-ChristelNeural` vs Cartesia | Voice quality is existential and only a human can judge it (§20.4) |
+| 7 | **Recording retention** — delete after N days | ~1 MB / 10 min, forever, with no policy |
+| 8 | **Agency-side fact editing** | The agency can write facts through RLS but has no form for them |
+
+### 14.3 Real product, not demo
+
+| # | Task | Why |
+|---|---|---|
+| 9 | **Meta + lead-form webhooks** (per §4.4) | Without these, leads only arrive by hand |
+| 10 | **Phone calls** — DID → tenant resolution, `flynumber_did` in the UI (§20.5) | The worker currently *raises* on a SIP call |
+| 11 | **Kanban board** | The pipeline is bars and a table, not draggable cards |
+| 12 | **Owner text co-pilot** | Deleted with the old data layer; was genuinely working |
+| 13 | **EU LiveKit region** | The project reports India South from Denmark: latency tax on every turn |
+| 14 | **`next build` clean run** | Before any deployment; needs the machine otherwise idle |
+| 15 | **Rewrite `README.md` from the code** | Last, so it cannot drift again |
+
+Items 1–4 are days. Item 5 is the one that changes what the business can do.
 
 ---
 
@@ -1075,6 +1109,29 @@ because the tenancy model is settled.
     instead — that is why `agent-worker/tests/` exists. Multi-line
     `git commit -m` breaks the same way; use `git commit -F <file>`.
 
+13. **Long `node -e` one-liners hang silently.** The CDP screenshot script works
+    as a file (`/tmp/shot-one.mjs`) and hung as a one-liner — the request-id and
+    quoting rules are not worth fighting. Write the file.
+
+14. **`ctx.session_directory` is a temp directory, not storage.** The agents CLI
+    creates a per-job folder and it goes away. Always copy the recording out
+    before writing the database row — that is the entire reason
+    `services/recordings.py` exists.
+
+15. **A recording can be a valid Ogg file and still be empty.** An empty container
+    is a few hundred bytes and plays as silence. Hence the
+    `MIN_VALID_BYTES = 2048` floor; never trust "the file exists".
+
+16. **`psql` heredocs and `TemporaryDirectory` in tests disagree about cwd.**
+    `RECORDINGS_DIR` is read at call time, not import time, so tests can set it
+    inside a temp dir. If you move that read to module level, the recording test
+    will start writing to your home directory.
+
+17. **Read a screenshot before believing `tsc`.** The invented `pipeline_stage`
+    values type-checked perfectly. Three of the last four bugs in this project
+    were found by looking at a rendered page, not by reading code.
+
+
 ---
 
 ## 16. If you only remember five things
@@ -1101,6 +1158,9 @@ because the tenancy model is settled.
 | `139c37f` | browser ↔ agent wiring + token endpoint security fix |
 | `5a7e521` | `READMEFIRST.md` — full architecture and audit record |
 | `80f3636` | **M2**: create flows, frontend rebuild, agent depth (§17) |
+| `2a32ead` | proved the three inference APIs answer; dropped dead env keys (§18) |
+| `5276660` | fixed the invented `pipeline_stage` values; finished Danish localisation (§21) |
+| `0f7bdde` | **M3**: local call recording, transcript capture, recording consent (§19) |
 
 ---
 
@@ -1257,6 +1317,400 @@ synthetic TTS audio without a VAD is not deterministic. Two consequences:
 `META_APP_SECRET`, and only when the Meta webhook is rebuilt (§4.4). Without it
 the webhook cannot verify `X-Hub-Signature-256`, and shipping an unverified
 public webhook is exactly the defect this project exists to remove.
+
+---
+
+## 19. Call recording
+
+### 19.1 What was there before, and why it never worked
+
+`agent-worker/services/egress_recorder.py` used the Supabase **service-role JWT**
+as both the S3 access key *and* the secret. Every attempt raised. Nothing
+reported it, so the feature was believed to work for months. It was deleted
+rather than left lying.
+
+The lesson is not "configure S3 properly". It is **failure must be visible**.
+
+### 19.2 The mechanism — already in the SDK
+
+`livekit/agents/voice/agent_session.py:1095`:
+
+```python
+self.input.audio  = self._recorder_io.record_input(self.input.audio)    # caller
+self.output.audio = self._recorder_io.record_output(self.output.audio)  # agent
+task = asyncio.create_task(
+    self._recorder_io.start(output_path=job_ctx.session_directory / "audio.ogg")
+)
+```
+
+One flag turns it on:
+
+```python
+record={"audio": True, "traces": False, "logs": False, "transcript": False}
+```
+
+**`traces`, `logs` and `transcript` are deliberately OFF.** They upload to LiveKit
+Cloud. A Danish business's customer calls should not leave the machine in order
+to be read back. The transcript is read from `session.history` locally instead —
+see 19.4.
+
+### 19.3 The pipeline
+
+```
+call ends
+   ↓
+ctx.add_shutdown_callback(finalise_call)
+   ↓
+services/recordings.py:preserve()
+   wait for audio.ogg (10 × 0.5 s — the recorder task flushes on close)
+   stat → exists?  size ≥ 2048 bytes?
+   copy → ~/nordic-omni-recordings/<tenant-slug>/<YYYY-MM-DD>/<room>.ogg
+   verify → copied size == source size
+   ↓
+db.set_recording(...)
+   recording_path     absolute path (never exposed to a URL)
+   recording_bytes    52139
+   recording_status   ok | failed | skipped
+   recording_error    why, when it failed
+   recording_url      '/api/recordings/' || id   ← derived in SQL, from the row id
+```
+
+`MIN_VALID_BYTES = 2048` exists because an empty Ogg container is a few hundred
+bytes. A 300-byte "recording" is a bug wearing a filename.
+
+### 19.4 Transcript capture
+
+`call_logs.transcript_full` has existed since the baseline and was never written.
+
+On shutdown, `history_to_turns(session.history)` flattens the conversation into
+`[{role, content}]` and stores it. This is what fills the **Samtale** panel after
+a voice call, and it is what you paste into a reviewer to check whether the
+Danish was correct — far more reliable than listening along.
+
+`_content_to_text` accepts a string, a list of parts with `.text`, or a list of
+dicts with `"text"`. Serialised histories use the dict form; live objects use
+`.text`. Both are handled.
+
+### 19.5 Serving it without leaking
+
+`GET /api/recordings/[callId]`
+
+| Request | Result |
+|---|---|
+| anonymous | **401** |
+| malformed uuid | **404** (not a 500 — a bad cast must not look like a crash) |
+| `mette` (dental) asking for `jens`'s recording | **404** |
+| `jens`, own recording | **200**, `audio/ogg`, bytes identical to source |
+
+Authorization is **RLS, not a path check**: the `SELECT` runs inside
+`withUser()`, so another tenant gets zero rows. Missing / not-yours / failed all
+return the same 404, so the endpoint cannot be used to probe what exists.
+
+`recording_url` is computed in SQL as `'/api/recordings/' || id`, so no
+filesystem path ever reaches a URL.
+
+### 19.6 Consent — the demo-day question
+
+Recording calls in Denmark requires informing the caller (GDPR). `tenants.record_calls`
+drives both the recorder *and* a spoken line in the greeting:
+
+> *"… Hvordan kan jeg hjælpe? **Dette opkald bliver optaget.**"*
+> *"… How can I help? **This call is being recorded.**"*
+
+A business owner's first question is *"is that legal?"*. Now the AI answers it
+unprompted, in the right language. Asserted in `test_prompt.py` both ways.
+
+### 19.7 The status field, and why NULL is not `failed`
+
+| Value | Meaning |
+|---|---|
+| `ok` | file verified and copied |
+| `failed` | something broke; `recording_error` says what |
+| `skipped` | recording switched off for this tenant |
+| `NULL` | never attempted — e.g. a call from before this shipped |
+
+An early version of the UI rendered `NULL` as *"Recording failed"*. That is a
+different lie, so the view now says **"Ikke forsøgt"**.
+
+### 19.8 Storage
+
+```
+~/nordic-omni-recordings/
+  VOICE-SAMPLE-da-cartesia.ogg        a voice sample, clearly labelled, not a call
+  <tenant-slug>/
+    2026-11-05/
+      call-abc123.ogg
+```
+
+Override the root with `RECORDINGS_DIR`. Names are sanitised so
+`tenant_slug="../../etc"` cannot escape the root — asserted in the test.
+
+**No retention policy yet.** ~1 MB per 10 minutes, forever. That is fine for a
+demo and unacceptable for fifty clients; see §11.2 item 10.
+
+### 19.9 Files this added
+
+```
+db/migrations/0004_call_recording.sql       recording columns + tenants.record_calls
+db/migrations/0005_fix_seed_danish.sql      æøå in the applied demo data
+db/tests/recording_probe.sql                seeds a servable recording for HTTP tests
+db/tests/stage_enum_probe.sql               7 real stages write, 1 invented rejected
+
+agent-worker/services/recordings.py         preserve() + history_to_turns()
+agent-worker/tests/test_recordings.py       23 checks, no network
+agent-worker/main.py                        finalise_call() on the shutdown hook
+
+web/src/app/api/recordings/[callId]/route.ts   RLS-authorized streaming
+web/src/components/call/CallRecording.tsx      player + transcript + visible failure
+```
+
+Deleted: `web/src/components/audio/WaveformPlayer.tsx` — dead code that still
+claimed recordings were uploaded to Supabase Storage.
+
+---
+
+## 20. Telephony and voice providers — what was actually verified
+
+Researched rather than assumed, because the answers decide whether a phone demo
+is possible at all. Sources are noted so these claims can be re-checked.
+
+### 20.1 FlyNumber → LiveKit works, and here is the recipe
+
+Confirmed by FlyNumber staff on their own forum, with a working example
+(`discuss.flynumber.com/t/livekit-support/5036`) and now in their docs.
+
+**On the FlyNumber side** — Call Handling → SIP Address:
+
+| Field | Value |
+|---|---|
+| Transport | UDP (default) |
+| Host | `<project>.sip.livekit.cloud` |
+| Port | blank (5060 assumed) |
+| **Username** | **the FlyNumber itself in E.164**, e.g. `+4570201122` |
+
+The username is the trap. LiveKit matches the SIP `To:` user against the trunk's
+`numbers` list, so a name like `john` produces **SIP 404 "status fail, reason not
+found"** and nothing appears in the LiveKit dashboard at all.
+
+**On the LiveKit side** — two things, both required:
+
+```json
+{ "name": "FlyNumber inbound", "numbers": ["+4570201122"] }
+```
+```json
+{ "name": "dispatch", "rule": { "dispatch_rule_individual": { "room_prefix": "call-" } } }
+```
+
+Trunk alone is not enough; without a dispatch rule the call is accepted and then
+dropped because it has nowhere to go.
+
+### 20.2 One FlyNumber has one inbound destination
+
+Call Handling is a single card: SIP Address, **or** forward-to-phone, **or**
+phone system. Pointing it at LiveKit stops it answering your own app.
+
+What is *not* affected: **outbound cold calling.** Outbound is a separate leg, so
+dialling out from that number keeps working even if inbound is repointed.
+
+The real risk is callbacks. Cold-call a plumber, he rings back, and an AI answers
+your business number instead of you. Mid-demo that is unpredictable.
+
+**Recommendation, in order:** browser call (zero risk, already built) → a second
+FlyNumber (~$3–5/mo) → temporary repoint only outside cold-calling hours.
+
+### 20.3 LiveKit Cloud costs and limits (2026)
+
+From `livekit.com/pricing`:
+
+| | Value |
+|---|---|
+| Free "Build" plan | $0/mo, no card, **1,000 agent session minutes/month** |
+| Agent session | $0.0100/min |
+| Telephony | $0.0100/min |
+| Bring-your-own SIP trunk | supported — no need to buy a LiveKit number |
+| All-in per demo minute | ≈ **$0.03–0.05** |
+
+Metered telephony may require a card on file even on the free plan — worth
+checking before demo day rather than during it.
+
+### 20.4 Azure voice: not available through Inference
+
+`inference.TTSModels` contains **32 models, none of them Azure**:
+
+```
+cartesia, cartesia/sonic-3.5, cartesia/sonic-3, cartesia/sonic-2,
+cartesia/sonic-turbo, cartesia/sonic, deepgram, deepgram/aura, rime, …
+azure: []
+```
+
+So Azure requires the plugin and **your own** key:
+
+```bash
+uv pip install livekit-plugins-azure
+```
+```env
+AZURE_SPEECH_KEY=...
+AZURE_SPEECH_REGION=westeurope        # must match the Speech resource location
+AZURE_TTS_VOICE=da-DK-ChristelNeural
+```
+```python
+from livekit.plugins import azure
+azure.TTS(voice="da-DK-ChristelNeural")
+```
+
+`da-DK` is confirmed supported for TTS in Microsoft's language table. The two
+Danish neural voices are `da-DK-ChristelNeural` (female) and `da-DK-JeppeNeural`
+(male) — the definitive list should be pulled from the Azure voices endpoint once
+a key exists, rather than trusted from a truncated docs page.
+
+### 20.5 The worker still cannot answer a phone call
+
+```python
+tenant_id = meta.get("tenant_id") or meta.get("tenantId")
+if not tenant_id:
+    raise RuntimeError("No tenant_id in participant metadata...")
+```
+
+That refusal is correct and must stay — it is what stopped callers being routed
+into a stranger's CRM. But a **SIP caller's metadata comes from the dispatch
+rule**, not from our token route, so there is no `tenant_id` and the call raises.
+
+There is also **zero SIP handling** in the worker (`grep -rn 'sip' --include='*.py'`
+returns nothing outside the venv).
+
+The fix, when phone calls are wanted:
+
+1. Read `sip.trunkPhoneNumber` (the dialled DID) from the participant attributes
+2. `SELECT ... FROM tenants WHERE flynumber_did = $1` — the column exists
+3. Resolve or create the contact from `sip.phoneNumber`
+4. Surface `flynumber_did` in the agency UI (currently **read-only**; seeded with
+   placeholders `+4570201122` / `+4533123456`)
+
+`main.py` already merges `sip.phoneNumber` into contact resolution; the DID lookup
+is the missing half.
+
+---
+
+## 21. The enum lesson — six months of drift in one screenshot
+
+### 21.1 What happened
+
+The database defines:
+
+```sql
+CREATE TYPE pipeline_stage AS ENUM (
+  'new_lead', 'contacted', 'qualified', 'booked',
+  'dire_escalated', 'closed_won', 'closed_lost'
+);
+```
+
+The UI offered `contact_made`, `quote_sent` and `completed` — **three values that
+do not exist.** Picking one in the Lead 360 stage selector would have produced:
+
+```
+ERROR: invalid input value for enum pipeline_stage: "contact_made"
+```
+
+It was found by **taking a screenshot and looking at it**: one contact rendered
+with the raw string `contacted`, grey, no Danish label — because neither the
+colour map nor the label map had a key for it.
+
+### 21.2 Why TypeScript said nothing
+
+`pipeline_stage` reaches the browser as `string`. `'contact_made'` is a perfectly
+valid string. The type system had no idea the database disagreed, and `tsc` was
+green the whole time.
+
+This is the same class of defect as the rest of this repo: **a second, hand-kept
+copy of a fact that already exists somewhere authoritative.** The old code
+duplicated passkeys across four files; this duplicated an enum.
+
+### 21.3 The proof, so it stays fixed
+
+`db/tests/stage_enum_probe.sql`:
+
+```
+--- each real stage value must be writable ---
+UPDATE 1   ×7
+--- an invented value must be rejected ---
+ERROR:  invalid input value for enum pipeline_stage: "contact_made"
+```
+
+All seven real values write. The invented one fails. If someone re-introduces a
+fantasy stage, running this probe says so immediately.
+
+**The rule:** the enum lives in Postgres. Every list in TypeScript is a *mirror*,
+and mirrors need a test. Where possible the value should come from the database
+(`select unnest(enum_range(null::pipeline_stage))`) rather than be typed out.
+
+### 21.4 A second instance of the same drift
+
+The transcript column held **two incompatible shapes**:
+
+```json
+// the original seed
+{ "speaker": "agent", "text": "Goddag! …", "timestamp_ms": 0 }
+// what the worker writes
+{ "role": "assistant", "content": "Hej, …" }
+```
+
+Both are valid history, so the viewer normalises both rather than assuming one.
+`normaliseTurns()` accepts `role|speaker` and `content|text`, and treats
+`assistant`, `agent` and `ai` as the same speaker. The seeded call now renders
+correctly, and so will anything the worker writes later.
+
+If this were being designed again: pick one shape, document it beside the column,
+and have the worker and the seed share a fixture.
+
+### 21.5 Danish localisation — finishing the job
+
+A Danish workspace was speaking half English. Now:
+
+| Was | Now |
+|---|---|
+| Overview / Callers / Settings | Overblik / Kunder / Indstillinger |
+| New, Contacted, Quote, Done | Nye, Kontaktet, Kvalificeret, Fuldført |
+| `NEW LEAD`, `CONTACTED` pills | NY KUNDE, KONTAKTET, AKUT |
+| Caller / Stage / Value / Open → | Kunde / Stadie / Værdi / Åbn → |
+| Full name, Phone, Starting stage | Fulde navn, Telefon, Startstadie |
+| "1 akutte sager kræver" | "1 akut sag kræver" |
+| "1 sessioner" | "1 session" |
+
+The seed data had ASCII stand-ins that made the product look broken in Danish:
+`Kobenhavn`, `Dogndvagt`, `hjalpe`, `Hovedroret`, `kokkenvasken`, `Kodbyen`.
+Corrected in the baseline **and** in the already-applied rows (`0005`), because
+fixing only the baseline leaves the running demo looking wrong.
+
+**Lesson:** `æøå` are not decoration. A Danish product that writes `hjalpe` looks
+like a foreign product pretending to be Danish — which is exactly what it was.
+
+---
+
+## 22. Verification commands, all of them
+
+```bash
+# database
+psql -U omni_app -f db/tests/rls_probe.sql              # 8/8 tenant isolation
+psql -U omni_app -f db/tests/create_probe.sql           # insert / RLS deny / 23505
+psql -U omni_app -f db/tests/stage_enum_probe.sql       # 7 real stages, 1 rejected
+psql -U omni_app -f db/tests/recording_probe.sql        # seeds a servable recording
+
+# worker (no network)
+.venv/bin/python tests/test_agent_smoke.py              # 21 checks
+.venv/bin/python tests/test_prompt.py                   # 43 checks
+.venv/bin/python tests/test_recordings.py               # 23 checks
+
+# worker (network — asks the real APIs)
+.venv/bin/python tests/test_inference.py                # TTS + LLM + STT
+
+# web
+npx tsc --noEmit                                        # 0 errors
+```
+
+HTTP checks are in §12.2; the recording endpoint's matrix is in §19.5.
+
+
+
 
 
 
