@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { Phone, PhoneOff, Mic, MicOff, Sparkles, Volume2, Radio } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useAudioBands, peakOf } from '@/lib/audio/useAudioBands';
 
 type Stage = 'idle' | 'requesting' | 'connecting' | 'live' | 'ended' | 'error';
 
@@ -27,9 +27,14 @@ export function CallPanel({
   const [muted, setMuted] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
 
   const roomRef = useRef<Room | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Real frequency data from the agent's voice — not a looping animation.
+  const bands = useAudioBands(agentStream, 24);
+  const peak = peakOf(bands);
 
   useEffect(() => {
     return () => {
@@ -51,6 +56,7 @@ export function CallPanel({
     roomRef.current = null;
     audioRef.current?.remove();
     audioRef.current = null;
+    setAgentStream(null);
     setStage('ended');
     setAgentSpeaking(false);
   }, []);
@@ -93,6 +99,10 @@ export function CallPanel({
         el.style.display = 'none';
         document.body.appendChild(el);
         audioRef.current = el;
+
+        // Same track, second consumer: the analyser that drives the visualiser.
+        const media = track.mediaStreamTrack;
+        if (media) setAgentStream(new MediaStream([media]));
       });
 
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
@@ -246,23 +256,17 @@ export function CallPanel({
         </div>
       </div>
 
-      {/* Pulse 24-Bar Audio Equalizer Waveform */}
+      {/* Real 24-band equaliser, driven by the agent's actual voice. */}
       {isLive && (
         <div className="relative z-10 mt-5 border-t border-[var(--line)] pt-4">
-          <div className="wave on">
-            {Array.from({ length: 24 }).map((_, i) => (
-              <motion.i
+          <div className={peak > 0.05 ? 'wave on' : 'wave'}>
+            {bands.map((level, i) => (
+              <i
                 key={i}
-                animate={{
-                  scaleY: agentSpeaking
-                    ? [0.25, 1.0, 0.35, 0.85, 0.25]
-                    : [0.15, 0.45, 0.2, 0.4, 0.15],
-                }}
-                transition={{
-                  duration: 1.0 + (i % 5) * 0.15,
-                  repeat: Infinity,
-                  delay: i * 0.04,
-                  ease: 'easeInOut',
+                style={{
+                  transform: `scaleY(${Math.max(0.08, 0.08 + level * 0.92).toFixed(3)})`,
+                  transition: 'transform 90ms linear, opacity 200ms ease',
+                  opacity: 0.35 + level * 0.65,
                 }}
               />
             ))}

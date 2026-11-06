@@ -74,15 +74,15 @@ export function AppShell({
               'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-150',
               active
                 ? 'text-white'
-                : 'text-[var(--muted)] hover:bg-white/[0.04] hover:text-[var(--text)]'
+                : 'text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--text)]'
             )}
           >
             {active ? (
               <span
                 className="absolute inset-0 rounded-xl"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(139,92,246,0.32), rgba(34,211,238,0.16))',
-                  border: '1px solid rgba(139,92,246,0.4)',
+                  background: 'linear-gradient(135deg, var(--glow-soft), var(--glow-soft))',
+                  border: '1px solid var(--glow)',
                 }}
               />
             ) : null}
@@ -91,7 +91,7 @@ export function AppShell({
               strokeWidth={active ? 2.3 : 1.9}
               className={cn(
                 'relative z-10 transition-colors',
-                active ? 'text-[#22d3ee]' : 'text-[var(--muted)] group-hover:text-[var(--text)]'
+                active ? 'text-[var(--accent-secondary)]' : 'text-[var(--muted)] group-hover:text-[var(--text)]'
               )}
             />
             <span className="relative z-10 truncate">{item.label}</span>
@@ -111,13 +111,13 @@ export function AppShell({
       </div>
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--line)] bg-[rgba(10,12,22,0.85)] px-4 py-3 backdrop-blur-xl lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--line)] bg-[var(--shell)] px-4 py-3 backdrop-blur-xl lg:hidden">
         <Link href={brandHref} className="flex items-center gap-2.5">
           <div
             className="flex h-8 w-8 items-center justify-center rounded-xl text-white"
             style={{
               background: 'var(--grad)',
-              boxShadow: '0 4px 16px rgba(139,92,246,0.4)',
+              boxShadow: '0 4px 16px var(--glow)',
             }}
           >
             <Activity size={17} strokeWidth={2.6} />
@@ -132,7 +132,7 @@ export function AppShell({
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
-          className="rounded-xl border border-[var(--line)] bg-white/[0.04] p-2 text-[var(--muted)] hover:text-white"
+          className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-2 text-[var(--muted)] hover:text-white"
         >
           {open ? <X size={17} /> : <Menu size={17} />}
         </button>
@@ -143,7 +143,7 @@ export function AppShell({
         <aside
           className={cn(
             'fixed inset-y-0 left-0 z-30 w-[240px] shrink-0 border-r border-[var(--line)]',
-            'bg-[rgba(10,12,22,0.78)] backdrop-blur-2xl transition-transform duration-200',
+            'bg-[var(--shell)] backdrop-blur-2xl transition-transform duration-200',
             'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
             open ? 'translate-x-0' : '-translate-x-full'
           )}
@@ -158,14 +158,14 @@ export function AppShell({
                 className="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-lg"
                 style={{
                   background: 'var(--grad)',
-                  boxShadow: '0 6px 20px rgba(139,92,246,0.45)',
+                  boxShadow: '0 6px 20px var(--glow)',
                 }}
               >
                 <Activity size={19} strokeWidth={2.6} />
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{brandEyebrow}</span>
-                <span className="truncate text-sm font-extrabold tracking-tight text-[var(--text)]">
+                <span className="line-clamp-2 text-[13px] font-extrabold leading-tight tracking-tight text-[var(--text)]">
                   {brandName}
                 </span>
               </div>
@@ -203,7 +203,7 @@ export function AppShell({
         {/* Main Content Area */}
         <div className="relative z-10 min-w-0 flex-1">
           {toolbar ? (
-            <div className="sticky top-0 z-20 hidden items-center justify-end gap-2.5 border-b border-[var(--line)] bg-[rgba(8,10,18,0.7)] px-6 py-2.5 backdrop-blur-xl lg:flex">
+            <div className="sticky top-0 z-20 hidden items-center justify-end gap-2.5 border-b border-[var(--line)] bg-[var(--shell)] px-6 py-2.5 backdrop-blur-xl lg:flex">
               {toolbar}
             </div>
           ) : null}

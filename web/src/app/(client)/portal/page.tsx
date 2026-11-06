@@ -51,13 +51,13 @@ export default async function PortalOverviewPage() {
   const maxStage = Math.max(1, ...Array.from(byStage.values()));
 
   const STAGE_BAR_COLORS: Record<string, string> = {
-    new_lead: '#94a3b8',
-    contacted: '#38bdf8',
-    qualified: '#8b5cf6',
-    booked: '#34d399',
-    dire_escalated: '#f87171',
-    closed_won: '#34d399',
-    closed_lost: '#fbbf24',
+    new_lead: 'var(--muted)',
+    contacted: 'var(--accent-secondary)',
+    qualified: 'var(--accent-primary)',
+    booked: 'var(--success)',
+    dire_escalated: 'var(--danger)',
+    closed_won: 'var(--success)',
+    closed_lost: 'var(--warning)',
   };
 
   return (
@@ -161,17 +161,7 @@ export default async function PortalOverviewPage() {
             {STAGE_ORDER.map(([key, da, en]) => {
               const count = byStage.get(key) ?? 0;
               const pct = Math.round((count / maxStage) * 100);
-              const STAGE_BAR_COLORS: Record<string, string> = {
-    new_lead: '#94a3b8',
-    contacted: '#38bdf8',
-    qualified: '#8b5cf6',
-    booked: '#34d399',
-    dire_escalated: '#f87171',
-    closed_won: '#34d399',
-    closed_lost: '#fbbf24',
-  };
-
-  return (
+              return (
                 <div key={key} className="flex items-center gap-3">
                   <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
                     {isDanish ? da : en}
