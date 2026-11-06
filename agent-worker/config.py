@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 
 class ConfigError(RuntimeError):
@@ -41,6 +42,10 @@ class Config:
     tts_model: str
     tts_voice: str
 
+    # Microsoft Azure Speech credentials (optional)
+    azure_speech_key: Optional[str] = None
+    azure_speech_region: Optional[str] = None
+
 
 def load() -> Config:
     return Config(
@@ -53,4 +58,6 @@ def load() -> Config:
         tts_model=os.getenv("TTS_MODEL", "cartesia/sonic-3"),
         # Empty string = let the provider pick a default voice for the language.
         tts_voice=os.getenv("TTS_VOICE", ""),
+        azure_speech_key=os.getenv("AZURE_SPEECH_KEY") or None,
+        azure_speech_region=os.getenv("AZURE_SPEECH_REGION") or None,
     )

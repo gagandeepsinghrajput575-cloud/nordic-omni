@@ -20,7 +20,7 @@ export function Card({
 }) {
   return (
     <div
-      className={cn('surface', interactive && 'card-interactive cursor-pointer', className)}
+      className={cn('glass', interactive && 'card-interactive cursor-pointer', className)}
     >
       {children}
     </div>
@@ -41,13 +41,13 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-3.5',
+        'flex items-start justify-between gap-4 border-b border-[var(--line)] px-5 py-4',
         className
       )}
     >
       <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold tracking-tight">{title}</h2>
-        {hint ? <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{hint}</p> : null}
+        <h2 className="truncate text-sm font-bold tracking-tight text-[var(--text)]">{title}</h2>
+        {hint ? <p className="mt-0.5 text-xs text-[var(--muted)]">{hint}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
@@ -71,62 +71,57 @@ export function Stat({
   tone?: 'default' | 'accent' | 'danger' | 'warning' | 'success';
   icon?: ReactNode;
 }) {
-  const toneClass = {
-    default: 'text-[var(--text-primary)]',
-    accent: 'text-[var(--accent-primary)]',
-    danger: 'text-[var(--danger)]',
-    warning: 'text-[var(--warning)]',
-    success: 'text-[var(--success)]',
-  }[tone];
+  const colorMap = {
+    default: '#8b5cf6',
+    accent: '#22d3ee',
+    danger: '#f87171',
+    warning: '#fbbf24',
+    success: '#34d399',
+  };
 
-  const washVar =
-    tone === 'default' ? null : `var(--${tone === 'accent' ? 'accent-primary' : tone})`;
+  const c = colorMap[tone] || '#8b5cf6';
 
   return (
-    <Card className="group relative overflow-hidden p-5">
-      {washVar ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            background: `radial-gradient(120% 100% at 100% 0%, ${washVar} 0%, transparent 60%)`,
-          }}
-        />
-      ) : null}
-
+    <div
+      className="glass stat"
+      style={{ '--c': c } as React.CSSProperties}
+    >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-eyebrow">{label}</span>
-        {icon ? <span className="text-[var(--text-muted)]">{icon}</span> : null}
+        <div className="stat-ico">{icon}</div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
+          {label}
+        </span>
       </div>
 
-      <div className="mt-3 flex items-baseline gap-1.5">
-        <span
-          className={cn(
-            'font-mono text-[26px] font-bold tabular-nums leading-none tracking-tight',
-            toneClass
-          )}
-        >
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="stat-val">
           {value}
         </span>
-        {unit ? <span className="font-mono text-[11px] text-[var(--text-muted)]">{unit}</span> : null}
+        {unit ? (
+          <span className="font-mono text-xs font-semibold text-[var(--muted)]">
+            {unit}
+          </span>
+        ) : null}
       </div>
 
-      {hint ? <p className="mt-2 text-[11px] text-[var(--text-muted)]">{hint}</p> : null}
-    </Card>
+      {hint ? (
+        <p className="stat-sub mt-2">{hint}</p>
+      ) : null}
+    </div>
   );
 }
 
 /* ----------------------------------------------------------------- Badge --- */
 
-const BADGE_TONES = {
-  neutral: 'border-[var(--border-strong)] text-[var(--text-secondary)] bg-[var(--bg-raised)]',
-  accent: 'border-[var(--accent-line)] text-[var(--accent-primary)] bg-[var(--accent-soft)]',
-  danger: 'border-[var(--danger)]/40 text-[var(--danger)] bg-[var(--danger-soft)]',
-  warning: 'border-[var(--warning)]/40 text-[var(--warning)] bg-[var(--warning-soft)]',
-  success: 'border-[var(--success)]/40 text-[var(--success)] bg-[var(--success-soft)]',
-} as const;
+const BADGE_COLORS: Record<string, string> = {
+  neutral: '#94a3b8',
+  accent: '#8b5cf6',
+  danger: '#f87171',
+  warning: '#fbbf24',
+  success: '#34d399',
+};
 
-export type BadgeTone = keyof typeof BADGE_TONES;
+export type BadgeTone = 'neutral' | 'accent' | 'danger' | 'warning' | 'success';
 
 export function Badge({
   children,
@@ -139,16 +134,13 @@ export function Badge({
   dot?: boolean;
   className?: string;
 }) {
+  const color = BADGE_COLORS[tone] || '#94a3b8';
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5',
-        'font-mono text-[10px] uppercase tracking-wider whitespace-nowrap',
-        BADGE_TONES[tone],
-        className
-      )}
+      className={cn('badge', className)}
+      style={{ '--c': color } as React.CSSProperties}
     >
-      {dot ? <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" aria-hidden /> : null}
+      {dot ? <i aria-hidden /> : null}
       {children}
     </span>
   );
@@ -156,14 +148,14 @@ export function Badge({
 
 /** One colour story for pipeline stages, used everywhere a stage appears.
  *  Keys MUST match the `pipeline_stage` enum in Postgres exactly. */
-const STAGE_TONE: Record<string, BadgeTone> = {
-  new_lead: 'neutral',
-  contacted: 'accent',
-  qualified: 'accent',
-  booked: 'success',
-  dire_escalated: 'danger',
-  closed_won: 'success',
-  closed_lost: 'warning',
+const STAGE_COLORS: Record<string, string> = {
+  new_lead: '#94a3b8',
+  contacted: '#38bdf8',
+  qualified: '#8b5cf6',
+  booked: '#34d399',
+  dire_escalated: '#f87171',
+  closed_won: '#34d399',
+  closed_lost: '#fbbf24',
 };
 
 /** Danish labels, because a Danish workspace should not speak English. */
@@ -180,9 +172,15 @@ const STAGE_DA: Record<string, string> = {
 export function StagePill({ stage, danish = false }: { stage: string; danish?: boolean }) {
   const fallback = stage.replace(/_/g, ' ');
   const label = danish ? (STAGE_DA[stage] ?? fallback) : fallback;
+  const color = STAGE_COLORS[stage] || '#94a3b8';
+
   return (
-    <Badge tone={STAGE_TONE[stage] ?? 'neutral'} dot>
-      {label}
-    </Badge>
+    <span
+      className="stage-pill on"
+      style={{ '--c': color } as React.CSSProperties}
+    >
+      <i aria-hidden />
+      <span>{label}</span>
+    </span>
   );
 }

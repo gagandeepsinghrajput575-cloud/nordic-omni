@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
+import { Phone, PhoneOff, Mic, MicOff, Sparkles, Volume2, Radio } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 type Stage = 'idle' | 'requesting' | 'connecting' | 'live' | 'ended' | 'error';
 
@@ -58,7 +60,6 @@ export function CallPanel({
     setStage('requesting');
     setSeconds(0);
 
-    // Must match the room naming the worker and seed data expect.
     const roomName = `${tenantSlug}_call_${contactId}`;
 
     try {
@@ -124,45 +125,106 @@ export function CallPanel({
     seconds % 60
   ).padStart(2, '0')}`;
 
+  const isLive = stage === 'live';
+  const isConnecting = stage === 'connecting' || stage === 'requesting';
+
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-            {isDanish ? 'Test din AI-receptionist' : 'Test your AI receptionist'}
-          </h2>
-          <p className="mt-1 text-sm font-medium">
-            {isDanish ? `Ring op som ${contactName}` : `Call in as ${contactName}`}
-          </p>
+    <div className={`glass relative overflow-hidden p-6 transition-all duration-300 ${isLive ? 'border-[rgba(52,211,153,0.5)] shadow-[0_20px_70px_rgba(52,211,153,0.18)]' : ''}`}>
+      {/* Pulse Ambient Glow in Header */}
+      <div
+        className="pointer-events-none absolute -top-24 -left-10 h-56 w-full opacity-60 transition-opacity duration-500"
+        style={{
+          background: isLive
+            ? 'radial-gradient(ellipse at center, rgba(52, 211, 153, 0.4), transparent 70%)'
+            : isConnecting
+            ? 'radial-gradient(ellipse at center, rgba(251, 191, 36, 0.35), transparent 70%)'
+            : 'radial-gradient(ellipse at center, rgba(139, 92, 246, 0.35), transparent 70%)',
+        }}
+      />
+
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          {/* Pulse Call Button with Outer Ripples */}
+          <div className="call-wrap">
+            {isLive && (
+              <>
+                <span className="ring" />
+                <span className="ring r2" />
+              </>
+            )}
+            <button
+              type="button"
+              onClick={isLive ? hangUp : isConnecting ? undefined : startCall}
+              disabled={isConnecting}
+              className={`call-btn ${isConnecting ? 'dialing' : isLive ? 'active' : ''}`}
+              title={isLive ? 'Hang up' : 'Start call'}
+            >
+              {isLive ? (
+                <PhoneOff size={26} strokeWidth={2.4} />
+              ) : (
+                <Phone size={26} strokeWidth={2.4} />
+              )}
+            </button>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+              {isLive
+                ? (isDanish ? 'Opkald i gang' : 'Call in progress')
+                : isConnecting
+                ? (isDanish ? 'Forbinder…' : 'Connecting…')
+                : (isDanish ? 'WebRTC Test Studio' : 'WebRTC Test Studio')}
+            </span>
+            <div className="mt-0.5 text-base font-extrabold text-[var(--text)]">
+              {contactName}
+            </div>
+            <div className="text-xs text-[var(--muted)]">
+              {isDanish ? 'Live browser-simulator' : 'Live browser audio simulator'}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {stage === 'live' && (
-            <>
-              <span className="flex items-center gap-2 font-mono text-xs tabular-nums text-[var(--success)]">
-                <span className="h-2 w-2 rounded-full bg-[var(--success)] animate-pulse" />
-                {timer}
-              </span>
+        {/* Timer & Live Controls */}
+        <div className="flex items-center gap-4">
+          {isLive && (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end">
+                <span className="font-mono text-2xl font-extrabold tabular-nums text-white">
+                  {timer}
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#34d399]">
+                  <span className="h-2 w-2 rounded-full bg-[#34d399] animate-pulse" />
+                  {isDanish ? 'Aktiv linje' : 'Active line'}
+                </span>
+              </div>
+
               <button
+                type="button"
                 onClick={toggleMute}
-                className="rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:border-[var(--border-strong)]"
+                className={`btn sm ${muted ? 'danger' : ''}`}
               >
+                {muted ? <MicOff size={14} /> : <Mic size={14} />}
                 {muted ? (isDanish ? 'Slå lyd til' : 'Unmute') : 'Mute'}
               </button>
+
               <button
+                type="button"
                 onClick={hangUp}
-                className="rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-white"
+                className="btn sm danger"
               >
+                <PhoneOff size={14} />
                 {isDanish ? 'Læg på' : 'Hang up'}
               </button>
-            </>
+            </div>
           )}
 
-          {(stage === 'idle' || stage === 'ended' || stage === 'error') && (
+          {!isLive && !isConnecting && (
             <button
+              type="button"
               onClick={startCall}
-              className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-xs font-semibold text-[var(--accent-contrast)]"
+              className="btn primary glow"
             >
+              <Phone size={15} />
               {stage === 'idle'
                 ? isDanish
                   ? 'Start opkald'
@@ -173,46 +235,60 @@ export function CallPanel({
             </button>
           )}
 
-          {(stage === 'requesting' || stage === 'connecting') && (
-            <span className="font-mono text-xs text-[var(--text-muted)]">
+          {isConnecting && (
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/[0.05] px-4 py-2 font-mono text-xs text-[#fcd34d]">
+              <span className="h-2 w-2 rounded-full bg-[#fcd34d] animate-ping" />
               {stage === 'requesting'
-                ? isDanish
-                  ? 'Anmoder om mikrofon…'
-                  : 'Requesting microphone…'
-                : isDanish
-                  ? 'Forbinder…'
-                  : 'Connecting…'}
-            </span>
+                ? (isDanish ? 'Anmoder om mikrofon…' : 'Requesting mic…')
+                : (isDanish ? 'Forbinder WebRTC…' : 'Connecting WebRTC…')}
+            </div>
           )}
         </div>
       </div>
 
-      {stage === 'live' && (
-        <p className="mt-3 text-xs text-[var(--text-muted)]">
-          {agentSpeaking
-            ? isDanish
-              ? 'AI-assistenten taler…'
-              : 'The AI is speaking…'
-            : isDanish
-              ? 'Lytter… prøv fx “mit hovedrør er sprunget”.'
-              : 'Listening… try “my kitchen pipe just burst”.'}
-        </p>
-      )}
+      {/* Pulse 24-Bar Audio Equalizer Waveform */}
+      {isLive && (
+        <div className="relative z-10 mt-5 border-t border-[var(--line)] pt-4">
+          <div className="wave on">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <motion.i
+                key={i}
+                animate={{
+                  scaleY: agentSpeaking
+                    ? [0.25, 1.0, 0.35, 0.85, 0.25]
+                    : [0.15, 0.45, 0.2, 0.4, 0.15],
+                }}
+                transition={{
+                  duration: 1.0 + (i % 5) * 0.15,
+                  repeat: Infinity,
+                  delay: i * 0.04,
+                  ease: 'easeInOut',
+                }}
+              />
+            ))}
+          </div>
 
-      {(stage === 'idle' || stage === 'ended') && (
-        <p className="mt-3 text-xs text-[var(--text-muted)]">
-          {isDanish
-            ? 'Opkaldet foregår i browseren via WebRTC. Ingen telefonregning.'
-            : 'The call runs in your browser over WebRTC. No phone bill.'}
-        </p>
+          <div className="mt-2 text-center text-xs font-medium text-[var(--muted)]">
+            {agentSpeaking ? (
+              <span className="text-[#22d3ee]">
+                {isDanish ? '⚡ AI-receptionisten taler…' : '⚡ AI receptionist is speaking…'}
+              </span>
+            ) : (
+              <span>
+                {isDanish
+                  ? '🎙️ Lytter til dig… prøv at sige: “Mit vandrør er sprunget akut”.'
+                  : '🎙️ Listening to you… say: “My pipe burst in the bathroom”.'}
+              </span>
+            )}
+          </div>
+        </div>
       )}
 
       {error && (
-        <p className="mt-3 rounded-lg border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--danger)]">
+        <div className="relative z-10 mt-4 rounded-xl border border-[var(--bad)]/40 bg-[var(--bad)]/10 p-3 text-xs text-[#fca5a5]">
           {error}
-        </p>
+        </div>
       )}
     </div>
   );
 }
-

@@ -22,6 +22,7 @@ const UpdateConfigSchema = z.object({
   customer_system_prompt: z.string().min(20, 'Prompt must be at least 20 characters').max(8000),
   copilot_system_prompt: z.string().min(20, 'Prompt must be at least 20 characters').max(8000),
   greeting_script: z.string().max(500).optional(),
+  voice_id: z.string().max(100).optional(),
 });
 
 export interface ActionResult {
@@ -38,6 +39,7 @@ export async function updateAgentConfig(formData: FormData): Promise<ActionResul
     customer_system_prompt: formData.get('customer_system_prompt'),
     copilot_system_prompt: formData.get('copilot_system_prompt'),
     greeting_script: formData.get('greeting_script') || undefined,
+    voice_id: formData.get('voice_id') || undefined,
   });
 
   if (!parsed.success) {
@@ -47,7 +49,7 @@ export async function updateAgentConfig(formData: FormData): Promise<ActionResul
     };
   }
 
-  const { tenantId, customer_system_prompt, copilot_system_prompt, greeting_script } = parsed.data;
+  const { tenantId, customer_system_prompt, copilot_system_prompt, greeting_script, voice_id } = parsed.data;
 
   try {
     await withUser(session.userId, async (tx) => {
@@ -68,6 +70,7 @@ export async function updateAgentConfig(formData: FormData): Promise<ActionResul
            set customer_system_prompt = ${customer_system_prompt},
                copilot_system_prompt  = ${copilot_system_prompt},
                greeting_script        = ${greeting_script ?? null},
+               voice_id               = ${voice_id ?? null},
                updated_by             = ${session.userId}
          where tenant_id = ${tenantId}
         returning tenant_id
@@ -144,4 +147,88 @@ export async function restoreAgentConfig(formData: FormData): Promise<ActionResu
 export async function restoreAgentConfigForm(formData: FormData): Promise<void> {
   await restoreAgentConfig(formData);
 }
+
+export interface GenerateAgentInput {
+  companyName: string;
+  industry: string;
+  language: 'da' | 'en';
+  tone: 'professional' | 'warm' | 'urgent_dispatcher';
+  keyServices?: string;
+}
+
+export async function generateAgentConfigAction(input: GenerateAgentInput): Promise<{
+  ok: boolean;
+  error?: string;
+  data?: {
+    customer_system_prompt: string;
+    copilot_system_prompt: string;
+    greeting_script: string;
+    voice_id: string;
+  };
+}> {
+  await requireAgency();
+
+  const isDanish = input.language === 'da';
+  const company = input.companyName.trim() || 'Virksomheden';
+  const industry = input.industry.trim() || (isDanish ? 'håndværk & service' : 'general services');
+  const services = input.keyServices?.trim() || (isDanish ? 'Akut udrykning, rådgivning og serviceopgaver' : 'Emergency service, diagnostics, and general inquiries');
+  const toneDesc = input.tone === 'urgent_dispatcher'
+    ? (isDanish ? 'Rolig, hurtig og fokuseret på hurtig udrykning og sikkerhed.' : 'Calm, rapid, and focused on emergency dispatch and safety.')
+    : input.tone === 'warm'
+    ? (isDanish ? 'Imødekommende, empatisk og hjælpsom.' : 'Warm, empathetic, and attentive.')
+    : (isDanish ? 'Professionel, høflig og præcis.' : 'Professional, polite, and precise.');
+
+  const greeting = isDanish
+    ? `Goddag, du har ringet til ${company}. Du taler med den automatiske telefonsvarer. Hvad kan jeg hjælpe dig med i dag?`
+    : `Hello, thank you for calling ${company}. You are speaking with the AI receptionist. How can I help you today?`;
+
+  const customerPrompt = isDanish
+    ? `Du er den venlige og professionelle telefonreceptionist for ${company}, specialiseret i ${industry}.
+Tone: ${toneDesc}
+
+## FORMÅL
+Besvar indgående kundeopkald, identificér kundens problem, svar på almindelige spørgsmål, og book en tid eller optag en besked til mester.
+
+## TJENESTER OG SERVICES
+${services}
+
+## RETNINGSLINJER FOR SAMTALEN
+- Tal naturligt og i korte sætninger (1-2 sætninger ad gangen), da samtalen foregår over telefonen.
+- Spørg altid om kundens adresse og telefonnummer hvis de ønsker en aftale.
+- Hvis kunden har en akut nødsituation (f.eks. oversvømmelse, sprængt rør, strømsvigt, eller akut tandpine), berolig kunden og overdrag straks sagen til vagthavende mester.
+- Opfind aldrig priser eller garantier, der ikke er bekræftet.
+- Vær altid høflig og repræsentér ${company} på bedste vis.`
+    : `You are the friendly and professional phone receptionist for ${company}, specializing in ${industry}.
+Tone: ${toneDesc}
+
+## PURPOSE
+Answer incoming customer calls, diagnose the customer's need, answer general questions, and arrange service or record a callback for the team.
+
+## SERVICES OFFERED
+${services}
+
+## CONVERSATION GUIDELINES
+- Speak naturally and in concise sentences (1-2 sentences at a time) suitable for phone telephony.
+- Always ask for the caller's location and preferred contact number when booking.
+- For emergency situations (flood, structural damage, gas leak, severe pain), immediately trigger emergency escalation to the on-call staff.
+- Never invent prices, guarantees, or availability outside verified policies.
+- Represent ${company} with maximum reliability and care.`;
+
+  const copilotPrompt = isDanish
+    ? `Du er den interne AI-assistent og co-pilot for ejeren af ${company}. Du opsummerer indgående kundeopkald, fremhæver akutte problemer, og hjælper med hurtig opfølgning på nye kundeemner.`
+    : `You are the internal AI assistant and co-pilot for the owner of ${company}. You summarize incoming calls, highlight urgent issues, and draft rapid follow-up actions.`;
+
+  const voiceId = isDanish ? 'azure:da-DK-ChristelNeural' : 'azure:en-US-JennyNeural';
+
+  return {
+    ok: true,
+    data: {
+      customer_system_prompt: customerPrompt,
+      copilot_system_prompt: copilotPrompt,
+      greeting_script: greeting,
+      voice_id: voiceId,
+    },
+  };
+}
+
 

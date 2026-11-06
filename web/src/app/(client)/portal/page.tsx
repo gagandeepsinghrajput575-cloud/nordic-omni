@@ -15,6 +15,7 @@ import { Badge, Card, CardHeader, StagePill, Stat } from '@/components/ui/core';
 import { Avatar, EmptyState, PageHeader, SectionTitle } from '@/components/ui/feedback';
 import { buttonClass } from '@/components/ui/form';
 import { CallPanel } from '@/components/call/CallPanel';
+import { AiCopilotBar } from '@/components/portal/AiCopilotBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,16 @@ export default async function PortalOverviewPage() {
   for (const c of all) byStage.set(c.pipeline_stage, (byStage.get(c.pipeline_stage) ?? 0) + 1);
   const maxStage = Math.max(1, ...Array.from(byStage.values()));
 
+  const STAGE_BAR_COLORS: Record<string, string> = {
+    new_lead: '#94a3b8',
+    contacted: '#38bdf8',
+    qualified: '#8b5cf6',
+    booked: '#34d399',
+    dire_escalated: '#f87171',
+    closed_won: '#34d399',
+    closed_lost: '#fbbf24',
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -66,6 +77,9 @@ export default async function PortalOverviewPage() {
           </Link>
         }
       />
+
+      {/* Natural Language AI Operations Bar */}
+      <AiCopilotBar isDanish={isDanish} />
 
       {overview.dire > 0 ? (
         <div className="animate-rise flex flex-wrap items-center justify-between gap-3 rounded-[var(--r-lg)] border border-[var(--danger)]/40 bg-[var(--danger-soft)] px-4 py-3">
@@ -147,7 +161,17 @@ export default async function PortalOverviewPage() {
             {STAGE_ORDER.map(([key, da, en]) => {
               const count = byStage.get(key) ?? 0;
               const pct = Math.round((count / maxStage) * 100);
-              return (
+              const STAGE_BAR_COLORS: Record<string, string> = {
+    new_lead: '#94a3b8',
+    contacted: '#38bdf8',
+    qualified: '#8b5cf6',
+    booked: '#34d399',
+    dire_escalated: '#f87171',
+    closed_won: '#34d399',
+    closed_lost: '#fbbf24',
+  };
+
+  return (
                 <div key={key} className="flex items-center gap-3">
                   <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
                     {isDanish ? da : en}
@@ -157,12 +181,7 @@ export default async function PortalOverviewPage() {
                       className="h-full rounded-full transition-[width] duration-700"
                       style={{
                         width: `${pct}%`,
-                        background:
-                          key === 'dire_escalated'
-                            ? 'var(--danger)'
-                            : key === 'closed_lost'
-                              ? 'var(--warning)'
-                              : 'var(--accent-primary)',
+                        background: STAGE_BAR_COLORS[key] || 'var(--accent-primary)',
                       }}
                     />
                   </div>

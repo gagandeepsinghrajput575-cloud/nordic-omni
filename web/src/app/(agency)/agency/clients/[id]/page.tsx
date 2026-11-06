@@ -7,6 +7,7 @@ import {
   getAgentConfig,
   listKnowledge,
   listConfigHistory,
+  listContacts,
 } from '@/lib/db/queries';
 import { PromptEditor } from './PromptEditor';
 import { KnowledgeEditor } from './KnowledgeEditor';
@@ -24,12 +25,13 @@ export default async function AgencyClientDetailPage({
   const { id } = await params;
   const session = await requireAgency();
 
-  const [tenant, overview, config, knowledge, history] = await Promise.all([
+  const [tenant, overview, config, knowledge, history, contacts] = await Promise.all([
     getTenantFacts(session.userId, id),
     getTenantOverview(session.userId, id),
     getAgentConfig(session.userId, id),
     listKnowledge(session.userId, id),
     listConfigHistory(session.userId, id),
+    listContacts(session.userId, id, 1),
   ]);
 
   if (!tenant) notFound();
@@ -173,10 +175,16 @@ export default async function AgencyClientDetailPage({
         {config ? (
           <PromptEditor
             tenantId={tenant.id}
+            tenantSlug={tenant.slug}
+            tenantName={tenant.name}
+            defaultLanguage={tenant.default_language}
+            contactId={contacts[0]?.id ?? 'demo-caller'}
+            contactName={contacts[0]?.full_name ?? 'Demo Caller'}
             initial={{
               customer_system_prompt: config.customer_system_prompt,
               copilot_system_prompt: config.copilot_system_prompt,
               greeting_script: config.greeting_script,
+              voice_id: config.voice_id,
             }}
           />
         ) : (

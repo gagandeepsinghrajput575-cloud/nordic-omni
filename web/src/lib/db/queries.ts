@@ -99,6 +99,33 @@ export async function listContacts(userId: string, tenantId: string, limit = 50)
   });
 }
 
+export async function searchContacts(
+  userId: string,
+  tenantId: string,
+  query: string
+): Promise<ContactRow[]> {
+  const pattern = `%${query.trim()}%`;
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, full_name, phone_number, email, pipeline_stage::text as pipeline_stage,
+             lead_score, estimated_value_dkk::float as estimated_value_dkk,
+             ai_auto_reply_enabled, shared_memory_summary,
+             preferred_language, sentiment_score::float as sentiment_score,
+             created_at, updated_at
+      from contacts
+      where tenant_id = ${tenantId}
+        and (
+          full_name ilike ${pattern}
+          or phone_number ilike ${pattern}
+          or email ilike ${pattern}
+        )
+      order by updated_at desc
+      limit 5
+    `;
+    return rows as unknown as ContactRow[];
+  });
+}
+
 /**
  * One contact, by id. RLS decides whether this caller is even visible, so no
  * tenant filter is written here — a cross-tenant id simply returns null.

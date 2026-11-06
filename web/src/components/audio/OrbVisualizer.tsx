@@ -91,23 +91,27 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
         amplitude = 0.35 + Math.sin(time * 3) * 0.15;
       }
 
-      // State-driven color palettes
-      let glowColor = 'rgba(0, 245, 212, 0.4)'; // Neon Cyan default
-      let innerColor1 = '#00F5D4';
-      let innerColor2 = '#7928CA';
+      // State-driven color palettes (Pulse Dialer Gradient Palette)
+      let glowColor = 'rgba(139, 92, 246, 0.4)'; // Pulse Violet default
+      let innerColor1 = '#8b5cf6';
+      let innerColor2 = '#22d3ee';
 
       if (state === 'dire_hold') {
-        glowColor = 'rgba(239, 68, 68, 0.6)'; // Urgent Red
-        innerColor1 = '#EF4444';
-        innerColor2 = '#F59E0B';
+        glowColor = 'rgba(248, 113, 113, 0.5)'; // Urgent Red
+        innerColor1 = '#f87171';
+        innerColor2 = '#fbbf24';
       } else if (state === 'consulting') {
-        glowColor = 'rgba(245, 158, 11, 0.5)'; // Amber/Gold
-        innerColor1 = '#F59E0B';
-        innerColor2 = '#8B5CF6';
+        glowColor = 'rgba(251, 191, 36, 0.45)'; // Amber / Violet
+        innerColor1 = '#fbbf24';
+        innerColor2 = '#8b5cf6';
       } else if (state === 'speaking') {
-        glowColor = 'rgba(56, 189, 248, 0.6)'; // Bright Sky Blue
-        innerColor1 = '#38BDF8';
-        innerColor2 = '#6366F1';
+        glowColor = 'rgba(34, 211, 238, 0.5)'; // Electric Cyan / Violet
+        innerColor1 = '#22d3ee';
+        innerColor2 = '#8b5cf6';
+      } else if (state === 'listening') {
+        glowColor = 'rgba(52, 211, 153, 0.45)'; // Mint / Cyan
+        innerColor1 = '#34d399';
+        innerColor2 = '#22d3ee';
       }
 
       // Outer Glow Aura

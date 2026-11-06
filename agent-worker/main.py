@@ -60,17 +60,59 @@ def prewarm(proc: JobProcess) -> None:
     proc.userdata[VAD_KEY] = silero.VAD.load()
 
 
-def build_session(cfg: Config, language: str, proc: JobProcess) -> AgentSession:
-    """STT/LLM/TTS come from LiveKit Inference; language drives accent + accuracy."""
-    tts_kwargs: dict[str, Any] = {"language": language}
-    if cfg.tts_voice:
-        tts_kwargs["voice"] = cfg.tts_voice
+def build_session(
+    cfg: Config,
+    language: str,
+    proc: JobProcess,
+    *,
+    voice_override: Optional[str] = None,
+) -> AgentSession:
+    """STT/LLM/TTS come from LiveKit Inference or Microsoft Azure; language drives accent + accuracy."""
+    chosen_voice = (voice_override or cfg.tts_voice or "").strip()
+    is_azure = (
+        cfg.tts_model.lower().startswith("azure")
+        or chosen_voice.startswith("azure:")
+        or "Neural" in chosen_voice
+    )
+    clean_voice = chosen_voice.replace("azure:", "").replace("cartesia:", "").strip()
+
+    # Check for Microsoft Azure TTS selection
+    if is_azure:
+        from livekit.plugins import azure
+
+        azure_voice = clean_voice or ("da-DK-ChristelNeural" if language.startswith("da") else "en-US-JennyNeural")
+        azure_kwargs: dict[str, Any] = {"voice": azure_voice}
+        if cfg.azure_speech_key:
+            azure_kwargs["speech_key"] = cfg.azure_speech_key
+        if cfg.azure_speech_region:
+            azure_kwargs["speech_region"] = cfg.azure_speech_region
+
+        tts_instance = azure.TTS(**azure_kwargs)
+    else:
+        tts_kwargs: dict[str, Any] = {"language": language}
+        if clean_voice:
+            tts_kwargs["voice"] = clean_voice
+        tts_instance = inference.TTS(cfg.tts_model, **tts_kwargs)
+
+    # Check for Microsoft Azure STT selection
+    if cfg.stt_model.lower().startswith("azure"):
+        from livekit.plugins import azure
+
+        stt_kwargs: dict[str, Any] = {"language": language}
+        if cfg.azure_speech_key:
+            stt_kwargs["speech_key"] = cfg.azure_speech_key
+        if cfg.azure_speech_region:
+            stt_kwargs["speech_region"] = cfg.azure_speech_region
+
+        stt_instance = azure.STT(**stt_kwargs)
+    else:
+        stt_instance = inference.STT(model=cfg.stt_model, language=language)
 
     return AgentSession(
         vad=proc.userdata[VAD_KEY],
-        stt=inference.STT(model=cfg.stt_model, language=language),
+        stt=stt_instance,
         llm=inference.LLM(model=cfg.llm_model),
-        tts=inference.TTS(cfg.tts_model, **tts_kwargs),
+        tts=tts_instance,
     )
 
 
@@ -193,7 +235,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     if role == "owner" or "owner" in identity or "consult" in identity:
         logger.info("Owner co-pilot session for tenant %s", tenant["slug"])
-        session = build_session(cfg, language, ctx.proc)
+        session = build_session(cfg, language, ctx.proc, voice_override=tenant.get("voice_id"))
         await session.start(OwnerCopilotAgent(tenant=tenant, db=db), room=ctx.room)
         await session.generate_reply(
             instructions="Greet the owner in one short sentence and ask what they need."
@@ -228,7 +270,7 @@ async def entrypoint(ctx: JobContext) -> None:
         ctx.room.name,
     )
 
-    session = build_session(cfg, language, ctx.proc)
+    session = build_session(cfg, language, ctx.proc, voice_override=tenant.get("voice_id"))
     agent = CustomerAgent(
         tenant=tenant,
         contact=contact,
