@@ -186,6 +186,66 @@ export async function listCallsForContact(
   });
 }
 
+export interface ProjectEstimateRow {
+  id: string;
+  project_type: string;
+  scope_details: string;
+  square_meters: number | null;
+  estimated_min_dkk: number;
+  estimated_max_dkk: number;
+  estimated_value_dkk: number;
+  followup_notes: string;
+  created_at: string;
+}
+
+export async function listProjectEstimates(
+  userId: string,
+  contactId: string,
+  limit = 20,
+): Promise<ProjectEstimateRow[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, project_type, scope_details,
+             square_meters::float8 as square_meters,
+             estimated_min_dkk::float8 as estimated_min_dkk,
+             estimated_max_dkk::float8 as estimated_max_dkk,
+             estimated_value_dkk::float8 as estimated_value_dkk,
+             followup_notes, created_at
+      from project_estimates
+      where contact_id = ${contactId}
+      order by created_at desc
+      limit ${limit}
+    `;
+    return rows as unknown as ProjectEstimateRow[];
+  });
+}
+
+export interface InspectionRequestRow {
+  id: string;
+  requested_time_text: string;
+  address: string;
+  notes: string;
+  status: string;
+  created_at: string;
+}
+
+export async function listInspectionRequests(
+  userId: string,
+  contactId: string,
+  limit = 20,
+): Promise<InspectionRequestRow[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, requested_time_text, address, notes, status, created_at
+      from inspection_requests
+      where contact_id = ${contactId}
+      order by created_at desc
+      limit ${limit}
+    `;
+    return rows as unknown as InspectionRequestRow[];
+  });
+}
+
 /** Conversation history for one contact, oldest first (reads like a chat). */
 export interface MessageRow {
   id: string;
@@ -342,6 +402,37 @@ export async function listConfigHistory(
       limit ${limit}
     `;
     return rows as unknown as HistoryEntry[];
+  });
+}
+
+export interface OpenEscalation {
+  id: string;
+  contact_id: string | null;
+  contact_name: string | null;
+  channel: string;
+  reason: string;
+  urgency: number;
+  briefing: string;
+  n8n_status: string;
+  created_at: string;
+}
+
+export async function listOpenEscalations(
+  userId: string,
+  tenantId: string,
+  limit = 5,
+): Promise<OpenEscalation[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select e.id, e.contact_id, c.full_name as contact_name,
+             e.channel, e.reason, e.urgency, e.briefing, e.n8n_status, e.created_at
+      from conversation_escalations e
+      left join contacts c on c.id = e.contact_id
+      where e.tenant_id = ${tenantId} and e.status <> 'resolved'
+      order by e.urgency desc, e.created_at desc
+      limit ${limit}
+    `;
+    return rows as unknown as OpenEscalation[];
   });
 }
 

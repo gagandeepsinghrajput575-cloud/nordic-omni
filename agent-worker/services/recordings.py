@@ -158,11 +158,13 @@ def history_to_turns(history: Any) -> list[dict[str, str]]:
     turns: list[dict[str, str]] = []
 
     for item in getattr(history, "items", []) or []:
-        role = getattr(item, "role", None) or "unknown"
+        role = str(getattr(item, "role", None) or "unknown")
+        if role not in {"assistant", "user"}:
+            continue
         text = _content_to_text(getattr(item, "content", ""))
         if not text:
             continue
-        turns.append({"role": str(role), "content": text})
+        turns.append({"role": role, "content": text})
 
     return turns
 

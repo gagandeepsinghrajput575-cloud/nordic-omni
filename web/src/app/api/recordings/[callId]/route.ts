@@ -15,7 +15,7 @@ import { withUser } from '@/lib/db/client';
  * call log id in SQL, so nobody can traverse into another tenant's folder.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ callId: string }> }
 ) {
   const session = await apiSession();
@@ -58,17 +58,50 @@ export async function GET(
     return new Response('Recording file is missing from disk', { status: 410 });
   }
 
+  const baseHeaders = {
+    'Content-Type': 'audio/ogg',
+    'Accept-Ranges': 'bytes',
+    'Content-Disposition': `inline; filename="samtale-${callId}.ogg"`,
+    // Private: a recording is customer data, never cacheable by a shared proxy.
+    'Cache-Control': 'private, no-store',
+  };
+
+  // Native audio controls request byte ranges when the user seeks. Returning the
+  // whole file with 200 works but makes scrubbing unreliable on large recordings.
+  const range = request.headers.get('range');
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+    if (match) {
+      const suffixLength = !match[1] && match[2] ? Number(match[2]) : null;
+      const start = suffixLength !== null ? Math.max(0, size - suffixLength) : match[1] ? Number(match[1]) : 0;
+      const requestedEnd = match[2] && suffixLength === null ? Number(match[2]) : size - 1;
+      const end = Math.min(requestedEnd, size - 1);
+      if (Number.isSafeInteger(start) && Number.isSafeInteger(end) && start <= end && start < size) {
+        const stream = createReadStream(row.recording_path, { start, end });
+        return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
+          status: 206,
+          headers: {
+            ...baseHeaders,
+            'Content-Length': String(end - start + 1),
+            'Content-Range': `bytes ${start}-${end}/${size}`,
+          },
+        });
+      }
+    }
+    return new Response(null, {
+      status: 416,
+      headers: { 'Content-Range': `bytes */${size}`, ...baseHeaders },
+    });
+  }
+
   const nodeStream = createReadStream(row.recording_path);
   const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
 
   return new Response(webStream, {
     status: 200,
     headers: {
-      'Content-Type': 'audio/ogg',
+      ...baseHeaders,
       'Content-Length': String(size),
-      'Content-Disposition': `inline; filename="samtale-${callId}.ogg"`,
-      // Private: a recording is customer data, never cacheable by a shared proxy.
-      'Cache-Control': 'private, no-store',
     },
   });
 }

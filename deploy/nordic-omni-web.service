@@ -1,0 +1,19 @@
+[Unit]
+Description=NORDIC-OMNI web
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nordic
+WorkingDirectory=/opt/nordic-omni/web
+EnvironmentFile=/opt/nordic-omni/web/.env.local
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

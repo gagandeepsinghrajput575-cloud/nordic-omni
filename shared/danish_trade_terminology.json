@@ -1,0 +1,326 @@
+{
+  "meta": {
+    "title": "Danish Trade Terminology, Estimation Formulas & Conversational Scripts",
+    "locale": "da-DK",
+    "currency": "DKK",
+    "standard_vat_rate_pct": 25,
+    "building_code_reference": "Bygningsreglementet BR18 & SBi-anvisninger"
+  },
+  "domains": {
+    "bathroom_renovation": {
+      "domain_name_da": "Totalrenovering af badeværelse & vådrum",
+      "key_terms": [
+        {
+          "term": "Badeværelsesrenovering / Totalrenovering",
+          "definition": "Komplet modernisering af badeværelse, herunder nedrivning, opretning af underlag, ny vådrumsmembran, nye rørinstallationer, flisearbejde og sanitet.",
+          "colloquial_usage": "At rive badeværelset ned til rå vægge og bygge det op forfra.",
+          "standards_ref": "BR18 § 334-339, SBi-anvisning 252 (Vådrum)"
+        },
+        {
+          "term": "Vådrumssikring / Vådrumsmembran",
+          "definition": "Obligatorisk vandtæt forsegling (gummimembran, hjørnearmeringsbånd og rørkraver) på gulv og vægge i vådzonen før fliseopsætning.",
+          "colloquial_usage": "Vådrumsmembran og forsegling – lovpligtigt for at undgå fugtskader i etageadskillelse og vægge.",
+          "standards_ref": "MK-godkendte vådrumssystemer"
+        },
+        {
+          "term": "Flisearbejde / Klinkearbejde",
+          "definition": "Montering af klinker eller storformatfliser på gulv og vægge, inkl. faldopbygning (min. 1:100 mod gulvafløb), cementfuger og elastiske silikonefuger i vinkler.",
+          "colloquial_usage": "Flisemontering, sokkelfliser, mosaik i bruseniche og gummifuger."
+        },
+        {
+          "term": "Sanitet",
+          "definition": "Faste baderumsinstallationer såsom væghængt toilet m. indbygningscisterne, håndvask, spejl/baderumsmøbel og armaturer/blandingsbatterier.",
+          "colloquial_usage": "Toilet, vask, armatur og brusesæt."
+        },
+        {
+          "term": "VVS-tilslutning",
+          "definition": "Autoriseret arbejde på vandtilførsel (PEX rør-i-rør), afløb, faldstammeudskiftning, linjeafløb (f.eks. Unidrain) og vandbåret gulvvarme.",
+          "colloquial_usage": "Autoriseret VVS-arbejde – kræver autorisationsstempel og trykprøvning.",
+          "standards_ref": "Autorisationsloven (Sikkerhedsstyrelsen)"
+        }
+      ],
+      "estimation_formula": {
+        "unit": "DKK pr. m² gulvareal (inkl. moms)",
+        "typical_range_m2": {
+          "standard": "25.000 - 35.000 DKK/m²",
+          "premium_large_format": "35.000 - 48.000 DKK/m²"
+        },
+        "bracket_estimates_by_size": {
+          "small_3_to_5_m2": "95.000 - 150.000 DKK",
+          "medium_6_to_8_m2": "145.000 - 215.000 DKK",
+          "large_9_plus_m2": "210.000 - 320.000 DKK"
+        },
+        "labor_vs_materials_split": "ca. 60% arbejdsløn (fagentrepriser: murer, VVS, el, tømrer, maler) / 40% materialer og sanitet",
+        "key_cost_drivers": [
+          "Flytning af faldstamme eller gulvafløb",
+          "Etablering af vandbåret gulvvarme vs. el-gulvvarme",
+          "Valg af flisestørrelse (storformat 60x60/60x120 cm kræver ekstra planspartling og dobbeltklæbning)",
+          "Etageejendom (adgangsforhold og bærende bjælkelag) vs. stueplan i parcelhus"
+        ]
+      }
+    },
+    "kitchen_renovation": {
+      "domain_name_da": "Køkkenrenovering & Montering",
+      "key_terms": [
+        {
+          "term": "Køkkenmontering",
+          "definition": "Samling og professionel montage af moduler, skabselementer, sokkel med justerbare ben, skuffer med soft-close dæmpning og tilpasningsstykker (paslister/gavle).",
+          "colloquial_usage": "Opsætning af køkkenelementer (IKEA, HTH, Kvik, Svane mv.)."
+        },
+        {
+          "term": "Bordplader & Udskæringer",
+          "definition": "Opmåling, tilskæring og montering af bordplader (laminat, massiv træ, kompositsten som Silestone, granit, Dekton), herunder underlimning af vask og planlimning af kogeplade.",
+          "colloquial_usage": "Bordplademontage med præcise smig- og hjørnesamlinger samt underlimet vask."
+        },
+        {
+          "term": "El- og VVS-tilpasning",
+          "definition": "Autoriseret fremføring af nye installationer: 400V kraftgruppe til induktionskogeplade og ovn, dedikeret 230V gruppe til opvaskemaskine og Quooker, samt flytning af kold/varmt vand og afløb.",
+          "colloquial_usage": "Tilslutning af hårde hvidevarer, vand, afløb og eventuel Quooker."
+        },
+        {
+          "term": "Nedrivning & Miljøsanering",
+          "definition": "Demontering af eksisterende køkken, bortkørsel af byggeaffald samt screening for asbest/PCB i fliseklæb og fuger i ældre ejendomme.",
+          "colloquial_usage": "Nedtagning af det gamle køkken og bortkørsel af brokker og skabe."
+        }
+      ],
+      "estimation_formula": {
+        "mounting_labor_only": "15.000 - 32.000 DKK inkl. moms (afhænger af antal elementer, ca. 12-20 moduler)",
+        "technical_adaptation_labor": {
+          "vvs_adaptation": "6.000 - 14.000 DKK inkl. moms",
+          "electrician_adaptation": "7.000 - 16.000 DKK inkl. moms"
+        },
+        "turnkey_turnaround_excl_cabinets": "45.000 - 85.000 DKK inkl. moms (nedrivning, el, VVS, montage, maling)",
+        "complete_project_incl_midrange_kitchen": "110.000 - 220.000 DKK inkl. moms",
+        "key_cost_drivers": [
+          "Bordplademateriale (massiv sten/komposit koster markant mere end laminat og kræver specialmåling)",
+          "Flytning af vask/afløb til anden væg eller køkken-ø",
+          "Udsugning/emhætte (recirkulation med kulfilter vs. nyt murboret aftræk til det fri)"
+        ]
+      }
+    },
+    "extensions_and_annexes": {
+      "domain_name_da": "Tilbygninger, Udestuer & Annekser",
+      "key_terms": [
+        {
+          "term": "Tilbygning",
+          "definition": "Helårsisoleret udvidelse af boligens primære bruttoetageareal i overensstemmelse med BR18 krav til u-værdier, radonsikring og brandsikring. Kræver kommunal byggetilladelse.",
+          "colloquial_usage": "Udvidelse af huset med ekstra værelser, stue eller nyt køkken-alrum.",
+          "standards_ref": "BR18 (Bygningsreglementet), Statiske beregninger"
+        },
+        {
+          "term": "Udestue / Vinterhave",
+          "definition": "Let overdækket tilbygning med overvejende glasfacader og termotag; skelnes mellem uisoleret sommerudestue og isoleret helårsudestue.",
+          "colloquial_usage": "Udestue med store skydedørspartier og termotag."
+        },
+        {
+          "term": "Anneks",
+          "definition": "Fritstående sekundær bygning til beboelse, kontor eller gæsteværelse. Skal overholde afstandskrav til skel (typisk min. 2,5 m) og energikrav ved helårsstatus.",
+          "colloquial_usage": "Isoleret haveanneks, gæstehytte eller hjemmekontor i haven."
+        },
+        {
+          "term": "Fundament & Terrændæk",
+          "definition": "Gravearbejde til frostfri dybde (min. 90 cm), støbning af stribefundament/sokkel i beton, letklinkeblokke/Leca, 300 mm trykfast EPS isolering, armeringsnet, radonspærre og støbt betonplade.",
+          "colloquial_usage": "Udgravning, sokkelstøbning, radonsikring og terrændæk."
+        },
+        {
+          "term": "M2-pris (Kvadratmeterpris)",
+          "definition": "Kalkulationsenhed for byggeriet, opdelt i råhus (lukket klimaskærm) vs. nøglefærdigt (fuldt apteret med gulve, lofter, el, maling).",
+          "colloquial_usage": "Pris pr. kvadratmeter færdigt byggeri."
+        }
+      ],
+      "estimation_formula": {
+        "unit": "DKK pr. m² bruttoareal (inkl. moms)",
+        "pricing_matrix": {
+          "raw_shell_tilbygning": "12.000 - 17.000 DKK/m² (lukket råhus: fundament, rå vægge, tag, vinduer)",
+          "turnkey_residential_tilbygning": "19.000 - 28.000 DKK/m² (nøglefærdig standard inkl. installationer)",
+          "high_complexity_wet_room_tilbygning": "28.000 - 36.000 DKK/m² (indeholder badeværelse eller køkken)",
+          "insulated_annex_wood_frame": "14.000 - 22.000 DKK/m²",
+          "glass_conservatory_udestue": "11.000 - 18.000 DKK/m²"
+        },
+        "key_cost_drivers": [
+          "Jordbundsforhold (blød bund kræver pælefunderings- eller skruefundament)",
+          "Gennembrydning i eksisterende facade (bærende bjælke / ståldrager som HEB/IPE profil)",
+          "Tagform og sammenbygning med eksisterende tagflader",
+          "Kommunale gebyrer, landinspektør og ingeniørberegninger (typisk 25.000 - 65.000 DKK)"
+        ]
+      }
+    },
+    "roofing": {
+      "domain_name_da": "Tagrenovering & Nyt Tag",
+      "key_terms": [
+        {
+          "term": "Tagrenovering / Tagudskiftning",
+          "definition": "Total afmontering af udtjent tagbelægning, kontrol/udskiftning af spær og lægter, etablering af undertag, isolering og lægning af ny tagbelægning.",
+          "colloquial_usage": "Nyt tag fra spærene og op."
+        },
+        {
+          "term": "Tegl / Tegltag",
+          "definition": "Klassisk brændt lertegl (f.eks. falstagsten eller vingetegl), tilgængelig som naturrød, engoberet eller glaseret. Lang levetid (50-100 år).",
+          "colloquial_usage": "Klassiske røde eller sort engoberede teglsten."
+        },
+        {
+          "term": "Betontagsten",
+          "definition": "Formstøbte betonsten (f.eks. B&C Klassik, IBF), som udgør et stærkt og økonomisk fordelagtigt alternativ til tegl.",
+          "colloquial_usage": "Betonstenstag."
+        },
+        {
+          "term": "Tagpap (Listedækning / Glatdækning)",
+          "definition": "Bitumenbaseret tagdækning udført i to lag (underpap og overpap med skifergranulat), svejst med gasbrænder. Oplagt til flade tage eller lav taghældning.",
+          "colloquial_usage": "2-lags svejset tagpap eller arkitektonisk listedækning."
+        },
+        {
+          "term": "Undertag",
+          "definition": "Sekundær vandtæt barriere under tagstenene. Opdeles i diffusionsåbent baneundertag eller fast undertag (krydsfiner/brædder med tagpap). Sikres med klemlister for ventilation.",
+          "colloquial_usage": "Undertag og ventilerede klemlister under lægterne.",
+          "standards_ref": "DUKO (Dampspærre og Undertagsklassifikation)"
+        },
+        {
+          "term": "Efterisolering af tag & Loft",
+          "definition": "Udlægning af mineraluld (Rockwool/Isover) op til gældende BR18 energikrav (typisk 300-400 mm), etablering af tæt dampspærre og vindplader ved tagfod.",
+          "colloquial_usage": "Loftisolering, dampspærre og ventilation ved udhænget."
+        },
+        {
+          "term": "Tagrender & Zinkarbejde",
+          "definition": "Afvanding af tagflader via halvrunde zink- eller kobbertagrender, rendejern, nedløbsrør og tilslutning til tagnedløbsbrønd/kloak.",
+          "colloquial_usage": "Zinktagrender, skotrender og zinkinddækninger omkring skorsten og kviste."
+        }
+      ],
+      "estimation_formula": {
+        "unit": "DKK pr. m² tagflade (inkl. moms og stillads)",
+        "pricing_by_roof_material": {
+          "betontagsten_complete": "1.300 - 1.850 DKK/m²",
+          "teglsten_engoberet_complete": "1.900 - 2.700 DKK/m²",
+          "tagpap_2_lags_complete": "1.200 - 1.750 DKK/m²",
+          "fibercement_eternit_b6_b7": "950 - 1.450 DKK/m²",
+          "naturskifer_zink_falset": "2.800 - 4.200 DKK/m²"
+        },
+        "typical_single_family_home_total": {
+          "roof_area_m2": "160 - 200 m² tagflade",
+          "estimated_total_cost": "210.000 - 420.000 DKK inkl. moms"
+        },
+        "key_cost_drivers": [
+          "Krav om stillads med overdækning (totalinddækning mod regn)",
+          "Antal kviste, skotrender, ovenlysvinduer (f.eks. Velux) og skorstensinddækninger",
+          "Spærkonstruktionens bæreevne (skift fra let eternittag til tunge teglsten kræver ingeniørberegning)"
+        ]
+      }
+    },
+    "hourly_trades_rates": {
+      "domain_name_da": "Håndværker Timepriser & Takster (Danmark)",
+      "market_benchmarks_2025_2026": [
+        {
+          "trade": "Tømrer / Snedker",
+          "rate_excl_vat_dkk": "460 - 620 DKK/time",
+          "rate_incl_vat_dkk": "575 - 775 DKK/time",
+          "notes": "Almindelig tømreropgave. Specialiseret snedkerarbejde ligger i den høje ende."
+        },
+        {
+          "trade": "Murer",
+          "rate_excl_vat_dkk": "480 - 650 DKK/time",
+          "rate_incl_vat_dkk": "600 - 812,50 DKK/time",
+          "notes": "Pudsning, klinkearbejde, vådrum og facademuring."
+        },
+        {
+          "trade": "Maler",
+          "rate_excl_vat_dkk": "410 - 550 DKK/time",
+          "rate_incl_vat_dkk": "512,50 - 687,50 DKK/time",
+          "notes": "Fuldspartling, opsætning af filt og maling af lofter/vægge/træværk."
+        },
+        {
+          "trade": "Autoriseret VVS-installatør",
+          "rate_excl_vat_dkk": "550 - 780 DKK/time",
+          "rate_incl_vat_dkk": "687,50 - 975 DKK/time",
+          "notes": "Vådrumsinstallationer, varmepumper, gulvvarme og gas/fjernvarme."
+        },
+        {
+          "trade": "Autoriseret El-installatør",
+          "rate_excl_vat_dkk": "550 - 760 DKK/time",
+          "rate_incl_vat_dkk": "687,50 - 950 DKK/time",
+          "notes": "Tavleudskiftning, kraftstik, badeværelseszoner og intelligente installationer."
+        }
+      ],
+      "standard_ancillary_fees": {
+        "servicevogn_og_transport": "250 - 450 DKK pr. dag / udkald (dækker værktøjsudrustning og kørsel)",
+        "miljotillaeg_og_affaldsbortskaffelse": "Faktureres typisk efter vægt/container (ca. 2.500 - 4.500 DKK pr. container)",
+        "akutudkald_og_vagttillaeg": "+100% på timepris uden for normal arbejdstid (f.eks. aften/weekend/helligdage)"
+      },
+      "regional_variance": {
+        "hovedstadsomraadet_og_nordsjaelland": "Ca. +10% til +20% i forhold til landsgennemsnittet",
+        "jylland_og_fyn": "Ligger typisk midt for eller 5-10% under hovedstadsniveau"
+      }
+    },
+    "conversational_nuances_and_legal_terms": {
+      "domain_name_da": "Juridiske og Kommercielle Begreber",
+      "terms": [
+        {
+          "term": "Vejledende prisoverslag",
+          "legal_and_commercial_meaning": "Et foreløbigt, uforpligtende estimat baseret på erfaringstal og kundens oplysninger. Giver kunden en realistisk budgetramme, men er IKKE et juridisk bindende fast tilbud. Ifølge dansk forbrugerpraksis må et overslag typisk kun afvige med 10-15%, medmindre der opstår uforudsete forhold.",
+          "spoken_phrasing": "\"Det her er et vejledende prisoverslag, så du kender budgetrammen. Den endelige, faste pris bekræfter vi, når mester har besigtiget opgaven.\""
+        },
+        {
+          "term": "Uforpligtende besigtigelse",
+          "legal_and_commercial_meaning": "Mester eller konduktøren kører gratis ud til kunden, måler op, inspicerer bærende konstruktioner, eksisterende rør og adgangsforhold. Det forpligter ikke kunden til noget som helst og er det primære konverteringspunkt for håndværksvirksomheden.",
+          "spoken_phrasing": "\"Skal vi aftale en gratis og uforpligtende besigtigelse, hvor en af vores tømrermestre kommer ud og måler op og kigger på forholdene?\""
+        },
+        {
+          "term": "Overslag for budgettering / Budgetoverslag",
+          "legal_and_commercial_meaning": "Et groft skøn anvendt af kunden til indledende bankdialog, realkreditvurdering eller prioritering af renoveringsønsker før projektering.",
+          "spoken_phrasing": "\"Hvis det er til budgettering eller banken, kan du regne med en tommelfingerregel på cirka X til Y kroner.\""
+        },
+        {
+          "term": "Håndværkerfradrag (BoligJobordning)",
+          "legal_and_commercial_meaning": "Dansk skattefradragsordning for arbejdsløn på udvalgte grønne energiforbedringer og renoveringer. Materialer er ALDRIG fradragsberettigede – kun den rene arbejdsløn inkl. moms. Fakturaen skal være specificeret med arbejdsløn og materialer adskilt og betalt digitalt.",
+          "spoken_phrasing": "\"Du kan trække arbejdslønnen fra via håndværkerfradraget på udvalgte energirenoveringer som efterisolering og vinduer. Vi sørger altid for, at fakturaen er tydeligt opdelt mellem materialer og arbejdsløn, så du nemt kan indberette det til Skat.\""
+        },
+        {
+          "term": "Totalentreprise vs. Fagentreprise",
+          "legal_and_commercial_meaning": "Totalentreprise/hovedentreprise: Håndværkeren styrer alle underentreprenører (murer, tømrer, VVS, el, maler), tidsplan og koordinering under ét samlet ansvar. Fagentreprise: Bygherre hyrer selv hver enkelt faggruppe separat.",
+          "spoken_phrasing": "\"Vi kan tage det som en samlet hovedentreprise, så du kun har én fast kontaktperson og ét samlet ansvar for hele byggeprocessen.\""
+        }
+      ]
+    }
+  },
+  "idiomatic_response_scripts": {
+    "language": "Danish (Rigsdansk - naturlig håndværkerjargon)",
+    "rules_of_engagement": [
+      "Tal direkte, tillidsvækkende og fagligt kompetent.",
+      "Kald altid priser for 'vejledende overslag' eller 'i omegnen af' før besigtigelse.",
+      "Angiv altid priser inkl. moms til private boligejere (forbrugerkøb).",
+      "Styr altid samtalen hen imod en uforpligtende besigtigelse på adressen."
+    ],
+    "scripts": {
+      "greeting_and_qualification": {
+        "situation": "Kunden ringer eller skriver ind om et renoveringsprojekt",
+        "script": "Hej! Tak fordi du rækker ud til os. Det lyder som et rigtig spændende projekt. Hvor i landet ligger ejendommen, og er der en bestemt tidsramme, du gerne vil have det færdigt inden?"
+      },
+      "bathroom_estimate_ballpark": {
+        "situation": "Kunden spørger: 'Hvad koster et nyt badeværelse på 6 kvadratmeter?'",
+        "script": "Et komplet badeværelse på omkring 6 kvadratmeter med nye klinker, gulvvarme, vådrumssikring, væghængt toilet og VVS-tilslutning ligger typisk i et vejledende spænd mellem 145.000 og 210.000 kroner inklusiv moms og autoriseret arbejde. Prisen afhænger selvfølgelig af flisevalg, og om vi skal flytte afløb eller faldstamme. Skal vi lægge vejen forbi til en uforpligtende besigtigelse, så vi kan give dig et helt fast tilbud?"
+      },
+      "kitchen_mounting_estimate": {
+        "situation": "Kunden spørger: 'Hvad koster det at få monteret et nyt køkken?'",
+        "script": "Hvis vi udelukkende taler om montering af selve skabselementerne, bordplade og tilpasningslister, ligger det typisk i omegnen af 18.000 til 28.000 kroner inklusiv moms for et standardkøkken. Skal vi også klare nedrivning af det gamle, samt el- og VVS-tilslutning af hvidevarer og vask, lander en komplet håndværkerpakke som tommelfingerregel mellem 45.000 og 75.000 kroner. Vil du have, at vi kigger forbi og gennemgår tegningerne sammen?"
+      },
+      "extension_tilbygning_estimate": {
+        "situation": "Kunden overvejer en tilbygning på 35-40 m²",
+        "script": "Ved en helårsisoleret tilbygning bygget efter BR18-kravene regner vi erfaringsmæssigt med en tommelfingerregel på cirka 20.000 til 26.000 kroner pr. kvadratmeter inklusiv moms for en nøglefærdig løsning med fundament, tag og installationer. For en tilbygning på 40 m² vil det sige i omegnen af 800.000 til 1.050.000 kroner. Har du allerede fået lavet arkitekttegninger eller byggetilladelse, eller skal vi hjælpe med hele forløbet?"
+      },
+      "roofing_tagrenovering_estimate": {
+        "situation": "Kunden spørger: 'Hvad koster det at få skiftet taget på et almindeligt parcelhus?'",
+        "script": "For et standard parcelhus med en tagflade på omkring 160 til 180 kvadratmeter ligger et nyt tag typisk mellem 220.000 og 350.000 kroner inklusiv moms, stillads, undertag, isolering og nye zinktagrender. Hvis du vælger betontagsten ligger det i den mere økonomiske ende, mens ægte tegl eller naturskifer koster lidt mere i både materialer og montagetid. Mester kan køre ud og besigtige tagets tilstand og spær helt gratis og uforpligtende, hvis du har tid en af dagene?"
+      },
+      "hourly_rate_inquiry": {
+        "situation": "Kunden spørger direkte: 'Hvad er jeres timepris?'",
+        "script": "Vores timepris for en faglært tømrer ligger på 595 kroner inklusiv moms (476 kroner ekskl. moms). Dertil kommer et mindre tillæg til servicevogn med professionelt maskinudstyr på 350 kroner pr. dag. På større projekter foretrækker vi dog altid at give en fast tilbudspris, så du ikke risikerer overraskelser i budgettet."
+      },
+      "handling_haandvaerkerfradrag": {
+        "situation": "Kunden spørger til håndværkerfradraget",
+        "script": "Ja, du kan benytte håndværkerfradraget til arbejdslønnen på udvalgte energirenoveringer, som for eksempel efterisolering af tag eller udskiftning til energiruder. Vi opdeler altid fakturaen tydeligt, så arbejdsløn og materialer fremgår separat – så er det lige til at taste ind på TastSelv hos Skat."
+      },
+      "closing_the_inspection": {
+        "situation": "Afrunding mod uforpligtende besigtigelse",
+        "script": "For at give dig den helt præcise pris uden nogen løse ender, vil det bedste være, at vores mester svinger forbi ejendommen og måler op. Det tager typisk 20-30 minutter, koster ingenting og er 100% uforpligtende. Passer det dig bedst i starten eller slutningen af ugen?"
+      }
+    }
+  }
+}

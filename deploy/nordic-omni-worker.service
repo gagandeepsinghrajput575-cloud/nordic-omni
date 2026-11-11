@@ -1,0 +1,20 @@
+[Unit]
+Description=NORDIC-OMNI LiveKit voice worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nordic
+WorkingDirectory=/opt/nordic-omni/agent-worker
+EnvironmentFile=/opt/nordic-omni/agent-worker/.env
+Environment=HOME=/home/nordic
+ExecStart=/opt/nordic-omni/agent-worker/.venv/bin/python main.py start
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

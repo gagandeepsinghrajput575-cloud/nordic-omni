@@ -5,7 +5,8 @@ import { Room, RoomEvent, Track } from 'livekit-client';
 import { Phone, PhoneOff, Mic, MicOff, Sparkles, Volume2, Radio } from 'lucide-react';
 import { useAudioBands, peakOf } from '@/lib/audio/useAudioBands';
 
-type Stage = 'idle' | 'requesting' | 'connecting' | 'live' | 'ended' | 'error';
+type Stage = 'idle' | 'requesting' | 'connecting' | 'waiting_for_agent' | 'live' | 'ended' | 'error';
+const AGENT_TIMEOUT_MS = 30_000;
 
 interface CallPanelProps {
   tenantId: string;
@@ -17,7 +18,6 @@ interface CallPanelProps {
 
 export function CallPanel({
   tenantId,
-  tenantSlug,
   contactId,
   contactName,
   isDanish,
@@ -31,19 +31,24 @@ export function CallPanel({
 
   const roomRef = useRef<Room | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const intentionalDisconnectRef = useRef(false);
+  const attemptIdRef = useRef<string | null>(null);
 
-  // Real frequency data from the agent's voice — not a looping animation.
   const bands = useAudioBands(agentStream, 24);
   const peak = peakOf(bands);
 
-  useEffect(() => {
-    return () => {
-      roomRef.current?.disconnect();
-      roomRef.current = null;
-      audioRef.current?.remove();
-      audioRef.current = null;
-    };
+  const cleanupCall = useCallback(() => {
+    intentionalDisconnectRef.current = true;
+    roomRef.current?.disconnect();
+    roomRef.current = null;
+    audioRef.current?.remove();
+    audioRef.current = null;
+    setAgentStream(null);
+    setAgentSpeaking(false);
+    setMuted(false);
   }, []);
+
+  useEffect(() => () => cleanupCall(), [cleanupCall]);
 
   useEffect(() => {
     if (stage !== 'live') return;
@@ -52,45 +57,37 @@ export function CallPanel({
   }, [stage]);
 
   const hangUp = useCallback(() => {
-    roomRef.current?.disconnect();
-    roomRef.current = null;
-    audioRef.current?.remove();
-    audioRef.current = null;
-    setAgentStream(null);
+    cleanupCall();
     setStage('ended');
-    setAgentSpeaking(false);
-  }, []);
+  }, [cleanupCall]);
 
   async function startCall() {
     setError(null);
     setStage('requesting');
     setSeconds(0);
-
-    const roomName = `${tenantSlug}_call_${contactId}`;
+    intentionalDisconnectRef.current = false;
+    attemptIdRef.current = null;
 
     try {
       const res = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantId,
-          roomName,
-          participantIdentity: `customer_${contactId}`,
-          participantName: contactName,
-          role: 'customer',
-          contactId,
-        }),
+        body: JSON.stringify({ tenantId, contactId, role: 'customer' }),
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.token) {
+      if (!res.ok || !data.token || !data.serverUrl) {
         throw new Error(data.error ?? 'Could not get a call token');
       }
 
+      attemptIdRef.current = data.attemptId ?? null;
       setStage('connecting');
-
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
+      let resolveAgentAudio: ((element: HTMLAudioElement | null) => void) | null = null;
+      const agentAudio = new Promise<HTMLAudioElement | null>((resolve) => {
+        resolveAgentAudio = resolve;
+      });
 
       room.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind !== Track.Kind.Audio) return;
@@ -99,10 +96,14 @@ export function CallPanel({
         el.style.display = 'none';
         document.body.appendChild(el);
         audioRef.current = el;
-
-        // Same track, second consumer: the analyser that drives the visualiser.
         const media = track.mediaStreamTrack;
         if (media) setAgentStream(new MediaStream([media]));
+        resolveAgentAudio?.(el);
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track) => {
+        track.detach().forEach((el) => el.remove());
+        if (audioRef.current && !audioRef.current.isConnected) audioRef.current = null;
       });
 
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
@@ -110,14 +111,45 @@ export function CallPanel({
       });
 
       room.on(RoomEvent.Disconnected, () => {
-        setStage((prev) => (prev === 'live' ? 'ended' : prev));
+        if (intentionalDisconnectRef.current) return;
+        cleanupCall();
+        setStage('ended');
       });
 
       await room.connect(data.serverUrl, data.token);
-      await room.localParticipant.setMicrophoneEnabled(true);
+      await room.startAudio();
+      await room.localParticipant.setMicrophoneEnabled(true, {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      });
+      if (!agentStream) setStage('waiting_for_agent');
 
+      let timeoutId: NodeJS.Timeout | null = null;
+      const timeout = new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), AGENT_TIMEOUT_MS);
+      });
+      const audioElement = await Promise.race([agentAudio, timeout]);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (!audioElement || !roomRef.current) {
+        throw new Error(
+          isDanish
+            ? 'Receptionisten svarede ikke. Prøv igen om et øjeblik.'
+            : 'The receptionist did not answer. Please try again shortly.',
+        );
+      }
+      await audioElement.play();
       setStage('live');
     } catch (err) {
+      if (attemptIdRef.current) {
+        void fetch('/api/livekit/abandon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attemptId: attemptIdRef.current }),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+      cleanupCall();
       setStage('error');
       setError(err instanceof Error ? err.message : 'Call failed');
     }
@@ -136,22 +168,10 @@ export function CallPanel({
   ).padStart(2, '0')}`;
 
   const isLive = stage === 'live';
-  const isConnecting = stage === 'connecting' || stage === 'requesting';
+  const isConnecting = stage === 'connecting' || stage === 'requesting' || stage === 'waiting_for_agent';
 
   return (
-    <div className={`glass relative overflow-hidden p-6 transition-all duration-300 ${isLive ? 'border-[rgba(52,211,153,0.5)] shadow-[0_20px_70px_rgba(52,211,153,0.18)]' : ''}`}>
-      {/* Pulse Ambient Glow in Header */}
-      <div
-        className="pointer-events-none absolute -top-24 -left-10 h-56 w-full opacity-60 transition-opacity duration-500"
-        style={{
-          background: isLive
-            ? 'radial-gradient(ellipse at center, rgba(52, 211, 153, 0.4), transparent 70%)'
-            : isConnecting
-            ? 'radial-gradient(ellipse at center, rgba(251, 191, 36, 0.35), transparent 70%)'
-            : 'radial-gradient(ellipse at center, rgba(139, 92, 246, 0.35), transparent 70%)',
-        }}
-      />
-
+    <div className={`glass relative overflow-hidden p-6 transition-colors duration-200 ${isLive ? 'border-[var(--success)]/40' : ''}`}>
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           {/* Pulse Call Button with Outer Ripples */}
@@ -178,18 +198,18 @@ export function CallPanel({
           </div>
 
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+            <span className="font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
               {isLive
                 ? (isDanish ? 'Opkald i gang' : 'Call in progress')
                 : isConnecting
-                ? (isDanish ? 'Forbinder…' : 'Connecting…')
-                : (isDanish ? 'WebRTC Test Studio' : 'WebRTC Test Studio')}
+                ? (isDanish ? 'Forbinder' : 'Connecting')
+                : (isDanish ? 'AI-reception' : 'AI reception')}
             </span>
-            <div className="mt-0.5 text-base font-extrabold text-[var(--text)]">
+            <div className="mt-1 text-[15px] font-semibold text-[var(--text)]">
               {contactName}
             </div>
-            <div className="text-xs text-[var(--muted)]">
-              {isDanish ? 'Live browser-simulator' : 'Live browser audio simulator'}
+            <div className="mt-0.5 text-[12px] text-[var(--muted)]">
+              {isDanish ? 'Browseropkald · direkte lyd' : 'Browser call · live audio'}
             </div>
           </div>
         </div>
@@ -199,12 +219,12 @@ export function CallPanel({
           {isLive && (
             <div className="flex items-center gap-3">
               <div className="flex flex-col items-end">
-                <span className="font-mono text-2xl font-extrabold tabular-nums text-white">
+                <span className="font-mono text-[22px] font-medium tabular-nums tracking-[-0.03em] text-[var(--text)]">
                   {timer}
                 </span>
-                <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#34d399]">
-                  <span className="h-2 w-2 rounded-full bg-[#34d399] animate-pulse" />
-                  {isDanish ? 'Aktiv linje' : 'Active line'}
+                <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--success)]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+                  {isDanish ? 'Forbundet' : 'Connected'}
                 </span>
               </div>
 
@@ -232,7 +252,7 @@ export function CallPanel({
             <button
               type="button"
               onClick={startCall}
-              className="btn primary glow"
+              className="btn primary"
             >
               <Phone size={15} />
               {stage === 'idle'
@@ -246,11 +266,13 @@ export function CallPanel({
           )}
 
           {isConnecting && (
-            <div className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-white/[0.05] px-4 py-2 font-mono text-xs text-[#fcd34d]">
-              <span className="h-2 w-2 rounded-full bg-[#fcd34d] animate-ping" />
-              {stage === 'requesting'
-                ? (isDanish ? 'Anmoder om mikrofon…' : 'Requesting mic…')
-                : (isDanish ? 'Forbinder WebRTC…' : 'Connecting WebRTC…')}
+            <div className="flex items-center gap-2 rounded-[10px] border border-[var(--warning)]/30 bg-[var(--warning)]/5 px-4 py-2 font-mono text-[11px] text-[var(--warning)]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--warning)]" />
+              {stage === 'waiting_for_agent'
+                ? (isDanish ? 'Venter på receptionisten…' : 'Waiting for receptionist…')
+                : stage === 'requesting'
+                  ? (isDanish ? 'Starter sikkert opkald…' : 'Starting secure call…')
+                  : (isDanish ? 'Forbinder WebRTC…' : 'Connecting WebRTC…')}
             </div>
           )}
         </div>
@@ -272,17 +294,13 @@ export function CallPanel({
             ))}
           </div>
 
-          <div className="mt-2 text-center text-xs font-medium text-[var(--muted)]">
+          <div className="mt-2 text-center text-[12px] font-medium text-[var(--muted)]">
             {agentSpeaking ? (
-              <span className="text-[#22d3ee]">
-                {isDanish ? '⚡ AI-receptionisten taler…' : '⚡ AI receptionist is speaking…'}
+              <span className="text-[var(--accent-primary)]">
+                {isDanish ? 'Receptionisten taler' : 'Receptionist is speaking'}
               </span>
             ) : (
-              <span>
-                {isDanish
-                  ? '🎙️ Lytter til dig… prøv at sige: “Mit vandrør er sprunget akut”.'
-                  : '🎙️ Listening to you… say: “My pipe burst in the bathroom”.'}
-              </span>
+              <span>{isDanish ? 'Lytter efter dit svar…' : 'Listening for your reply…'}</span>
             )}
           </div>
         </div>

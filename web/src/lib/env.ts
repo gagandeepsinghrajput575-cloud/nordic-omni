@@ -31,10 +31,15 @@ const EnvSchema = z.object({
   LIVEKIT_API_SECRET: z.string().min(1).default('secret'),
 
   // --- LLM ---------------------------------------------------------------------
-  // Reserved for the Meta/lead-form webhook rebuild (READMEFIRST §4.4). The voice
-  // agent does NOT use these: it goes through LiveKit Inference, which is covered
-  // by LIVEKIT_API_KEY. Nothing in the running app reads them today.
+  // Used by the AI Brain compiler and customer web chat through LiveKit Inference.
   DEEPSEEK_API_KEY: z.string().optional(),
+  LIVEKIT_INFERENCE_URL: z.string().url().optional(),
+  INFERENCE_LLM_MODEL: z.string().optional(),
+
+  // Optional owner-notification workflow. Without it, escalations are recorded
+  // truthfully as "not configured" and no transfer is claimed.
+  N8N_ESCALATION_WEBHOOK_URL: z.string().url().optional(),
+  N8N_WEBHOOK_SECRET: z.string().optional(),
 
   // --- Meta --------------------------------------------------------------------
   META_VERIFY_TOKEN: z.string().default('nordic_omni_verify'),

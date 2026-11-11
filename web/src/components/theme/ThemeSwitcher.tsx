@@ -57,8 +57,8 @@ export function ThemeSwitcher({ className = '' }: { className?: string }) {
     <div className={`relative inline-block text-left ${className}`} ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--border-subtle,#1E2638)] bg-[var(--bg-surface,#0D111A)] text-[var(--text-primary,#FFFFFF)] hover:border-[var(--border-strong,#374151)] transition-all font-mono text-xs shadow-sm"
-        title="Toggle Visual Theme"
+        className="flex items-center gap-2 rounded-[10px] border border-[var(--line)] bg-[var(--bg-surface)] px-3 py-1.5 text-[13px] text-[var(--text)] transition-colors hover:border-[var(--border-strong)]"
+        title="Toggle visual theme"
       >
         <span
           className="w-2.5 h-2.5 rounded-full inline-block border border-black/40"
@@ -69,7 +69,7 @@ export function ThemeSwitcher({ className = '' }: { className?: string }) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-[var(--border-strong,#2B374E)] bg-[var(--bg-surface,#0D111A)] shadow-2xl p-1.5 z-50 backdrop-blur-xl animate-fade-in font-mono text-xs">
+        <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-[var(--line)] bg-[var(--bg-surface)] p-1.5 text-[13px] animate-fade-in">
           <div className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted,#64748B)] border-b border-[var(--border-subtle,#1E2638)] mb-1">
             Display Engine / Theme
           </div>
@@ -83,10 +83,10 @@ export function ThemeSwitcher({ className = '' }: { className?: string }) {
                   setTheme(opt.id);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all text-left ${
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors ${
                   isSelected
-                    ? 'bg-[var(--bg-raised,#171F2E)] text-[var(--text-primary,#FFFFFF)] font-bold'
-                    : 'text-[var(--text-secondary,#94A3B8)] hover:bg-[var(--bg-ground,#08090C)] hover:text-[var(--text-primary,#FFFFFF)]'
+                    ? 'bg-[var(--bg-raised)] font-semibold text-[var(--text)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-raised)] hover:text-[var(--text)]'
                 }`}
               >
                 <div className="flex items-center gap-2.5">

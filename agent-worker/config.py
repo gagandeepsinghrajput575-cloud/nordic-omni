@@ -53,11 +53,11 @@ def load() -> Config:
         livekit_api_key=_require("LIVEKIT_API_KEY"),
         livekit_api_secret=_require("LIVEKIT_API_SECRET"),
         database_url=_require("DATABASE_URL"),
-        stt_model=os.getenv("STT_MODEL", "deepgram/nova-3"),
-        llm_model=os.getenv("LLM_MODEL", "google/gemini-2.5-flash"),
-        tts_model=os.getenv("TTS_MODEL", "cartesia/sonic-3"),
+        stt_model=os.getenv("STT_MODEL") or "deepgram/nova-3",
+        llm_model=os.getenv("LLM_MODEL") or "google/gemini-2.5-flash",
+        tts_model=os.getenv("TTS_MODEL") or "cartesia/sonic-3",
         # Empty string = let the provider pick a default voice for the language.
-        tts_voice=os.getenv("TTS_VOICE", ""),
+        tts_voice=os.getenv("TTS_VOICE") or "",
         azure_speech_key=os.getenv("AZURE_SPEECH_KEY") or None,
         azure_speech_region=os.getenv("AZURE_SPEECH_REGION") or None,
     )

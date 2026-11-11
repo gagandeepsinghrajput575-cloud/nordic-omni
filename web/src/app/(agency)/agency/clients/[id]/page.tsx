@@ -11,6 +11,9 @@ import {
 } from '@/lib/db/queries';
 import { PromptEditor } from './PromptEditor';
 import { KnowledgeEditor } from './KnowledgeEditor';
+import { AiBrainPanel } from './AiBrainPanel';
+import { getLatestBrainBundle } from '@/lib/db/brain';
+import type { BrainPayload } from '@/lib/ai/brain';
 import { restoreAgentConfigForm } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -25,13 +28,14 @@ export default async function AgencyClientDetailPage({
   const { id } = await params;
   const session = await requireAgency();
 
-  const [tenant, overview, config, knowledge, history, contacts] = await Promise.all([
+  const [tenant, overview, config, knowledge, history, contacts, brain] = await Promise.all([
     getTenantFacts(session.userId, id),
     getTenantOverview(session.userId, id),
     getAgentConfig(session.userId, id),
     listKnowledge(session.userId, id),
     listConfigHistory(session.userId, id),
     listContacts(session.userId, id, 1),
+    getLatestBrainBundle(session.userId, id),
   ]);
 
   if (!tenant) notFound();
@@ -162,6 +166,18 @@ export default async function AgencyClientDetailPage({
           </p>
         </div>
       </section>
+
+      <AiBrainPanel
+        tenantId={tenant.id}
+        bundle={
+          brain
+            ? {
+                ...brain,
+                payload: brain.payload as BrainPayload,
+              }
+            : null
+        }
+      />
 
       {/* BEHAVIOUR — agency-only */}
       <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">

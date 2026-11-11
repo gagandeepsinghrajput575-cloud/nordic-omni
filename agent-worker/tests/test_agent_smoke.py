@@ -85,10 +85,16 @@ print("\n=== 3. tools registered ===")
 if agent is not None:
     found = [
         name
-        for name in ("check_availability_and_pricing", "update_pipeline_stage", "trigger_dire_escalation")
+        for name in (
+            "check_availability_and_pricing",
+            "update_pipeline_stage",
+            "trigger_dire_escalation",
+            "record_project_estimate",
+            "request_inspection",
+        )
         if callable(getattr(agent, name, None))
     ]
-    check("3 customer tools registered", len(found) == 3, f"-> found {found}")
+    check("5 customer tools registered (estimator + inspection request)", len(found) == 5, f"-> found {found}")
 
     owner = OwnerCopilotAgent(tenant=TENANT, db=db)
     owner_tools = [

@@ -30,6 +30,7 @@ livekit-api==1.2.2
 livekit-blingfire==1.2.0
 livekit-local-inference==0.2.7
 livekit-plugins-silero==1.8.10
+livekit-plugins-azure==1.8.10
 livekit-protocol==1.1.29
 livekit==1.1.21
 markdown-it-py==4.2.0

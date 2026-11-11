@@ -1,0 +1,13 @@
+[
+  {
+    "id": "eval-1794415795877",
+    "timestamp": "2026-11-11T16:49:55.877Z",
+    "model": "gemini-4-argon-high",
+    "category": "sales-engine",
+    "benchmarkScore": 9.8,
+    "verdict": "PASS: Hook ordering & clock drift verified",
+    "codeExperience": "Clean separation of concerns, zero sub-second clock bleed.",
+    "diffOrSnippet": "",
+    "source": "LM Arena Agentic Mode"
+  }
+]

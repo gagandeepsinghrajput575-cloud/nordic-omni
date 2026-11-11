@@ -121,7 +121,7 @@ export const ContactSchema = z.object({
   last_human_takeover_at: z.string().nullable().optional(),
   shared_memory_summary: z.string().default(''),
   sentiment_score: z.number().min(0).max(10).default(7.5),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -134,7 +134,7 @@ export const OmnichannelMessageSchema = z.object({
   direction: z.enum(['inbound', 'outbound', 'system']),
   content: z.string().min(1),
   media_url: z.string().nullable().optional(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string(),
 });
 
@@ -169,7 +169,7 @@ export const UICommandEventSchema = z.object({
   id: z.string().uuid(),
   tenant_id: z.string().uuid(),
   command_type: UICommandTypeSchema,
-  payload: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string(),
 });
 
@@ -251,7 +251,7 @@ export const LiveKitTokenRequestSchema = z.object({
   participantIdentity: z.string().min(1),
   participantName: z.string().min(1),
   role: z.enum(['customer', 'owner_consult', 'owner_merged']),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const ProvisionWizardRequestSchema = z.object({

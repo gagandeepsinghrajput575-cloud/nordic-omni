@@ -119,6 +119,18 @@ def main() -> int:
 
     check("prompt states a status line", "Status:" in prompt)
 
+    history_prompt = build_prompt(
+        tenant(),
+        CONTACT,
+        "",
+        [{"sender": "customer", "channel": "web_chat", "content": "Jeg skrev om et nyt tag i går."}],
+    )
+    check("cross-channel history reaches the prompt", "Jeg skrev om et nyt tag" in history_prompt)
+    check(
+        "history instructs the agent not to repeat questions",
+        "never ask again" in history_prompt,
+    )
+
     print("\n=== VAL-AI-503 pricing is injected, not only behind a tool ===")
     check("service name in prompt", "Udskiftning af blandingsbatteri" in prompt)
     check("Danish thousands separator applied", "1.250 DKK" in prompt)
@@ -185,7 +197,7 @@ def main() -> int:
     check("knowledge appears", "Vi kører ikke weekender." in prompt)
     check("caller memory appears", "utæt hovedrør" in prompt)
     check("no-invention guardrail present", "never estimate" in prompt.lower())
-    check("booking guardrail present", "confirmed a specific time" in prompt)
+    check("booking guardrail present", "not a confirmed booking" in prompt)
 
     print("\n=== extra: escalation_block is pure and total ===")
     check("empty policy still yields rules", len(escalation_block({}).splitlines()) >= 2)

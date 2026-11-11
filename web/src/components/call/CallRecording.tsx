@@ -125,13 +125,13 @@ export function CallRecording({
           <div className="space-y-1.5">
             <audio
               controls
-              preload="none"
+              preload="metadata"
               src={call.recording_url}
               className="w-full"
               aria-label={isDanish ? 'Lydoptagelse af opkaldet' : 'Audio recording of the call'}
             />
             {call.recording_bytes ? (
-              <p className="font-mono text-[10px] text-[var(--text-muted)]">
+              <p className="font-mono text-[11px] text-[var(--text-muted)]">
                 {(call.recording_bytes / 1024).toFixed(0)} KB · Ogg Opus
               </p>
             ) : null}
@@ -179,12 +179,12 @@ export function CallRecording({
                           : 'max-w-[85%] rounded-[var(--r-md)] rounded-br-sm bg-[var(--accent-soft)] px-3 py-2'
                       }
                     >
-                      <div className="mb-1 font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
+                      <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
                         {(isDanish ? ROLE_LABEL[turn.role] : undefined) ??
                           ROLE_LABEL[turn.role] ??
                           turn.role}
                       </div>
-                      <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-[var(--text-primary)]">
+                      <p className="whitespace-pre-wrap text-[13px] leading-6 text-[var(--text-primary)]">
                         {turn.content}
                       </p>
                     </div>

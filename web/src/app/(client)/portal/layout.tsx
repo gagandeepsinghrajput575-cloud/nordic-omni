@@ -1,3 +1,4 @@
+import { PhoneOff } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/guard';
 import { getTenantFacts } from '@/lib/db/queries';
@@ -39,7 +40,7 @@ export default async function ClientLayout({ children }: { children: React.React
       brandHref="/portal"
       toolbar={
         <>
-          <span className="hidden text-[11px] text-[var(--text-muted)] xl:inline">{session.email}</span>
+          <span className="hidden text-[12px] text-[var(--text-muted)] xl:inline">{session.email}</span>
           <ThemeSwitcher />
           <LogoutButton />
         </>
@@ -47,15 +48,19 @@ export default async function ClientLayout({ children }: { children: React.React
       footer={
         <div className="space-y-2.5">
           <div className="flex items-center gap-2">
-            <span className="dot-live" aria-hidden />
-            <span className="text-[10px] font-medium text-[var(--text-secondary)]">
-              {tenant.flynumber_did ? tenant.flynumber_did : 'WebRTC only'}
+            {tenant.flynumber_did ? (
+              <span className="dot-live" aria-hidden />
+            ) : (
+              <PhoneOff size={12} className="text-[var(--text-muted)]" aria-hidden />
+            )}
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+              {tenant.flynumber_did ? tenant.flynumber_did : isDanish ? 'Kun browseropkald' : 'Browser calls only'}
             </span>
             <Badge tone="neutral" className="ml-auto">
               {isDanish ? 'Dansk' : 'English'}
             </Badge>
           </div>
-          <p className="truncate text-[10px] text-[var(--text-muted)]">{session.email}</p>
+          <p className="truncate text-[11px] text-[var(--text-muted)]">{session.email}</p>
           <div className="lg:hidden">
             <LogoutButton />
           </div>

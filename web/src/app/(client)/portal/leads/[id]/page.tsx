@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MessageSquare, Phone } from 'lucide-react';
 import { requireUser } from '@/lib/auth/guard';
-import { getContact, getTenantFacts, listCallsForContact, listMessages } from '@/lib/db/queries';
+import { getContact, getTenantFacts, listCallsForContact, listInspectionRequests, listMessages, listProjectEstimates } from '@/lib/db/queries';
 import { Badge, Card, CardHeader, StagePill } from '@/components/ui/core';
 import { Avatar, EmptyState, PageHeader, ScoreBar } from '@/components/ui/feedback';
 import { buttonClass } from '@/components/ui/form';
@@ -41,8 +41,12 @@ export default async function LeadDetailPage({
 
   if (!contact || !tenant) notFound();
 
-  const messages = await listMessages(session.userId, contact.id);
-  const calls = await listCallsForContact(session.userId, contact.id);
+  const [messages, calls, estimates, inspections] = await Promise.all([
+    listMessages(session.userId, contact.id),
+    listCallsForContact(session.userId, contact.id),
+    listProjectEstimates(session.userId, contact.id),
+    listInspectionRequests(session.userId, contact.id),
+  ]);
   const isDanish = tenant.default_language === 'da-DK';
 
   return (
@@ -119,12 +123,12 @@ export default async function LeadDetailPage({
               title={isDanish ? 'Ring til kunden' : 'Call this customer'}
               hint={
                 isDanish
-                  ? 'Åbner en LiveKit-samtale med AI-receptionisten.'
-                  : 'Opens a live LiveKit session with the AI receptionist.'
+                  ? 'Åbner et sikkert browseropkald med AI-receptionisten.'
+                  : 'Opens a secure browser call with the AI receptionist.'
               }
               action={
                 <Badge tone="accent" dot>
-                  LiveKit
+                  WebRTC
                 </Badge>
               }
             />
@@ -145,16 +149,83 @@ export default async function LeadDetailPage({
                 <Phone size={11} />
                 {isDanish ? 'Opkald' : 'Calls'} · {calls.length}
               </p>
-              {calls.map((call, i) => (
+              {calls.slice(0, 3).map((call, i) => (
                 <CallRecording
                   key={call.id}
                   call={call}
                   isDanish={isDanish}
                   index={i}
-                  total={calls.length}
+                  total={Math.min(calls.length, 3)}
                 />
               ))}
+              {calls.length > 3 ? (
+                <details className="group rounded-[var(--r)] border border-[var(--line)] bg-[var(--bg-surface)]">
+                  <summary className="cursor-pointer list-none px-4 py-3 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text)]">
+                    {isDanish
+                      ? `Vis ældre opkald (${calls.length - 3})`
+                      : `Show older calls (${calls.length - 3})`}
+                  </summary>
+                  <div className="space-y-3 px-3 pb-3">
+                    {calls.slice(3).map((call, i) => (
+                      <CallRecording
+                        key={call.id}
+                        call={call}
+                        isDanish={isDanish}
+                        index={i + 3}
+                        total={calls.length}
+                      />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
             </section>
+          ) : null}
+
+          {(estimates.length > 0 || inspections.length > 0) ? (
+            <Card>
+              <CardHeader
+                title={isDanish ? 'Overslag & besigtigelser' : 'Estimates & inspections'}
+                hint={`${estimates.length} ${isDanish ? 'overslag' : 'estimates'} · ${inspections.length} ${isDanish ? 'anmodninger' : 'requests'}`}
+              />
+              <div className="space-y-4 p-5">
+                {estimates.map((estimate) => (
+                  <div key={estimate.id} className="rounded-[var(--r-sm)] border border-[var(--border-subtle)] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-[var(--text-primary)]">{estimate.project_type}</span>
+                      <span className="font-mono text-[10px] text-[var(--text-muted)]">{when(estimate.created_at)}</span>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-[var(--accent-primary)]">
+                      {dkk(estimate.estimated_min_dkk)}–{dkk(estimate.estimated_max_dkk)} DKK
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                      {estimate.scope_details}
+                      {estimate.square_meters ? ` · ${estimate.square_meters} m²` : ''}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                      {isDanish ? 'Vejledende overslag, ikke bindende' : 'Non-binding estimate'}
+                    </p>
+                  </div>
+                ))}
+                {inspections.map((inspection) => (
+                  <div key={inspection.id} className="rounded-[var(--r-sm)] border border-[var(--border-subtle)] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-[var(--text-primary)]">
+                        {isDanish ? 'Besigtigelsesanmodning' : 'Inspection request'}
+                      </span>
+                      <Badge tone="warning">{inspection.status}</Badge>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                      {inspection.requested_time_text} · {inspection.address || (isDanish ? 'Adresse mangler' : 'No address')}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                      {isDanish
+                        ? 'Ønsket tid er ikke bekræftet af kontoret.'
+                        : 'The requested time is not confirmed by the office.'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
           ) : null}
 
           <Card>

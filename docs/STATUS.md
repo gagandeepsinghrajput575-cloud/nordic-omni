@@ -1,5 +1,11 @@
 # STATUS — NORDIC-OMNI zero-cloud rebuild
 
+> **Historical rebuild log.** Several “NOT done” items below were implemented
+> later. Current call, security, recording, estimate, and onboarding status is in
+> the repair section at the top of `READMEFIRST.md` and in `docs/REPAIR_LEDGER.md`.
+> Pilot login after the Client #1 seed is `morten@danskbyg.dk` with the existing
+> demo password; the old `jens@...` address is historical.
+
 Last verified: working tree at commit `8f965d2`.
 
 ## How to run

@@ -4,18 +4,25 @@ import {
   AlertTriangle,
   Banknote,
   CalendarCheck,
+  MessageSquare,
   Phone,
   Plus,
   TrendingUp,
   Users,
 } from 'lucide-react';
 import { requireUser } from '@/lib/auth/guard';
-import { getTenantOverview, listContacts, getTenantFacts } from '@/lib/db/queries';
+import {
+  getTenantOverview,
+  listContacts,
+  getTenantFacts,
+  listOpenEscalations,
+} from '@/lib/db/queries';
 import { Badge, Card, CardHeader, StagePill, Stat } from '@/components/ui/core';
 import { Avatar, EmptyState, PageHeader, SectionTitle } from '@/components/ui/feedback';
 import { buttonClass } from '@/components/ui/form';
 import { CallPanel } from '@/components/call/CallPanel';
 import { AiCopilotBar } from '@/components/portal/AiCopilotBar';
+import { resolveEscalationAction } from './escalation-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,11 +43,12 @@ export default async function PortalOverviewPage() {
   const tenantId = session.tenantIds[0];
   if (!tenantId) redirect('/no-access');
 
-  const [overview, recent, tenant, all] = await Promise.all([
+  const [overview, recent, tenant, all, escalations] = await Promise.all([
     getTenantOverview(session.userId, tenantId),
     listContacts(session.userId, tenantId, 5),
     getTenantFacts(session.userId, tenantId),
     listContacts(session.userId, tenantId, 200),
+    listOpenEscalations(session.userId, tenantId, 5),
   ]);
 
   if (!tenant) redirect('/no-access');
@@ -106,7 +114,94 @@ export default async function PortalOverviewPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {escalations.length > 0 ? (
+        <Card>
+          <CardHeader
+            title={isDanish ? 'Kræver opfølgning' : 'Needs follow-up'}
+            hint={
+              isDanish
+                ? 'Kunder hvor assistenten har bedt om en person eller markeret en risiko.'
+                : 'Customers where the assistant requested a person or flagged risk.'
+            }
+            action={<Badge tone="danger">{escalations.length}</Badge>}
+          />
+          <ul className="divide-y divide-[var(--line)]">
+            {escalations.map((escalation) => {
+              const reason =
+                isDanish
+                  ? {
+                      angry_customer: 'Frustreret kunde',
+                      high_value_emergency: 'Akut / høj værdi',
+                      ai_unanswered_question: 'AI kunne ikke svare',
+                      human_requested: 'Kunden bad om en person',
+                    }[escalation.reason] ?? escalation.reason
+                  : escalation.reason.replaceAll('_', ' ');
+              const body = (
+                <div className="flex items-start gap-3 px-5 py-3">
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--danger-soft)] text-[var(--danger)]">
+                    {escalation.channel === 'web_chat' ? (
+                      <MessageSquare size={13} />
+                    ) : (
+                      <Phone size={13} />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13px] font-semibold text-[var(--text)]">
+                        {escalation.contact_name || (isDanish ? 'Ukendt kunde' : 'Unknown caller')}
+                      </span>
+                      <Badge tone="danger">{reason}</Badge>
+                      <span className="text-[11px] text-[var(--text-muted)]">
+                        {escalation.n8n_status === 'delivered'
+                          ? isDanish
+                            ? 'Sendt til arbejdsgang'
+                            : 'Sent to workflow'
+                          : isDanish
+                            ? 'Kun registreret'
+                            : 'Recorded only'}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[var(--text-secondary)]">
+                      {escalation.briefing}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
+                    {new Date(escalation.created_at).toLocaleTimeString('da-DK', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              );
+              return (
+                <li key={escalation.id} className="flex items-center gap-2 pr-4">
+                  {escalation.contact_id ? (
+                    <Link
+                      href={`/portal/leads/${escalation.contact_id}`}
+                      className="min-w-0 flex-1 transition-colors hover:bg-[var(--bg-raised)]"
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="min-w-0 flex-1">{body}</div>
+                  )}
+                  <form action={resolveEscalationAction}>
+                    <input type="hidden" name="escalationId" value={escalation.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-[11px] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text)]"
+                    >
+                      {isDanish ? 'Marker klaret' : 'Resolve'}
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat
           label={isDanish ? 'Pipeline' : 'Pipeline value'}
           value={dkk(overview.pipeline_dkk)}
@@ -190,8 +285,8 @@ export default async function PortalOverviewPage() {
               title={isDanish ? 'Test AI’en' : 'Test the AI'}
               hint={isDanish ? 'Ring som kunden ville gøre' : 'Call the way a customer would'}
               action={
-                <Badge tone="accent" dot>
-                  Live
+                <Badge tone="neutral">
+                  WebRTC
                 </Badge>
               }
             />

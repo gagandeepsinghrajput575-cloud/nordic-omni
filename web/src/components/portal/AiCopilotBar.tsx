@@ -4,13 +4,12 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { executeClientAiCommand, type AiCommandResult } from '@/app/(client)/portal/ai-actions';
 import {
-  Sparkles,
+  Command,
   Send,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
   ArrowRight,
-  Bot,
 } from 'lucide-react';
 
 interface AiCopilotBarProps {
@@ -25,11 +24,11 @@ export function AiCopilotBar({ isDanish = true }: AiCopilotBarProps) {
   const [isPending, startTransition] = useTransition();
 
   const suggestions = [
-    { label: isDanish ? '👥 Gå til kunder' : '👥 Go to callers', c: '#38bdf8' },
-    { label: isDanish ? '⚙️ Åbn indstillinger' : '⚙️ Open settings', c: '#a78bfa' },
-    { label: isDanish ? '🔍 Find Morten Bondo' : '🔍 Find Morten Bondo', c: '#22d3ee' },
-    { label: isDanish ? '💰 Sæt timetakst til 950 kr' : '💰 Set rate 950 DKK', c: '#34d399' },
-    { label: isDanish ? '📢 Sæt besked: Døgnvagt aktiv' : '📢 Set notice: 24/7 active', c: '#fbbf24' },
+    { label: isDanish ? 'Gå til kunder' : 'Go to callers' },
+    { label: isDanish ? 'Åbn indstillinger' : 'Open settings' },
+    { label: isDanish ? 'Find Morten Bondo' : 'Find Morten Bondo' },
+    { label: isDanish ? 'Sæt timetakst til 950 kr' : 'Set rate 950 DKK' },
+    { label: isDanish ? 'Sæt besked: Døgnvagt aktiv' : 'Set notice: 24/7 active' },
   ];
 
   function handleSubmit(e?: React.FormEvent) {
@@ -64,28 +63,22 @@ export function AiCopilotBar({ isDanish = true }: AiCopilotBarProps) {
       {/* Header */}
       <div className="mb-3.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-lg"
-            style={{
-              background: 'var(--grad)',
-              boxShadow: '0 6px 20px rgba(139,92,246,0.4)',
-            }}
-          >
-            <Sparkles size={17} strokeWidth={2.4} />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--bg-raised)] text-[var(--accent-primary)]">
+            <Command size={15} strokeWidth={2.1} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-extrabold text-[var(--text)]">
-                {isDanish ? 'Pulse AI Driftsassistent' : 'Pulse AI Assistant'}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[13px] font-semibold text-[var(--text)]">
+                {isDanish ? 'Driftsassistent' : 'Operations assistant'}
               </span>
-              <span className="rounded-full border border-[rgba(34,211,238,0.4)] bg-[rgba(34,211,238,0.12)] px-2 py-0.5 font-mono text-[9px] font-bold text-[#a5f3fc]">
-                AUTONOMOUS COPILOT
+              <span className="rounded-full border border-[var(--line)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--muted)]">
+                {isDanish ? 'Hurtige kommandoer' : 'Quick commands'}
               </span>
             </div>
-            <p className="text-xs text-[var(--muted)]">
+            <p className="mt-0.5 text-[12px] text-[var(--muted)]">
               {isDanish
-                ? 'Styr priser, åbningstider og beskeder, eller find kunder ved blot at skrive direkte.'
-                : 'Update prices, hours, broadcasts, or navigate directly by typing in plain text.'}
+                ? 'Opdatér priser, åbningstider eller find en kunde med en kort besked.'
+                : 'Update prices, hours or find a caller with a short command.'}
             </p>
           </div>
         </div>
@@ -102,7 +95,7 @@ export function AiCopilotBar({ isDanish = true }: AiCopilotBarProps) {
               ? 'F.eks: "Gå til kunder", "Find Morten Bondo", eller "Sæt timetakst til 950 kr"...'
               : 'E.g: "Go to callers", "Find Morten Bondo", or "Set hourly rate to 950 DKK"...'
           }
-          className="w-full rounded-xl border border-[var(--line)] bg-[rgba(0,0,0,0.35)] py-2.5 pl-4 pr-24 text-xs font-medium text-[var(--text)] placeholder-[var(--muted)] outline-none transition focus:border-[rgba(139,92,246,0.65)] focus:ring-2 focus:ring-[rgba(139,92,246,0.2)]"
+          className="w-full rounded-[10px] border border-[var(--line)] bg-[var(--bg-ground)] py-2.5 pl-4 pr-24 text-[12px] font-medium text-[var(--text)] placeholder-[var(--muted)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
         />
 
         <div className="absolute right-1.5 flex items-center gap-1">
@@ -133,8 +126,7 @@ export function AiCopilotBar({ isDanish = true }: AiCopilotBarProps) {
             key={s.label}
             type="button"
             onClick={() => handleQuickPrompt(s.label)}
-            className="rounded-full border border-[var(--line)] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted)] transition-all hover:bg-white/[0.08] hover:text-[var(--text)]"
-            style={{ color: s.c }}
+            className="rounded-full border border-[var(--line)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text)]"
           >
             {s.label}
           </button>

@@ -1,0 +1,99 @@
+{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Dansk Byg & Renovering ApS",
+  "slug": "dansk-byg",
+  "industry": "Byggeri, Tømrer & Totalentreprise",
+  "owner": {
+    "name": "Morten Bondo",
+    "email": "morten@danskbyg.dk",
+    "phone": "+4530405060"
+  },
+  "location": {
+    "region": "Storkøbenhavn & Nordsjælland",
+    "address": "Industrivej 14, 2600 Glostrup"
+  },
+  "language": "da-DK",
+  "voice_id": "azure:da-DK-ChristelNeural",
+  "telephony": {
+    "provider": "flynumber",
+    "did": null,
+    "status": "unassigned"
+  },
+  "features": {
+    "voice_receptionist": true,
+    "project_estimator": true,
+    "emergency_escalation": true,
+    "seo_geo_optimized": true
+  },
+  "business_hours": {
+    "mon": { "open": "07:00", "close": "17:00", "closed": false },
+    "tue": { "open": "07:00", "close": "17:00", "closed": false },
+    "wed": { "open": "07:00", "close": "17:00", "closed": false },
+    "thu": { "open": "07:00", "close": "17:00", "closed": false },
+    "fri": { "open": "07:00", "close": "15:30", "closed": false },
+    "sat": { "open": "09:00", "close": "13:00", "closed": true },
+    "sun": { "open": "00:00", "close": "00:00", "closed": true }
+  },
+  "pricing_catalog": [
+    {
+      "id": "trade-01",
+      "service": "Tømrer & Bygningssnedker Timetakst",
+      "price_dkk": 625,
+      "unit": "time (ekskl. moms / 781,25 inkl. moms)"
+    },
+    {
+      "id": "trade-02",
+      "service": "Murer & Flisearbejde Timetakst",
+      "price_dkk": 650,
+      "unit": "time (ekskl. moms)"
+    },
+    {
+      "id": "proj-bath",
+      "service": "Komplet Nyt Badeværelse (inkl. vådrumssikring)",
+      "price_dkk": 115000,
+      "estimate_model": "fixed",
+      "estimate_min_dkk": 95000,
+      "estimate_max_dkk": 165000,
+      "unit": "vejledende overslag (typisk 95.000 - 165.000 kr.)"
+    },
+    {
+      "id": "proj-kitchen",
+      "service": "Køkkenmontering & Tilpasning",
+      "price_dkk": 45000,
+      "estimate_model": "fixed",
+      "estimate_min_dkk": 35000,
+      "estimate_max_dkk": 75000,
+      "unit": "vejledende overslag (typisk 35.000 - 75.000 kr.)"
+    },
+    {
+      "id": "proj-extension",
+      "service": "Tilbygning / Udestue",
+      "price_dkk": 22000,
+      "estimate_model": "per_square_meter",
+      "estimate_min_dkk": 18000,
+      "estimate_max_dkk": 26000,
+      "unit": "kr. pr. kvadratmeter (typisk 18.000 - 26.000 kr./m²)"
+    },
+    {
+      "id": "proj-roof",
+      "service": "Nyt Tag (Tegl/Betontagsten inkl. undertag)",
+      "price_dkk": 1800,
+      "estimate_model": "per_square_meter",
+      "estimate_min_dkk": 1400,
+      "estimate_max_dkk": 2400,
+      "unit": "kr. pr. kvadratmeter (typisk 1.400 - 2.400 kr./m²)"
+    },
+    {
+      "id": "callout-urgent",
+      "service": "Akut Udrykning (Vandskade / Tagskade / Storm)",
+      "price_dkk": 2200,
+      "unit": "udrykningsgebyr"
+    }
+  ],
+  "standing_notice": "Gratis uforpligtende besigtigelse af alle større projekter i Storkøbenhavn inden for 48 timer.",
+  "escalation_policy": {
+    "emergency_keywords": ["vandskade", "tagskade", "oversvømmelse", "stormskade", "akut", "nedstyrtningsfare"],
+    "always_escalate_on_human_request": true,
+    "escalate_outside_opening_hours": false
+  }
+}

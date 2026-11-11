@@ -16,11 +16,11 @@ export function Label({
 }) {
   return (
     <div className="mb-1.5 flex items-baseline justify-between gap-2">
-      <label htmlFor={htmlFor} className="text-xs font-semibold text-[var(--text)]">
+      <label htmlFor={htmlFor} className="text-[12px] font-semibold text-[var(--text)]">
         {children}
         {required ? <span className="ml-0.5 text-[var(--danger)]">*</span> : null}
       </label>
-      {hint ? <span className="text-[10px] text-[var(--muted)]">{hint}</span> : null}
+      {hint ? <span className="text-[11px] text-[var(--muted)]">{hint}</span> : null}
     </div>
   );
 }
@@ -28,11 +28,11 @@ export function Label({
 /* ------------------------------------------------------------- Controls --- */
 
 const CONTROL =
-  'w-full rounded-xl border border-[var(--line)] bg-[rgba(0,0,0,0.3)] ' +
-  'px-3.5 py-2.5 text-xs text-[var(--text)] placeholder:text-[var(--muted)] ' +
-  'transition-all duration-150 ' +
-  'hover:border-white/[0.16] ' +
-  'focus:border-[rgba(139,92,246,0.65)] focus:ring-2 focus:ring-[rgba(139,92,246,0.2)] focus:outline-none ' +
+  'w-full rounded-[10px] border border-[var(--line)] bg-[var(--bg-ground)] ' +
+  'px-3.5 py-2.5 text-[13px] text-[var(--text)] placeholder:text-[var(--muted)] ' +
+  'transition-colors duration-150 ' +
+  'hover:border-[var(--border-strong)] ' +
+  'focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)] focus:outline-none ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
 export function Input({
@@ -138,18 +138,18 @@ export function FormAlert({
 
 const BUTTON_VARIANTS = {
   primary:
-    'bg-gradient-to-r from-[#8b5cf6] to-[#22d3ee] text-white border-transparent shadow-[0_8px_24px_rgba(139,92,246,0.35)] hover:brightness-110 active:scale-[0.98]',
+    'bg-[var(--text)] text-[var(--bg)] border-[var(--text)] hover:opacity-90 active:scale-[0.99]',
   secondary:
-    'bg-[var(--panel-2)] text-[var(--text)] border-[var(--line)] hover:bg-white/[0.12] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]',
+    'bg-[var(--bg-raised)] text-[var(--text)] border-[var(--line)] hover:border-[var(--border-strong)] hover:bg-[var(--panel-2)] active:scale-[0.99]',
   ghost:
-    'bg-transparent text-[var(--muted)] border-transparent hover:bg-white/[0.05] hover:text-[var(--text)]',
+    'bg-transparent text-[var(--muted)] border-transparent hover:bg-[var(--bg-raised)] hover:text-[var(--text)]',
   danger:
-    'bg-[rgba(248,113,113,0.12)] text-[#fca5a5] border-[rgba(248,113,113,0.35)] hover:bg-[rgba(248,113,113,0.22)] active:scale-[0.98]',
+    'bg-[var(--danger-soft)] text-[var(--danger)] border-[var(--danger)]/40 hover:brightness-110 active:scale-[0.99]',
 } as const;
 
 const BUTTON_SIZES = {
-  sm: 'px-3 py-1.5 text-xs gap-1.5 rounded-lg',
-  md: 'px-4 py-2.5 text-xs font-semibold gap-2 rounded-xl',
+  sm: 'px-3 py-1.5 text-[12px] gap-1.5 rounded-lg',
+  md: 'px-4 py-2.5 text-[13px] font-semibold gap-2 rounded-[10px]',
 } as const;
 
 export function buttonClass(

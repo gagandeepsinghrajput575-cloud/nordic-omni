@@ -6,9 +6,73 @@ This document is the ground truth for the NORDIC-OMNI codebase. It records what
 was found, what was concluded, what was changed, and what is still fiction. It
 supersedes `README.md`, which describes a product that never existed.
 
-Last updated at commit `0f7bdde` (M3 — local call recording, consent, and the
-telephony research). Later commits may have changed code but not this document;
-when that happens, trust the code and correct this file.
+Last updated **11 November 2026** after the release-hardening pass. Later commits may
+have changed code but not this document; when that happens, trust the code and
+correct this file.
+
+> ## 11 November repair status
+>
+> The call/CRM path was audited and repaired in the working tree. Current truth:
+>
+> - Tokens are server-owned: anonymous callers are customer-only, owner roles
+>   require authenticated owner/agency authorization, contacts must belong to the
+>   tenant, and every attempt gets a unique room and call-log row.
+> - LiveKit dispatch is pinned to the named agent `nordic-omni` in both the web
+>   token and the worker. This removes the stale/unnamed-worker failure where an
+>   agent joined but never answered.
+> - Browser “live” requires a subscribed agent audio track. Failed attempts show
+>   an error and are marked missed; no fabricated greeting or SMS is shown.
+> - Caller disconnect closes the job and finalises status, transcript, duration,
+>   and recording metadata. The recording SQL ambiguity found in the live test is
+>   fixed and covered by a real PostgreSQL integration test.
+> - **Azure Christel is live and verified**: the worker logged
+>   `Using Microsoft Azure TTS voice: da-DK-ChristelNeural`, produced a 132 KB Ogg,
+>   and finalized a completed call with the exact Danish greeting. The Azure plugin
+>   is imported on the worker main thread, and SSML text is escaped so a company
+>   name containing `&` cannot produce HTTP 400.
+> - Estimates are calculated from structured catalog brackets and stored in
+>   `project_estimates`. `request_inspection` stores an **unconfirmed request**;
+>   it never claims a booking.
+> - `client.config.json` is validated and can be applied idempotently with
+>   `scripts/apply_client_config.py`. Client #1 has no DID until FlyNumber is
+>   assigned; the old VVS demo number was removed.
+> - Inbound SIP is implemented and database-tested: an exact DID maps to exactly
+>   one active tenant, duplicate calls reuse one contact, and unknown/paused
+>   tenants are refused. `scripts/setup_livekit_sip.py` configures the LiveKit
+>   inbound trunk and named dispatch rule once FlyNumber supplies the DID.
+> - The public call page was rebuilt as a split-screen call surface; on mobile the
+>   call console now precedes the detail ledger so the call button is in the first
+>   viewport. The portal uses flat surfaces and an audit-log history that collapses
+>   older calls.
+> - **AI Brain, Shared Memory & Chat**: Agency AI Brain compiles client websites/notes
+>   into reviewed knowledge drafts; approval synchronizes 24 approved items to voice
+>   and web chat. Customer chat (`/chat/[contactId]`) shares cross-channel memory with
+>   voice calls and enforces catalog-grounded non-binding estimates.
+> - **Escalations & N8N Integration**: High-value/angry/human-requested interactions
+>   log to `conversation_escalations` and forward via HMAC-signed N8N webhooks. The
+>   portal overview features an active escalation queue ("Kræver opfølgning") with
+>   honest "Kun registreret" status and one-click resolution.
+> - Dependency audit is clean (`0 vulnerabilities`), the production build passes
+>   all 24 routes, test suite passes 33 Python tests and 18 TypeScript contract tests,
+>   and `/api/health` checks the database, LiveKit configuration, and named agent.
+>
+> Still externally blocked or intentionally absent:
+>
+> - Real N8N webhook endpoint is not yet configured; escalations are securely
+>   persisted and marked "Kun registreret" ("Recorded only").
+> - There is no outbound owner phone transfer or SMS/calendar provider. Urgent
+>   calls and inspection requests are recorded truthfully but do not claim
+>   delivery or confirmation.
+> - The LiveKit project registers in “India South”; choose an EU region for
+>   Danish production traffic. STT/LLM currently use remote LiveKit Inference.
+> - A human Danish listening test is still required; automated checks prove the
+>   pipeline and text, not accent quality.
+> - FlyNumber DID and SIP credentials have not been supplied. Until they are,
+>   Client #1 is browser-only.
+>
+> Operational pipeline guide: `AI_PIPELINE.md`.
+> Full evidence and rulings: `docs/REPAIR_LEDGER.md`.
+> Deploy commands: `DEPLOYMENT.md`.
 
 ---
 
@@ -96,26 +160,26 @@ Anything in the left column was proven by executing it.
 | Two-app split | ✅ | `(client)/portal`, `(agency)/agency` |
 | Agency prompt editor + history + rollback | ✅ | `/agency/clients/[id]` |
 | Token endpoint authorization | ✅ | cross-tenant 403, own 200, anon+contact 200 |
-| Voice worker constructs | ✅ | `agent-worker/tests/test_agent_smoke.py` 21/21 |
-| Voice worker registers with cloud | ✅ | `registered worker {"id":"AW_JVmSSXr8wpMd"}` |
-| Browser → agent call panel | ✅ | renders, mints token (audio not yet heard) |
+| Voice worker constructs | ✅ | `agent-worker/tests/test_agent_smoke.py` + 30 discovery tests |
+| Voice worker registers with cloud | ✅ | `registered worker {"agent_name":"nordic-omni",...}` |
+| Browser → agent call | ✅ | agent audio subscribed; two sequential live calls; analyser `running`, closed on hang-up |
+| **Azure Christel live** | ✅ | `da-DK-ChristelNeural`, 117 KB Ogg, completed call, Danish transcript |
+| **SIP inbound routing** | ✅ (DB) | exact DID → active tenant; duplicate contact reuse; opt-in PostgreSQL test |
 | **All three inference APIs answer** | ✅ | `tests/test_inference.py` — TTS 52 KB of Danish, LLM replied, STT transcribed the escalation phrase (§18) |
 | **Created callers and workspaces** | ✅ | `/portal/leads/new`, `/agency/clients/new` → 200; RLS probe proves the write path |
-| **Recording pipeline** | ✅ (unit + HTTP) | `test_recordings.py` 23/23; own tenant 200 with byte-identical audio, cross-tenant 404 (§19) |
-| **Recording served through RLS** | ✅ | mette→jens's recording = 404, jens→own = 200 |
+| **Recording pipeline** | ✅ | live Ogg saved, `recording_status=ok`, authenticated `200 audio/ogg`, byte-identical, Range `206` |
+| **Recording served through RLS** | ✅ | cross-tenant 404, own 200, anonymous 401 |
 | **Recording consent is spoken** | ✅ | `test_prompt.py` asserts present when on, absent when off |
 | **Prompt honours hours, prices, escalation** | ✅ | `test_prompt.py` 43/43 |
 | **pipeline_stage matches the DB enum** | ✅ | `db/tests/stage_enum_probe.sql` — 7 real values write, 1 invented rejected |
-| Typecheck | ✅ | `npx tsc --noEmit` → 0 errors |
+| Typecheck / build / audit | ✅ | `tsc` 0, 19 routes, `npm audit` 0 vulnerabilities |
 
-**Not verified — two things, both needing a human:**
+**Still needing a human or an external account:**
 
-1. **That the agent audibly speaks.** The plumbing is proven up to connection and
-   all three APIs answer in isolation (§18), but no human has heard a live call.
-2. **That a recording is produced by a real call.** The chain is proven with a
-   real Ogg file, a real row and a real HTTP stream (§19.5), but
-   `AgentSession(record=True)` writing `audio.ogg` at the end of a *live* call has
-   not been observed.
+1. **Danish accent quality.** The pipeline is live and the real Azure voice is
+   proven, but no native Danish listener has judged the accent and pacing.
+2. **A real FlyNumber call.** DID routing is database-tested and the setup script
+   is ready, but no PSTN number has been supplied or dialled.
 
 ---
 
@@ -140,9 +204,14 @@ To rebuild from scratch:
 ```bash
 BIN=~/Applications/Postgres.app/Contents/Versions/17/bin
 $BIN/psql -h 127.0.0.1 -p 54330 -U postgres -c 'CREATE DATABASE nordic_omni;'
-$BIN/psql -h 127.0.0.1 -p 54330 -U postgres -d nordic_omni \
-     -v ON_ERROR_STOP=1 -f db/migrations/0001_baseline.sql
+for file in db/migrations/*.sql; do
+  echo "Applying $file"
+  $BIN/psql -h 127.0.0.1 -p 54330 -U postgres -d nordic_omni \
+    -v ON_ERROR_STOP=1 -f "$file" || exit 1
+done
 ```
+
+Production migration order and rollback details are in `DEPLOYMENT.md`.
 
 ### 3.2 Web app
 
@@ -154,7 +223,8 @@ cd web && npm run dev      # http://localhost:3000
 
 ```bash
 cd agent-worker
-.venv/bin/python main.py dev
+.venv/bin/python main.py dev     # development
+# production: .venv/bin/python main.py start
 ```
 
 Wait for `registered worker`. **If this process is not running, the browser call
@@ -171,13 +241,14 @@ uv pip install -r requirements.txt
 
 ### 3.4 Demo accounts
 
-Password for all three: `demo1234`
+Password for all accounts: `demo1234`
 
 | Email | Role | Lands on |
 |---|---|---|
+| `morten@danskbyg.dk` | client owner of `dansk-byg` | `/portal` |
 | `agency@nordic-omni.local` | agency admin | `/agency` |
-| `jens@kbhvvs.dk` | client owner of `kbh-vvs` | `/portal` |
-| `mette@nordicdental.dk` | client owner of `nordic-dental` | `/portal` |
+| `jens@kbhvvs.dk` | legacy pilot owner of `kbh-vvs` | `/portal` |
+| `mette@nordicdental.dk` | legacy pilot owner of `nordic-dental` | `/portal` |
 
 Public customer call link (no login):
 `/call/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa`

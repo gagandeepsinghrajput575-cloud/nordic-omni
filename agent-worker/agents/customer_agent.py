@@ -16,11 +16,14 @@ decorated with `@function_tool`. No inheritance chain, no shared FunctionContext
 from __future__ import annotations
 
 from datetime import datetime
+import json
 from typing import Any
 
 from livekit.agents import Agent, RunContext, function_tool
 
+from agents.estimation import EstimateError, calculate_estimate
 from services.db import Database
+from services.notifications import notify_owner_escalation
 
 VALID_STAGES = (
     "new_lead",
@@ -62,6 +65,11 @@ def _now() -> datetime:
 
 def _business_hours(tenant: dict[str, Any]) -> dict[str, Any]:
     hours = tenant.get("business_hours")
+    if isinstance(hours, str):
+        try:
+            hours = json.loads(hours)
+        except Exception:
+            return {}
     return hours if isinstance(hours, dict) else {}
 
 
@@ -110,6 +118,11 @@ def _hours_block(tenant: dict[str, Any], danish: bool) -> str:
 
 def _price_block(tenant: dict[str, Any]) -> str:
     items = tenant.get("pricing_catalog")
+    if isinstance(items, str):
+        try:
+            items = json.loads(items)
+        except Exception:
+            items = []
     if not isinstance(items, list) or not items:
         return (
             "No prices are configured. If the caller asks what something costs, say that "
@@ -129,7 +142,16 @@ def _price_block(tenant: dict[str, Any]) -> str:
             continue
         rendered = f"{amount:,}".replace(",", ".")
         unit = str(item.get("unit") or "fixed")
-        lines.append(f"- {service}: {rendered} DKK ({unit})")
+        item_id = str(item.get("id") or "").strip()
+        bracket = ""
+        if item.get("estimate_min_dkk") and item.get("estimate_max_dkk"):
+            bracket = (
+                f"; estimate_model={item.get('estimate_model', 'fixed')}"
+                f"; min={item['estimate_min_dkk']}; max={item['estimate_max_dkk']}"
+            )
+        lines.append(
+            f"- catalog_item_id={item_id}; {service}: {rendered} DKK ({unit}){bracket}"
+        )
 
     if not lines:
         return "No prices are configured. Do not quote a figure."
@@ -139,10 +161,15 @@ def _price_block(tenant: dict[str, Any]) -> str:
 def escalation_block(tenant: dict[str, Any]) -> str:
     """Composes the agency's escalation_policy into actual instructions."""
     policy = tenant.get("escalation_policy")
+    if isinstance(policy, str):
+        try:
+            policy = json.loads(policy)
+        except Exception:
+            policy = {}
     if not isinstance(policy, dict):
         policy = {}
 
-    triggers = policy.get("emergencies")
+    triggers = policy.get("emergency_keywords") or policy.get("emergencies")
     if isinstance(triggers, list) and triggers:
         terms = ", ".join(str(t) for t in triggers if str(t).strip())
         emergency_line = f"Escalate immediately if the caller mentions any of: {terms}."
@@ -167,7 +194,12 @@ def escalation_block(tenant: dict[str, Any]) -> str:
 
 
 
-def build_prompt(tenant: dict[str, Any], contact: dict[str, Any], knowledge: str) -> str:
+def build_prompt(
+    tenant: dict[str, Any],
+    contact: dict[str, Any],
+    knowledge: str,
+    history: list[dict[str, Any]] | None = None,
+) -> str:
     """Compose instructions from live database state.
 
     Sectioned deliberately. The previous version was a flat f-string that ignored
@@ -177,6 +209,12 @@ def build_prompt(tenant: dict[str, Any], contact: dict[str, Any], knowledge: str
     """
     danish = is_danish(tenant, contact)
     now = _now()
+
+    persona_name = (
+        "Nova"
+        if "nova" in str(tenant.get("voice_id", "")).lower()
+        else ("Jeppe" if "jeppe" in str(tenant.get("voice_id", "")).lower() else "Christel")
+    )
 
     day_name = (_DAY_DA if danish else _DAY_EN)[now.weekday()]
     _, open_verdict = open_state(tenant, now)
@@ -209,6 +247,20 @@ def build_prompt(tenant: dict[str, Any], contact: dict[str, Any], knowledge: str
         caller_lines.append("No prior history. This is a brand-new caller.")
 
     knowledge_block = knowledge.strip() or "Nothing extra has been configured yet."
+    history_lines = []
+    for item in (history or [])[-12:]:
+        sender = str(item.get("sender") or "")
+        speaker = "Kunden" if sender == "customer" else "Receptionisten"
+        channel = str(item.get("channel") or "")
+        content = str(item.get("content") or "").strip()
+        if content:
+            history_lines.append(f"- {speaker} ({channel}): {content[:700]}")
+    history_block = (
+        "The customer has already talked or written to us. Continue naturally from this; "
+        "never ask again for facts they already gave.\n" + "\n".join(history_lines)
+        if history_lines
+        else "No previous cross-channel messages."
+    )
 
     return f"""{business_prompt}
 
@@ -217,6 +269,9 @@ def build_prompt(tenant: dict[str, Any], contact: dict[str, Any], knowledge: str
 
 ## WHO YOU ARE SPEAKING TO
 {chr(10).join(caller_lines)}
+
+## CROSS-CHANNEL HISTORY
+{history_block}
 
 ## THE CURRENT MOMENT
 It is {day_name}, {now.strftime('%H:%M')} in Denmark.
@@ -229,6 +284,14 @@ Opening hours:
 {_price_block(tenant)}
 These are the only figures you may say out loud. Nothing else.
 
+## PROJECT ESTIMATION & SCOPING RULES
+- For renovations (badeværelse, køkken, tilbygning, tagarbejde), ask one focused question at a time about catalog item, square meters when relevant, property type, condition, and materials.
+- Use only the configured catalog brackets. Never calculate or choose the saved amount yourself: call `record_project_estimate` with the exact `catalog_item_id` and scope. The tool calculates the minimum, maximum and midpoint deterministically.
+- Always say the full legal guardrail: "et vejledende overslag, ikke et bindende tilbud".
+- Offer a free, non-binding inspection ("gratis uforpligtende besigtigelse"). If the caller wants one, call `request_inspection`; this records a request only and is not a confirmed booking.
+- For standard hourly craft services, quote the exact rates above.
+- If the job or bracket is not listed, say a colleague will confirm the price — never estimate.
+
 ## STANDING NOTICE
 {broadcast or 'No special notice today.'}
 
@@ -237,24 +300,34 @@ These are the only figures you may say out loud. Nothing else.
 
 ## WHEN TO ESCALATE
 {escalation_block(tenant)}
-When you escalate, tell the caller that the on-call person is being connected, then stop talking.
+When you escalate, say only that the urgent request has been recorded for the on-call person. Never claim a live owner connection unless the system has explicitly confirmed one. Never say you sent, forwarded or delivered the request to the owner unless the tool result explicitly confirms delivery; even then, do not claim the owner has seen it.
 
-## HOW TO SPEAK
-- One or two short sentences per turn. This is a phone call, not an email.
-- Sound like a good receptionist: warm, calm, efficient. No filler, no upselling.
-- Ask one question at a time. Never stack three questions into one turn.
-- If the line is unclear, ask them to repeat instead of guessing.
-- Never read out field names, lists, bullet points or markdown. Speak naturally.
-- Never say you are an AI, a model or a bot unless you are asked directly. If asked, answer honestly and briefly.
-- If the caller goes quiet, wait. Do not fill silence with a pitch.
+## HOW TO SPEAK (NATURAL CONVERSATIONAL FLUENCY, WARMTH & HUMAN EMOTION)
+- Real Human Conversational Character: You are {persona_name}, a warm, knowledgeable, and calm coordinator for Dansk Byg & Renovering. Speak with natural human warmth, grounded confidence, and authentic trade pride. Never sound like an aggressive salesperson, a rigid bot, or a repetitive telemarketer.
+- Dynamic Conversational Rhythm (Never Sound Like a Telemarketer or Questionnaire):
+  * DO NOT force a question at the end of every turn. A real person speaks in statements, comments, thoughtful reactions, and pleasant observations.
+  * Answer the caller's actual point first. If the caller asks about Morten ("Is Morten a good guy?"), answer warmly about Morten and let the answer breathe naturally — do NOT immediately pivot back to a sales pitch or repeat "Shall we book an inspection for Lyngby?".
+  * Never repeat the same question or call-to-action if you already asked it in recent turns and the caller moved on or didn't respond to it. Follow the customer's conversational flow.
+  * Vary your turn endings: often end with a warm affirmation ("Det finder vi helt sikkert en god løsning på.", "Det er altid spændende med et nyt projekt."), a reassuring statement, or an observation. Only ask a question when you genuinely need new information or the customer is waiting for direction.
+- Authentic Grounded Danish Demeanor:
+  * Danish craftsmanship culture is grounded, reliable, friendly, and unpretentious (no exaggerated American hype).
+  * Instead of hyper-cheery "Jeg har det bare fantastisk!", respond naturally and warmly: "Jamen goddag! Det går rigtig godt her, tak fordi du spørger." or "Jo tak, her kører det derudad! Hvad kan vi hjælpe med i dag?".
+  * Use authentic spoken Danish idioms: "Jamen goddag!", "Lige præcis", "Helt sikkert", "Det kigger vi meget gerne på", "Det finder vi ud af", "Ingen problem overhovedet".
+- Emotion & Empathy: React to the customer's feelings like a real colleague. If they are planning a renovation, share in the excitement: "Det er et klassisk projekt, som virkelig kan løfte boligen." If they sound uncertain or stressed, reassure them calmly: "Det forstår jeg fuldstændig, det er en stor beslutning, men vi tager det hele i dit tempo."
+- Natural Pacing: Speak at a fluid, comfortable conversational tempo (not slow, not rushed). Keep your turns to 1–2 natural sentences.
+- Bilingual Fluency: If the caller speaks English, switch smoothly and speak warm, idiomatic, completely natural English. If they speak Danish, speak authentic, natural Danish.
+- Never read out bullet points, field names, or markdown. Say "kvadratmeter" not "m2", "for eksempel" not "f.eks.".
+- Never say you are an AI, a model or a bot unless directly asked. If asked, confirm honestly and concisely.
 
 ## HARD RULES
 1. Quote prices only from the list above. If the job is not listed, say a colleague will confirm the price — never estimate.
-2. Never say something is booked unless the caller has confirmed a specific time.
-3. Escalate exactly as described above. Do not invent your own escalation criteria.
-4. When you learn something useful about the caller, call update_pipeline_stage to record it, silently.
-5. If you do not know something, say you will have someone confirm it. Do not improvise facts.
-6. Never promise an arrival time you were not given.
+2. Never say an inspection is booked or confirmed. `request_inspection` only records an unconfirmed request for the contractor to review.
+3. Clearly clarify all estimates as "vejledende overslag" (non-binding).
+4. Escalate exactly as described above. Do not invent your own escalation criteria.
+5. When a project is scoped, call `record_project_estimate` to record it.
+6. When you learn something useful about the caller, call update_pipeline_stage to record it, silently.
+7. If you do not know something, say you will have someone confirm it. Do not improvise facts.
+8. Never promise an arrival time you were not given.
 """
 
 
@@ -301,14 +374,20 @@ class CustomerAgent(Agent):
         db: Database,
         room_name: str,
         knowledge: str,
+        history: list[dict[str, Any]] | None = None,
+        channel: str = "voice_instant_webrtc",
     ) -> None:
         self.tenant = tenant
         self.contact = contact
         self.db = db
         self.room_name = room_name
         self.danish = is_danish(tenant, contact)
+        self.history = history or []
+        self.channel = (
+            "voice_inbound" if channel == "voice_inbound" else "voice_instant_webrtc"
+        )
 
-        super().__init__(instructions=build_prompt(tenant, contact, knowledge))
+        super().__init__(instructions=build_prompt(tenant, contact, knowledge, self.history))
 
     # --- Tools -----------------------------------------------------------------
 
@@ -358,16 +437,135 @@ class CustomerAgent(Agent):
         """
         if stage not in VALID_STAGES:
             return f"Unknown stage '{stage}'. Valid stages: {', '.join(VALID_STAGES)}."
+        if stage == "booked":
+            return (
+                "En booket status kræver en særskilt bekræftet aftale. "
+                "Registrer i stedet en besigtigelsesanmodning; den er ikke bekræftet. "
+                "(A booked stage requires a separately confirmed appointment.)"
+            )
 
         score = max(0, min(100, int(lead_score)))
 
         await self.db.update_contact_stage(
-            str(self.contact["id"]), stage, score, memory_update
+            str(self.contact["id"]), str(self.tenant["id"]), stage, score, memory_update
         )
         await self.db.emit_event(
             str(self.tenant["id"]), "FILTER_PIPELINE", {"stage": stage}
         )
         return f"CRM updated to {stage} with score {score}."
+
+    @function_tool()
+    async def record_project_estimate(
+        self,
+        context: RunContext,
+        catalog_item_id: str,
+        project_type: str,
+        scope_details: str,
+        square_meters: float | None,
+        followup_notes: str,
+    ) -> str:
+        """Calculate and save a catalog-grounded, non-binding project estimate.
+
+        Args:
+            catalog_item_id: The exact catalog_item_id shown in the price list.
+            project_type: Human-readable project type for the CRM.
+            scope_details: Property, condition, materials and work included.
+            square_meters: Scope in square meters, or null for fixed-price work.
+            followup_notes: Address and inspection preferences.
+        """
+        catalog = self.tenant.get("pricing_catalog") or []
+        if isinstance(catalog, str):
+            try:
+                catalog = json.loads(catalog)
+            except Exception:
+                catalog = []
+        try:
+            estimate = calculate_estimate(catalog, catalog_item_id, square_meters)
+        except EstimateError as exc:
+            message = str(exc)
+            return (
+                f"Overslaget kunne ikke beregnes: {message} Bed en kollega bekræfte prisen."
+                if self.danish
+                else f"The estimate could not be calculated: {message} A colleague must confirm the price."
+            )
+
+        call_log_id = await self.db.ensure_call_log(
+            tenant_id=str(self.tenant["id"]),
+            contact_id=str(self.contact["id"]),
+            room_name=self.room_name,
+            channel="voice_instant_webrtc",
+        )
+        summary = (
+            f"Overslag: {project_type} ({estimate.minimum:,.0f}-{estimate.maximum:,.0f} DKK). "
+            f"Omfang: {scope_details}. Noter: {followup_notes}"
+        ).replace(",", ".")
+        await self.db.record_project_estimate(
+            tenant_id=str(self.tenant["id"]),
+            contact_id=str(self.contact["id"]),
+            call_log_id=call_log_id,
+            project_type=project_type,
+            scope_details=scope_details,
+            square_meters=estimate.square_meters,
+            estimated_min_dkk=estimate.minimum,
+            estimated_max_dkk=estimate.maximum,
+            estimated_value_dkk=estimate.midpoint,
+            scope_summary=summary,
+            followup_notes=followup_notes,
+            lead_score=85,
+        )
+        low = f"{estimate.minimum:,.0f}".replace(",", ".")
+        high = f"{estimate.maximum:,.0f}".replace(",", ".")
+        if self.danish:
+            return (
+                f"Et vejledende overslag ligger mellem {low} og {high} kroner. "
+                "Det er et vejledende overslag, ikke et bindende tilbud. "
+                "Tilbyd en gratis uforpligtende besigtigelse."
+            )
+        return (
+            f"A non-binding estimate is between DKK {low} and {high}. "
+            "This is a guide, not a binding quote. Offer a free inspection."
+        )
+
+    @function_tool()
+    async def request_inspection(
+        self,
+        context: RunContext,
+        requested_time_text: str,
+        address: str,
+        notes: str,
+    ) -> str:
+        """Record an inspection request for review; never confirms a booking.
+
+        Args:
+            requested_time_text: The caller's preferred time, in their own words.
+            address: Property address for the inspection.
+            notes: Access details or anything the contractor should know.
+        """
+        call_log_id = await self.db.ensure_call_log(
+            tenant_id=str(self.tenant["id"]),
+            contact_id=str(self.contact["id"]),
+            room_name=self.room_name,
+            channel="voice_instant_webrtc",
+        )
+        await self.db.request_inspection(
+            tenant_id=str(self.tenant["id"]),
+            contact_id=str(self.contact["id"]),
+            call_log_id=call_log_id,
+            requested_time_text=requested_time_text,
+            address=address,
+            notes=notes,
+            status="requested",
+        )
+        if self.danish:
+            return (
+                "Besigtigelsesanmodningen er registreret til gennemsyn. "
+                "Tiden er ikke bekræftet endnu; kontoret vender tilbage."
+            )
+        return (
+            "The inspection request has been recorded for review. "
+            "The time is not confirmed yet; the office will follow up."
+        )
+
 
     @function_tool()
     async def trigger_dire_escalation(
@@ -377,7 +575,7 @@ class CustomerAgent(Agent):
         briefing_for_owner: str,
         estimated_value_dkk: float,
     ) -> str:
-        """Ring the business owner immediately and put the caller on hold.
+        """Record an urgent request for the owner without claiming a live transfer.
 
         Args:
             dire_reason: One of angry_customer, high_value_emergency, ai_unanswered_question.
@@ -392,10 +590,12 @@ class CustomerAgent(Agent):
         )
 
         await self.db.update_contact_stage(
-            str(self.contact["id"]), "dire_escalated", 95, briefing_for_owner
+            str(self.contact["id"]), str(self.tenant["id"]),
+            "dire_escalated", 95, briefing_for_owner,
         )
         await self.db.update_call_status(
             room_name=self.room_name,
+            tenant_id=str(self.tenant["id"]),
             status="dire_hold_for_owner",
             dire_reason=reason,
             briefing=briefing_for_owner,
@@ -424,8 +624,58 @@ class CustomerAgent(Agent):
             },
         )
 
+        payload = {
+            "event": "owner_escalation",
+            "tenant": {
+                "id": str(self.tenant["id"]),
+                "name": self.tenant["name"],
+                "slug": self.tenant["slug"],
+            },
+            "contact": {
+                "id": str(self.contact["id"]),
+                "name": self.contact.get("full_name"),
+                "phone": self.contact.get("phone_number"),
+                "email": self.contact.get("email"),
+            },
+            "owner": {
+                "name": self.tenant.get("owner_name"),
+                "phone": self.tenant.get("owner_phone"),
+                "email": self.tenant.get("owner_email"),
+            },
+            "channel": self.channel,
+            "reason": reason,
+            "urgency": 5 if estimated_value_dkk >= 100000 or reason == "high_value_emergency" else 4,
+            "briefing": briefing_for_owner[:1200],
+            "createdAt": _now().isoformat(),
+        }
+        escalation_id = await self.db.record_escalation(
+            tenant_id=str(self.tenant["id"]),
+            contact_id=str(self.contact["id"]),
+            channel=self.channel,
+            reason=reason,
+            urgency=payload["urgency"],
+            briefing=briefing_for_owner,
+            payload=payload,
+        )
+        delivered, notify_error = await notify_owner_escalation(payload)
+        if notify_error:
+            await self.db.set_escalation_notification(
+                escalation_id, delivered=False, error=notify_error
+            )
+
+        if self.danish:
+            return (
+                "Den akutte henvendelse er sendt til kontorets arbejdsgang. "
+                "Der er ikke etableret en live forbindelse. Fortæl kunden sandheden."
+                if delivered
+                else "Den akutte henvendelse er registreret til den vagthavende. "
+                "Der er ikke etableret en live forbindelse. Fortæl kunden sandheden."
+            )
         return (
-            "Escalation triggered. The owner is being alerted. Tell the caller that "
-            "the on-call person is being connected and they should stay on the line."
+            "The urgent request has been sent to the office workflow. "
+            "No live connection has been established. Tell the caller that truthfully."
+            if delivered
+            else "The urgent request has been recorded for the on-call person. "
+            "No live connection has been established. Tell the caller that truthfully."
         )
 

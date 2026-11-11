@@ -1,0 +1,45 @@
+[
+  {
+    "id": "nordic-omni",
+    "name": "Nordic-Omni Voice & Web App",
+    "category": "business",
+    "path": "/Users/gaganrajput11/the final form",
+    "description": "Multi-tenant Danish AI telephony receptionist, estimation engine, and CRM portal.",
+    "status": "managed_by_cockpit",
+    "ports": [3000, 8081]
+  },
+  {
+    "id": "vision-process",
+    "name": "Vision Process & Warden",
+    "category": "personal_vision",
+    "path": "/Users/gaganrajput11/.vision",
+    "description": "Personal life vision, daily operating protocols, focus warden blocklist, and accountability.",
+    "status": "ready"
+  },
+  {
+    "id": "n8n-automations",
+    "name": "n8n Automation Engine",
+    "category": "automation",
+    "path": "/Users/gaganrajput11/.n8n",
+    "description": "Local workflow automation pipelines, webhook handlers, and background tasks.",
+    "status": "ready",
+    "ports": [5678]
+  },
+  {
+    "id": "obsidian-notes",
+    "name": "Obsidian Second Brain",
+    "category": "knowledge",
+    "path": "/Users/gaganrajput11/Documents",
+    "description": "Markdown notes, personal life journals, knowledge base, and project roadmaps.",
+    "status": "ready"
+  },
+  {
+    "id": "ollama-local-ai",
+    "name": "Ollama Air-Gapped Local AI",
+    "category": "privacy_ai",
+    "path": "/Users/gaganrajput11/.ollama",
+    "description": "100% private, offline neural models running on Apple Silicon unified memory.",
+    "status": "ready",
+    "ports": [11434]
+  }
+]

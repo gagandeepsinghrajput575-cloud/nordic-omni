@@ -42,12 +42,21 @@ const VOICES = [
   {
     id: 'azure:da-DK-ChristelNeural',
     provider: 'Microsoft Azure',
-    name: 'Christel Neural',
+    name: 'Christel Neural (Native Danish)',
     lang: 'Dansk (da-DK)',
     flag: '🇩🇰',
     gender: 'Female',
-    style: 'Warm, highly articulate receptionist. Ideal for customer inquiries & booking.',
+    style: '100% Native Copenhagen Danish. Warm, articulate receptionist. Switches to English with Danish accent.',
     recommended: true,
+  },
+  {
+    id: 'azure:en-US-NovaTurboMultilingualNeural',
+    provider: 'Microsoft Azure (OpenAI Turbo)',
+    name: 'Nova Turbo (Multilingual)',
+    lang: 'Bilingual (da-DK / en-US)',
+    flag: '🇩🇰/🇺🇸',
+    gender: 'Female',
+    style: 'Warm, dynamic, high human emotion & lively conversational tempo. Fluent Danish with international lilt.',
   },
   {
     id: 'azure:da-DK-JeppeNeural',

@@ -22,12 +22,17 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
 
   // Set up Web Audio Analyser if stream provided
   useEffect(() => {
-    if (!audioStream) {
+    if (!audioStream || audioStream.getAudioTracks().length === 0) {
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
+      analyserRef.current = null;
+      dataArrayRef.current = null;
       if (audioContextRef.current) {
         audioContextRef.current.close().catch(() => {});
         audioContextRef.current = null;
@@ -40,155 +45,183 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
       const audioCtx = new AudioCtx();
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.78;
       const source = audioCtx.createMediaStreamSource(audioStream);
       source.connect(analyser);
 
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
+      const resume = () => {
+        if (audioCtx.state === 'suspended') void audioCtx.resume().catch(() => undefined);
+      };
+      resume();
+      audioCtx.addEventListener('statechange', resume);
+      document.addEventListener('visibilitychange', resume);
 
+      sourceRef.current = source;
       audioContextRef.current = audioCtx;
       analyserRef.current = analyser;
-      dataArrayRef.current = dataArray;
-    } catch {
-      // Graceful fallback to algorithmic harmonics
-    }
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
 
-    return () => {
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
+      return () => {
+        audioCtx.removeEventListener('statechange', resume);
+        document.removeEventListener('visibilitychange', resume);
+        try {
+          source.disconnect();
+        } catch {
+          /* already gone */
+        }
+        if (audioCtx.state !== 'closed') audioCtx.close().catch(() => {});
+        sourceRef.current = null;
         audioContextRef.current = null;
-      }
-    };
+        analyserRef.current = null;
+        dataArrayRef.current = null;
+      };
+    } catch {
+      // A blocked analyser must yield a still orb, not a synthetic performance.
+      analyserRef.current = null;
+      dataArrayRef.current = null;
+    }
   }, [audioStream]);
 
-  // Canvas 60fps Render Loop
+  // Canvas render loop. Resolution follows the device pixel ratio; motion stops
+  // for reduced-motion users; colours come from the active theme rather than a
+  // hard-coded palette.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let time = 0;
+    let last = 0;
 
-    const render = () => {
-      time += 0.04;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const render = (now = 0) => {
+      if (!reducedMotion && now - last < 33) {
+        animationFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
+      last = now;
+      time += reducedMotion ? 0 : 0.035;
 
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const baseRadius = size * 0.28;
+      const styles = getComputedStyle(canvas);
+      const accent = styles.getPropertyValue('--accent-primary').trim() || '#34d399';
+      const secondary = styles.getPropertyValue('--accent-secondary').trim() || accent;
+      const danger = styles.getPropertyValue('--danger').trim() || accent;
+      const warning = styles.getPropertyValue('--warning').trim() || accent;
+      const muted = styles.getPropertyValue('--text-muted').trim() || accent;
 
-      // Calculate audio amplitude level
-      let amplitude = 0.2;
+      let primary = accent;
+      let secondaryColor = secondary;
+      if (state === 'dire_hold') {
+        primary = danger;
+        secondaryColor = warning;
+      } else if (state === 'consulting') {
+        primary = warning;
+        secondaryColor = accent;
+      } else if (state === 'idle') {
+        primary = muted;
+        secondaryColor = muted;
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, size, size);
+
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const baseRadius = size * 0.27;
+
+      let amplitude = state === 'speaking' ? 0.08 : state === 'listening' ? 0.045 : 0.02;
       if (analyserRef.current && dataArrayRef.current) {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current as unknown as Uint8Array<ArrayBuffer>);
-        let sum = 0;
-        for (let i = 0; i < dataArrayRef.current.length; i++) {
-          sum += dataArrayRef.current[i];
+        let energy = 0;
+        for (let i = 0; i < dataArrayRef.current.length; i += 1) {
+          const normalized = dataArrayRef.current[i] / 255;
+          energy += normalized * normalized;
         }
-        amplitude = sum / (dataArrayRef.current.length * 255);
-      } else if (isActive) {
-        amplitude = 0.35 + Math.sin(time * 3) * 0.15;
+        amplitude = Math.min(1, Math.sqrt(energy / dataArrayRef.current.length) * 1.8);
       }
 
-      // State-driven color palettes (Pulse Dialer Gradient Palette)
-      let glowColor = 'rgba(139, 92, 246, 0.4)'; // Pulse Violet default
-      let innerColor1 = '#8b5cf6';
-      let innerColor2 = '#22d3ee';
-
-      if (state === 'dire_hold') {
-        glowColor = 'rgba(248, 113, 113, 0.5)'; // Urgent Red
-        innerColor1 = '#f87171';
-        innerColor2 = '#fbbf24';
-      } else if (state === 'consulting') {
-        glowColor = 'rgba(251, 191, 36, 0.45)'; // Amber / Violet
-        innerColor1 = '#fbbf24';
-        innerColor2 = '#8b5cf6';
-      } else if (state === 'speaking') {
-        glowColor = 'rgba(34, 211, 238, 0.5)'; // Electric Cyan / Violet
-        innerColor1 = '#22d3ee';
-        innerColor2 = '#8b5cf6';
-      } else if (state === 'listening') {
-        glowColor = 'rgba(52, 211, 153, 0.45)'; // Mint / Cyan
-        innerColor1 = '#34d399';
-        innerColor2 = '#22d3ee';
-      }
-
-      // Outer Glow Aura
+      // A single restrained halo; no synthetic pulse is added when no analyser
+      // is available.
+      ctx.save();
+      ctx.globalAlpha = 0.18 + amplitude * 0.16;
       const glowGradient = ctx.createRadialGradient(
         centerX,
         centerY,
-        baseRadius * 0.5,
+        baseRadius * 0.55,
         centerX,
         centerY,
-        baseRadius * (1.8 + amplitude * 0.8)
+        baseRadius * (1.5 + amplitude * 0.55),
       );
-      glowGradient.addColorStop(0, glowColor);
+      glowGradient.addColorStop(0, primary);
       glowGradient.addColorStop(1, 'rgba(0,0,0,0)');
-
       ctx.beginPath();
-      ctx.arc(centerX, centerY, baseRadius * (1.8 + amplitude * 0.8), 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, baseRadius * (1.5 + amplitude * 0.55), 0, Math.PI * 2);
       ctx.fillStyle = glowGradient;
       ctx.fill();
+      ctx.restore();
 
-      // Fluid Wave Deformation Points
-      ctx.save();
+      const points = 36;
       ctx.beginPath();
-      const points = 16;
-      for (let i = 0; i < points; i++) {
+      for (let i = 0; i <= points; i += 1) {
         const angle = (i / points) * Math.PI * 2;
-        const wave = Math.sin(angle * 3 + time * 2) * Math.cos(angle * 2 - time);
-        const dynamicRadius = baseRadius + wave * (12 + amplitude * 24);
+        const wave = Math.sin(angle * 3 + time * 1.8) * Math.cos(angle * 2 - time * 0.9);
+        const dynamicRadius = baseRadius + wave * (3 + amplitude * size * 0.055);
         const x = centerX + Math.cos(angle) * dynamicRadius;
         const y = centerY + Math.sin(angle) * dynamicRadius;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
       ctx.closePath();
 
-      // Inner Gradient
       const orbGradient = ctx.createLinearGradient(
         centerX - baseRadius,
         centerY - baseRadius,
         centerX + baseRadius,
-        centerY + baseRadius
+        centerY + baseRadius,
       );
-      orbGradient.addColorStop(0, innerColor1);
-      orbGradient.addColorStop(1, innerColor2);
-
+      orbGradient.addColorStop(0, primary);
+      orbGradient.addColorStop(1, secondaryColor);
       ctx.fillStyle = orbGradient;
-      ctx.shadowColor = innerColor1;
-      ctx.shadowBlur = 18 + amplitude * 20;
+      ctx.globalAlpha = state === 'idle' ? 0.32 : 0.9;
       ctx.fill();
-      ctx.restore();
+      ctx.globalAlpha = 1;
 
-      // Center Specular Reflection
       ctx.beginPath();
       ctx.ellipse(
         centerX - baseRadius * 0.25,
         centerY - baseRadius * 0.3,
-        baseRadius * 0.35,
-        baseRadius * 0.18,
+        baseRadius * 0.3,
+        baseRadius * 0.13,
         -Math.PI / 6,
         0,
-        Math.PI * 2
+        Math.PI * 2,
       );
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
       ctx.fill();
 
-      animationFrameRef.current = requestAnimationFrame(render);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, baseRadius + size * 0.055, 0, Math.PI * 2);
+      ctx.strokeStyle = styles.getPropertyValue('--line').trim() || 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      if (!reducedMotion) {
+        animationFrameRef.current = requestAnimationFrame(render);
+      }
     };
 
     render();
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     };
   }, [isActive, state, size]);
 

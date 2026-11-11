@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Cockpit — Master Controller</title>
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card-bg: #12141c;
+      --card-border: #1e2230;
+      --text: #f0f3f8;
+      --text-muted: #848da0;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.25);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.25);
+      --warning: #f59e0b;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 20px;
+    }
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 20px;
+    }
+    h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* MASTER SWITCH CARD */
+    .master-card {
+      background: linear-gradient(145deg, #131726, #0e111d);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      position: relative;
+      overflow: hidden;
+    }
+    .master-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, #3b82f6, #10b981, #7c3aed);
+    }
+    .master-info h2 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+    .master-info p { font-size: 14px; color: var(--text-muted); }
+
+    .switch-btn {
+      padding: 12px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 30px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+    .switch-btn.active {
+      background: var(--success);
+      color: #fff;
+      box-shadow: 0 0 20px var(--success-glow);
+    }
+    .switch-btn.inactive {
+      background: #232736;
+      color: var(--text-muted);
+    }
+    .switch-btn:hover { transform: scale(1.02); }
+    .switch-btn:active { transform: scale(0.98); }
+
+    /* SERVICES GRID */
+    .section-title {
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #2e344a; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .card-title { font-size: 16px; font-weight: 600; }
+    .card-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    .status-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.3px;
+    }
+    .status-pill.online {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-pill.offline {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .status-pill.online .status-dot { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-pill.offline .status-dot { background: var(--danger); }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      flex: 1;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: #181c28;
+      color: var(--text);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { background: #23283a; border-color: #3b4258; }
+    .btn-toggle {
+      background: #1e2436;
+      border-color: #2b334c;
+      font-weight: 600;
+    }
+
+    /* TOOLS REGISTRY SECTION */
+    .tools-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .tool-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s ease;
+    }
+    .tool-item:hover { border-color: #2b334c; background: #151824; }
+    .tool-meta h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .tool-meta p { font-size: 13px; color: var(--text-muted); }
+    .tool-path {
+      font-family: monospace;
+      font-size: 11px;
+      color: #79869e;
+      background: #0b0d14;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+      display: inline-block;
+    }
+
+    .add-tool-box {
+      border: 1px dashed var(--card-border);
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .add-tool-box:hover { border-color: var(--accent); color: var(--accent); background: rgba(59, 130, 246, 0.03); }
+
+    /* TOAST */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1a1e2d;
+      border: 1px solid #2e354a;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- HEADER -->
+    <header>
+      <div class="logo-group">
+        <div class="logo-badge">⚡</div>
+        <div>
+          <h1>Personal Cockpit</h1>
+          <div class="subtitle">Unified Master Switch & Local Operating System</div>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted);" id="live-time"></div>
+    </header>
+
+    <!-- MASTER SYSTEM SWITCH -->
+    <div class="master-card">
+      <div class="master-info">
+        <h2 id="master-title">App Master Switch</h2>
+        <p id="master-desc">One click toggles your entire multi-tenant app and voice agent.</p>
+      </div>
+      <button class="switch-btn inactive" id="master-btn" onclick="toggleService('master')">
+        <span id="master-indicator">⚪</span>
+        <span id="master-btn-text">LOADING...</span>
+      </button>
+    </div>
+
+    <!-- ACTIVE SERVICES GRID -->
+    <div>
+      <div class="section-title">Core App Services</div>
+      <div class="grid">
+        
+        <!-- WEB PORTAL -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <div>
+                <div class="card-title">Web & Call Portal</div>
+                <div class="card-subtitle">Next.js UI & WebRTC Call Client (:3000)</div>
+              </div>
+              <span class="status-pill offline" id="status-web"><span class="status-dot"></span><span id="txt-web">OFFLINE</span></span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-toggle" onclick="toggleService('web')">Toggle Power</button>
+            <a href="http://localhost:3000/call/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa" target="_blank" class="btn" style="background: var(--accent); color: white; border: none;">Open Call App ↗</a>
+          </div>
+        </div>
+
+        <!-- VOICE WORKER -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <div>
+                <div class="card-title">Voice AI Worker</div>
+                <div class="card-subtitle">LiveKit Dispatch & Azure Christel (:8081)</div>
+              </div>
+              <span class="status-pill offline" id="status-worker"><span class="status-dot"></span><span id="txt-worker">OFFLINE</span></span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn btn-toggle" onclick="toggleService('worker')">Toggle Power</button>
+            <a href="http://localhost:3000/agency/clients/11111111-1111-4111-8111-111111111111" target="_blank" class="btn">Agency Portal ↗</a>
+          </div>
+        </div>
+
+        <!-- DATABASE -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <div>
+                <div class="card-title">PostgreSQL Database</div>
+                <div class="card-subtitle">Multi-tenant CRM, Knowledge & Call Logs (:54330)</div>
+              </div>
+              <span class="status-pill offline" id="status-database"><span class="status-dot"></span><span id="txt-database">OFFLINE</span></span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <span style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">Auto-persisted on local disk</span>
+          </div>
+        </div>
+
+        <!-- LOCAL OLLAMA AIR-GAP -->
+        <div class="card">
+          <div>
+            <div class="card-header">
+              <div>
+                <div class="card-title">Air-Gapped Private AI</div>
+                <div class="card-subtitle">Local Ollama GPU Inference (:11434)</div>
+              </div>
+              <span class="status-pill offline" id="status-ollama"><span class="status-dot"></span><span id="txt-ollama">OFFLINE</span></span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <span style="font-size: 12px; color: var(--text-muted); padding: 8px 0;">100% Offline Apple Silicon Vault</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LOCAL TOOLS & INTEGRATIONS -->
+    <div>
+      <div class="section-title">Your Local Tools & Vision Integrations</div>
+      <div class="tools-list" id="tools-container">
+        <!-- Dynamically populated from tools_registry.json -->
+      </div>
+      <div class="add-tool-box" style="margin-top: 12px;" onclick="promptAddTool()">
+        + Register a Local Tool, Process, or Folder
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    function updateClock() {
+      document.getElementById('live-time').innerText = new Date().toLocaleTimeString();
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.className = 'show';
+      setTimeout(() => t.className = '', 2500);
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        // Master switch
+        const mBtn = document.getElementById('master-btn');
+        const mText = document.getElementById('master-btn-text');
+        const mInd = document.getElementById('master-indicator');
+        if (data.master) {
+          mBtn.className = 'switch-btn active';
+          mText.innerText = 'SYSTEM ONLINE (ALL RUNNING)';
+          mInd.innerText = '🟢';
+        } else {
+          mBtn.className = 'switch-btn inactive';
+          mText.innerText = 'SYSTEM OFFLINE (CLICK TO START)';
+          mInd.innerText = '⚪';
+        }
+
+        // Sub services
+        for (const [key, svc] of Object.entries(data.services)) {
+          const pill = document.getElementById(`status-${key}`);
+          const txt = document.getElementById(`txt-${key}`);
+          if (pill && txt) {
+            if (svc.running) {
+              pill.className = 'status-pill online';
+              txt.innerText = 'ACTIVE';
+            } else {
+              pill.className = 'status-pill offline';
+              txt.innerText = 'OFFLINE';
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Status fetch failed', e);
+      }
+    }
+
+    async function toggleService(service) {
+      showToast(`Toggling ${service}...`);
+      try {
+        await fetch('/api/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ service, action: 'toggle' }),
+        });
+        await fetchStatus();
+      } catch (err) {
+        showToast(`Failed: ${err.message}`);
+      }
+    }
+
+    async function fetchTools() {
+      try {
+        const res = await fetch('/api/tools');
+        const tools = await res.json();
+        const container = document.getElementById('tools-container');
+        container.innerHTML = '';
+        
+        tools.forEach(t => {
+          const el = document.createElement('div');
+          el.className = 'tool-item';
+          el.innerHTML = `
+            <div class="tool-meta">
+              <h4>${t.name}</h4>
+              <p>${t.description || ''}</p>
+              <div class="tool-path">${t.path || ''}</div>
+            </div>
+            <div>
+              <span class="status-pill online" style="font-size: 10px;">CONNECTED</span>
+            </div>
+          `;
+          container.appendChild(el);
+        });
+      } catch (e) {
+        console.error('Tools fetch failed', e);
+      }
+    }
+
+    async function promptAddTool() {
+      const name = prompt('Tool or Folder Name (e.g., "Personal Vision Process", "n8n Workflows"):');
+      if (!name) return;
+      const path = prompt('Folder or Executable Path (e.g., /Users/gaganrajput11/.vision):');
+      const description = prompt('Description:');
+      
+      try {
+        await fetch('/api/tools', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, path, description }),
+        });
+        showToast('Tool registered successfully!');
+        fetchTools();
+      } catch (e) {
+        showToast('Failed to register tool');
+      }
+    }
+
+    // Initial load and periodic refresh
+    fetchStatus();
+    fetchTools();
+    setInterval(fetchStatus, 2000);
+  </script>
+</body>
+</html>

@@ -79,19 +79,16 @@ export function AppShell({
           >
             {active ? (
               <span
-                className="absolute inset-0 rounded-xl"
-                style={{
-                  background: 'linear-gradient(135deg, var(--glow-soft), var(--glow-soft))',
-                  border: '1px solid var(--glow)',
-                }}
+                className="absolute inset-0 rounded-xl bg-[var(--bg-raised)]"
+                style={{ borderLeft: '2px solid var(--accent-primary)' }}
               />
             ) : null}
             <Icon
               size={17}
-              strokeWidth={active ? 2.3 : 1.9}
+              strokeWidth={active ? 2.1 : 1.8}
               className={cn(
                 'relative z-10 transition-colors',
-                active ? 'text-[var(--accent-secondary)]' : 'text-[var(--muted)] group-hover:text-[var(--text)]'
+                active ? 'text-[var(--accent-primary)]' : 'text-[var(--muted)] group-hover:text-[var(--text)]'
               )}
             />
             <span className="relative z-10 truncate">{item.label}</span>
@@ -111,16 +108,10 @@ export function AppShell({
       </div>
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--line)] bg-[var(--shell)] px-4 py-3 backdrop-blur-xl lg:hidden">
+      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--line)] bg-[var(--bg-surface)] px-4 py-3 lg:hidden">
         <Link href={brandHref} className="flex items-center gap-2.5">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-white"
-            style={{
-              background: 'var(--grad)',
-              boxShadow: '0 4px 16px var(--glow)',
-            }}
-          >
-            <Activity size={17} strokeWidth={2.6} />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--bg-raised)] text-[var(--accent-primary)]">
+            <Activity size={17} strokeWidth={2.3} />
           </div>
           <div className="flex flex-col">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{brandEyebrow}</span>
@@ -143,7 +134,7 @@ export function AppShell({
         <aside
           className={cn(
             'fixed inset-y-0 left-0 z-30 w-[240px] shrink-0 border-r border-[var(--line)]',
-            'bg-[var(--shell)] backdrop-blur-2xl transition-transform duration-200',
+            'bg-[var(--bg-surface)] transition-transform duration-200',
             'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
             open ? 'translate-x-0' : '-translate-x-full'
           )}
@@ -155,13 +146,9 @@ export function AppShell({
               className="flex items-center gap-3 border-b border-[var(--line)] px-4 py-4 transition hover:opacity-90"
             >
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-lg"
-                style={{
-                  background: 'var(--grad)',
-                  boxShadow: '0 6px 20px var(--glow)',
-                }}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] text-[var(--accent-primary)]"
               >
-                <Activity size={19} strokeWidth={2.6} />
+                <Activity size={19} strokeWidth={2.3} />
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{brandEyebrow}</span>
@@ -176,10 +163,9 @@ export function AppShell({
 
             {/* Live Indicator Chip */}
             <div className="px-3 pb-2">
-              <div className="mode-chip live" title="LiveKit & Neural Voice Active">
-                <span className="dot" />
+              <div className="mode-chip" title="Browser voice uses LiveKit WebRTC">
                 <Headphones size={13} className="shrink-0" />
-                <span className="truncate">Live: WebRTC Direct</span>
+                <span className="truncate">Browser voice · WebRTC</span>
               </div>
             </div>
 
@@ -203,7 +189,7 @@ export function AppShell({
         {/* Main Content Area */}
         <div className="relative z-10 min-w-0 flex-1">
           {toolbar ? (
-            <div className="sticky top-0 z-20 hidden items-center justify-end gap-2.5 border-b border-[var(--line)] bg-[var(--shell)] px-6 py-2.5 backdrop-blur-xl lg:flex">
+            <div className="sticky top-0 z-20 hidden items-center justify-end gap-2.5 border-b border-[var(--line)] bg-[var(--bg-surface)] px-6 py-2.5 lg:flex">
               {toolbar}
             </div>
           ) : null}

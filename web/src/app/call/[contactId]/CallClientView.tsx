@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, ShieldCheck, Sparkles, CheckCircle, ArrowLeft } from 'lucide-react';
-import { Room, RoomEvent, Track, RemoteTrack, RemoteParticipant } from 'livekit-client';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, CheckCircle, AlertTriangle, MessageSquare } from 'lucide-react';
+import { Room, RoomEvent, Track, RemoteTrack } from 'livekit-client';
 import { OrbVisualizer } from '@/components/audio/OrbVisualizer';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 
@@ -24,165 +25,176 @@ interface CallClientViewProps {
   };
 }
 
-type CallStage = 'idle' | 'connecting' | 'active' | 'ended';
+type CallStage = 'idle' | 'connecting' | 'waiting_for_agent' | 'active' | 'ended' | 'error';
+const AGENT_TIMEOUT_MS = 30_000;
+
+function stageDotClass(stage: CallStage) {
+  if (stage === 'active') return 'h-1.5 w-1.5 rounded-full bg-[var(--success)]';
+  if (stage === 'error') return 'h-1.5 w-1.5 rounded-full bg-[var(--danger)]';
+  if (stage === 'connecting' || stage === 'waiting_for_agent') {
+    return 'h-1.5 w-1.5 rounded-full bg-[var(--warning)]';
+  }
+  if (stage === 'ended') return 'h-1.5 w-1.5 rounded-full bg-[var(--text-muted)]';
+  return 'h-1.5 w-1.5 rounded-full border border-[var(--text-muted)]';
+}
 
 export function CallClientView({ contact, tenant }: CallClientViewProps) {
   const [stage, setStage] = useState<CallStage>('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [speechTranscript, setSpeechTranscript] = useState<string[]>([]);
+  const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [starting, setStarting] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<HTMLAudioElement[]>([]);
+  const intentionalDisconnectRef = useRef(false);
+  const attemptIdRef = useRef<string | null>(null);
 
-  const isDanish = contact.preferred_language === 'da' || tenant.default_language === 'da-DK';
+  const isDanish = contact.preferred_language
+    ? contact.preferred_language === 'da'
+    : tenant.default_language.startsWith('da');
 
-  // Call duration counter
   useEffect(() => {
     if (stage === 'active') {
-      timerRef.current = setInterval(() => {
-        setDuration((prev) => prev + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => setDuration((prev) => prev + 1), 1000);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
     };
   }, [stage]);
 
-  // Teardown WebRTC room and tracks on unmount
-  useEffect(() => {
-    return () => {
-      if (roomRef.current) {
-        roomRef.current.disconnect();
-        roomRef.current = null;
-      }
-      audioElementsRef.current.forEach((el) => el.remove());
-      audioElementsRef.current = [];
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [localStream]);
+  const cleanupCall = useCallback(() => {
+    intentionalDisconnectRef.current = true;
+    roomRef.current?.disconnect();
+    roomRef.current = null;
+    audioElementsRef.current.forEach((el) => el.remove());
+    audioElementsRef.current = [];
+    setAgentStream(null);
+    setIsMuted(false);
+  }, []);
+
+  useEffect(() => () => cleanupCall(), [cleanupCall]);
 
   const handleStartCall = async () => {
-    setStage('connecting');
+    if (starting || stage === 'connecting' || stage === 'waiting_for_agent') return;
+    setStarting(true);
+    setErrorMessage('');
+    setDuration(0);
+    intentionalDisconnectRef.current = false;
+    attemptIdRef.current = null;
 
     try {
-      // 1. Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setLocalStream(stream);
-
-      // 2. Fetch scoped LiveKit WebRTC access token from server
+      setStage('connecting');
       const tokenRes = await fetch('/api/livekit/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenantId: tenant.id,
-          roomName: `${tenant.slug}_call_${contact.id}`,
-          participantIdentity: `customer_${contact.id}`,
-          participantName: contact.full_name || 'Customer',
+          contactId: contact.id,
           role: 'customer',
-          metadata: {
-            tenant_id: tenant.id,
-            tenantId: tenant.id,
-            contact_id: contact.id,
-            contactId: contact.id,
-            role: 'customer',
-          },
         }),
       });
-
-      if (!tokenRes.ok) throw new Error('Could not mint WebRTC session token');
-      const tokenData = await tokenRes.json();
-
-      // 3. Connect to WebRTC Voice room via livekit-client
-      if (tokenData?.serverUrl && tokenData?.token) {
-        try {
-          const room = new Room({
-            adaptiveStream: true,
-            dynacast: true,
-          });
-          roomRef.current = room;
-
-          room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
-            if (track.kind === Track.Kind.Audio) {
-              const audioElement = track.attach();
-              audioElementsRef.current.push(audioElement);
-            }
-          });
-
-          room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
-            track.detach().forEach((el) => {
-              el.remove();
-              audioElementsRef.current = audioElementsRef.current.filter((a) => a !== el);
-            });
-          });
-
-          room.on(RoomEvent.Disconnected, () => {
-            setStage('ended');
-          });
-
-          // Connect if serverUrl is valid LiveKit endpoint
-          if (!tokenData.serverUrl.includes('your-livekit.livekit.cloud')) {
-            await room.connect(tokenData.serverUrl, tokenData.token);
-            await room.localParticipant.setMicrophoneEnabled(true);
-          }
-        } catch (rtcErr) {
-          console.warn('Real WebRTC LiveKit server connection failed or unavailable, running in local microphone sandbox mode:', rtcErr);
-        }
+      const tokenData = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok || !tokenData.token || !tokenData.serverUrl) {
+        throw new Error(
+          tokenData.error ??
+            (isDanish ? 'Kunne ikke starte opkaldet.' : 'Could not start the call.'),
+        );
       }
 
+      attemptIdRef.current = tokenData.attemptId ?? null;
+      const room = new Room({ adaptiveStream: true, dynacast: true });
+      roomRef.current = room;
+      let resolveAgentAudio: ((element: HTMLAudioElement | null) => void) | null = null;
+      const agentAudio = new Promise<HTMLAudioElement | null>((resolve) => {
+        resolveAgentAudio = resolve;
+      });
+
+      room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
+        if (track.kind !== Track.Kind.Audio) return;
+        const audioElement = track.attach();
+        audioElement.autoplay = true;
+        audioElement.style.display = 'none';
+        document.body.appendChild(audioElement);
+        audioElementsRef.current.push(audioElement);
+        const media = track.mediaStreamTrack;
+        if (media) setAgentStream(new MediaStream([media]));
+        resolveAgentAudio?.(audioElement);
+      });
+
+      room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+        track.detach().forEach((el) => {
+          el.remove();
+          audioElementsRef.current = audioElementsRef.current.filter((audio) => audio !== el);
+        });
+      });
+
+      room.on(RoomEvent.Disconnected, () => {
+        if (intentionalDisconnectRef.current) return;
+        cleanupCall();
+        setStage('ended');
+      });
+
+      await room.connect(tokenData.serverUrl, tokenData.token);
+      await room.startAudio();
+      await room.localParticipant.setMicrophoneEnabled(true, {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      });
+      if (!agentStream) setStage('waiting_for_agent');
+
+      let timeoutId: NodeJS.Timeout | null = null;
+      const timeout = new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), AGENT_TIMEOUT_MS);
+      });
+      const audioElement = await Promise.race([agentAudio, timeout]);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (!audioElement || !roomRef.current) {
+        throw new Error(
+          isDanish
+            ? 'Receptionisten svarede ikke. Prøv igen om et øjeblik.'
+            : 'The receptionist did not answer. Please try again shortly.',
+        );
+      }
+      // Play only after startAudio() has unlocked the browser's audio context.
+      await audioElement.play();
       setStage('active');
-      setSpeechTranscript([
-        isDanish
-          ? `AI: Goddag ${contact.full_name || ''}! Tak for dit opkald til ${tenant.name}. Jeg har set din besked. Hvad kan jeg hjælpe dig med?`
-          : `AI: Hello ${contact.full_name || ''}! Thank you for calling ${tenant.name}. I see your message. How can I help you?`,
-      ]);
-    } catch (err) {
-      console.error('Call connection failed:', err);
-      // Still allow active demonstration state in sandbox
-      setStage('active');
-      setSpeechTranscript([
-        isDanish
-          ? `AI: Goddag ${contact.full_name || ''}! Jeg er forbundet med din WhatsApp-historik.`
-          : `AI: Hello ${contact.full_name || ''}! I am connected with your conversation history.`,
-      ]);
+    } catch (error) {
+      if (attemptIdRef.current) {
+        void fetch('/api/livekit/abandon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attemptId: attemptIdRef.current }),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+      cleanupCall();
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : isDanish
+            ? 'Opkaldet kunne ikke oprettes.'
+            : 'The call could not be established.',
+      );
+      setStage('error');
+    } finally {
+      setStarting(false);
     }
   };
 
   const handleEndCall = () => {
-    if (roomRef.current) {
-      roomRef.current.disconnect();
-      roomRef.current = null;
-    }
-    audioElementsRef.current.forEach((el) => el.remove());
-    audioElementsRef.current = [];
-
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
-      setLocalStream(null);
-    }
+    cleanupCall();
     setStage('ended');
   };
 
   const toggleMute = async () => {
+    const room = roomRef.current;
+    if (!room) return;
     const nextMuted = !isMuted;
-    if (roomRef.current && roomRef.current.localParticipant) {
-      try {
-        await roomRef.current.localParticipant.setMicrophoneEnabled(!nextMuted);
-      } catch (err) {
-        console.warn('Could not set microphone status on LiveKit participant:', err);
-      }
-    }
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !nextMuted;
-      }
-    }
+    await room.localParticipant.setMicrophoneEnabled(!nextMuted);
     setIsMuted(nextMuted);
   };
 
@@ -192,167 +204,283 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  return (
-    <div className="w-full max-w-sm mx-auto bg-[var(--bg-surface,#0A0D15)] border border-[var(--border-subtle,#1E2638)] rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center relative overflow-hidden backdrop-blur-xl transition-colors">
-      {/* Top Controls */}
-      <div className="w-full flex justify-end mb-2 z-20">
-        <ThemeSwitcher />
-      </div>
+  const stageLabel = {
+    idle: isDanish ? 'Klar' : 'Ready',
+    connecting: isDanish ? 'Forbinder' : 'Connecting',
+    waiting_for_agent: isDanish ? 'Venter' : 'Waiting',
+    active: isDanish ? 'Forbundet' : 'Connected',
+    ended: isDanish ? 'Afsluttet' : 'Ended',
+    error: isDanish ? 'Fejl' : 'Error',
+  }[stage];
 
-      {/* Brand Header */}
-      <div className="flex flex-col items-center space-y-1.5 mb-6 z-10">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[var(--accent-primary,#00F5D4)] to-[var(--accent-secondary,#7B61FF)] p-[1.5px] shadow-lg shadow-[var(--accent-primary,#00F5D4)]/20">
-          <div className="w-full h-full bg-[var(--bg-ground,#080B12)] rounded-[14px] flex items-center justify-center font-bold text-lg text-[var(--accent-primary,#00F5D4)]">
+  return (
+    <div className="w-full max-w-[1180px]">
+      <header className="enter mb-9 flex flex-wrap items-center justify-between gap-5 pb-2">
+        <div className="flex items-center gap-3.5">
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-[10px] bg-[var(--bg-raised)] text-[17px] font-black text-[var(--accent-primary)]"
+            title={tenant.name}
+          >
             {tenant.name.charAt(0)}
           </div>
+          <span className="sr-only">{tenant.name}</span>
         </div>
-        <h1 className="text-base font-bold text-[var(--text-primary,#FFFFFF)] tracking-tight flex items-center gap-1.5">
-          {tenant.name}
-          <ShieldCheck className="w-4 h-4 text-[var(--accent-primary,#00F5D4)]" />
-        </h1>
-        <p className="text-xs text-[var(--text-muted,#8E9CAE)]">
-          {isDanish ? 'Officiel AI-Stemmeforbindelse' : 'Official AI Voice Connection'} • {isDanish ? '🇩🇰 Dansk' : '🇬🇧 English'}
-        </p>
-      </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/chat/${contact.id}`}
+            className="flex items-center gap-2 rounded-[10px] border border-[var(--line)] px-3 py-1.5 text-[12px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text)]"
+          >
+            <MessageSquare size={13} />
+            <span className="hidden sm:inline">{isDanish ? 'Chat i stedet' : 'Chat instead'}</span>
+          </Link>
+          <span className="hidden text-[13px] text-[var(--muted)] sm:inline">
+            WebRTC / {isDanish ? 'Dansk' : 'English'}
+          </span>
+          <ThemeSwitcher />
+        </div>
+      </header>
 
-      {/* Shared Memory Context Banner */}
-      {contact.shared_memory_summary && stage !== 'ended' && (
-        <div className="w-full mb-6 p-3 rounded-2xl bg-[var(--bg-raised,#111724)] border border-[var(--border-subtle,#1E293F)] text-left text-xs space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--accent-primary,#00F5D4)]">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isDanish ? 'Forbundet Hukommelse Aktiv' : 'Shared Memory Active'}</span>
+      <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(390px,0.72fr)] lg:grid-rows-[auto_1fr] lg:gap-x-12">
+        <section className="enter enter-delay relative overflow-hidden rounded-[14px] bg-[var(--bg-surface)] px-6 py-8 lg:col-start-1 lg:row-start-1 lg:px-8">
+          <Image
+            src="/assets/oak-veneer.webp"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 1024px) 100vw, 55vw"
+            className="hero-drift pointer-events-none object-cover opacity-[0.16]"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--bg-ground)]/20 via-[var(--bg-ground)]/55 to-[var(--bg-ground)]/85" />
+
+          <div className="relative z-10">
+            <h1 className="max-w-[700px] text-[clamp(2.65rem,5.2vw,4.5rem)] font-semibold leading-[0.98] tracking-[-0.055em] text-[var(--text)]">
+              {isDanish ? (
+                <>
+                  Tal med <span className="text-[var(--accent-primary)]">Christel.</span>
+                </>
+              ) : (
+                <>
+                  Speak with <span className="text-[var(--accent-primary)]">Christel.</span>
+                </>
+              )}
+            </h1>
+            <p className="mt-5 max-w-[560px] text-[clamp(1.15rem,1.8vw,1.4rem)] font-medium leading-[1.35] tracking-[-0.025em] text-[var(--text)]">
+              {isDanish
+                ? 'Dansk Byg & Renovering hjælper med badeværelse, køkken, tilbygning og tag.'
+                : 'Dansk Byg & Renovation handles bathrooms, kitchens, extensions and roofs.'}
+            </p>
+            <p className="mt-4 hidden max-w-[520px] text-[16px] leading-7 text-[var(--text-secondary)] sm:block">
+              {isDanish
+                ? 'Ring direkte i browseren. Christel afdækker opgaven, giver et vejledende overslag og finder en tid til en gratis besigtigelse.'
+                : 'Call directly in your browser. Christel scopes the work, gives a non-binding estimate and finds a time for a free inspection.'}
+            </p>
           </div>
-          <p className="text-[var(--text-secondary,#A0AEC0)] text-[11px] leading-relaxed line-clamp-2">
-            {contact.shared_memory_summary}
-          </p>
-        </div>
-      )}
+        </section>
 
-      {/* Center Dynamic Visualizer & State Display */}
-      <div className="flex-1 flex flex-col items-center justify-center my-4 z-10 w-full">
-        {stage === 'idle' && (
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-32 h-32 rounded-full bg-[#121824] border border-[#212C40] flex items-center justify-center shadow-inner">
-              <Phone className="w-12 h-12 text-[#00F5D4] animate-pulse" />
+        <section className="enter enter-delay-2 flex min-h-[460px] flex-col overflow-hidden rounded-[14px] bg-[var(--bg-surface)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-[530px]">
+          <div className="flex items-center justify-between gap-4 px-6 py-4">
+            <div className="flex items-center gap-2.5">
+              <span
+                className={stageDotClass(stage)}
+                aria-hidden
+              />
+              <span className="text-[13px] text-[var(--text-secondary)]">
+                {stageLabel}
+              </span>
             </div>
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-white">
-                {isDanish ? 'Klar til 1-Klik Opkald' : 'Ready for Instant Call'}
+            <span className="text-[13px] tabular-nums text-[var(--text-muted)]">
+              {stage === 'active' ? formatTimer(duration) : '00:00'}
+            </span>
+          </div>
+
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
+        {stage === 'idle' && (
+          <div className="flex w-full flex-col items-center">
+            <div className="flex h-28 w-28 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--bg-ground)]">
+              <Phone className="h-9 w-9 text-[var(--accent-primary)]" strokeWidth={1.8} />
+            </div>
+            <div className="mt-6 space-y-2">
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">
+                {isDanish ? 'Klar til at tale med Christel' : 'Ready to speak with Christel'}
               </h2>
-              <p className="text-xs text-[#718096]">
+              <p className="mx-auto max-w-[280px] text-[13px] leading-6 text-[var(--text-secondary)]">
                 {isDanish
-                  ? 'Gratis WebRTC-opkald direkte i browseren ($0 takst)'
-                  : 'Zero-cost browser WebRTC voice connection'}
+                  ? 'Tryk start, giv mikrofonadgang, og vent på hilsenen.'
+                  : 'Press start, allow the microphone and wait for the greeting.'}
               </p>
             </div>
           </div>
         )}
 
-        {stage === 'connecting' && (
-          <div className="flex flex-col items-center space-y-4">
-            <OrbVisualizer isActive={true} state="listening" size={130} />
-            <span className="text-xs font-mono text-[#00F5D4] animate-pulse">
-              {isDanish ? 'Forbinder til AI Voice Server...' : 'Connecting to LiveKit Voice Agent...'}
+        {(stage === 'connecting' || stage === 'waiting_for_agent') && (
+          <div className="flex w-full flex-col items-center">
+            <OrbVisualizer isActive={true} state="listening" size={132} />
+            <span className="mt-5 text-[13px] font-medium text-[var(--text-secondary)]">
+              {stage === 'waiting_for_agent'
+                ? isDanish
+                  ? 'Forbundet. Venter på receptionisten…'
+                  : 'Connected. Waiting for the receptionist…'
+                : isDanish
+                  ? 'Forbinder sikkert…'
+                  : 'Connecting securely…'}
             </span>
           </div>
         )}
 
         {stage === 'active' && (
-          <div className="flex flex-col items-center space-y-3 w-full">
+          <div className="flex w-full flex-col items-center">
             <OrbVisualizer
               isActive={true}
               state={isMuted ? 'idle' : 'speaking'}
-              audioStream={localStream}
-              size={140}
+              audioStream={agentStream}
+              size={150}
             />
-            <div className="text-lg font-mono font-bold text-white tracking-widest">
+            <div className="mt-4 text-[32px] font-medium leading-none tracking-[-0.04em] text-[var(--text)] tabular-nums">
               {formatTimer(duration)}
             </div>
-            <span className="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-[#00F5D4]/10 text-[#00F5D4] border border-[#00F5D4]/30">
-              HD Voice • Low Latency
+            <span className="mt-3 inline-flex items-center gap-2 text-[13px] text-[var(--success)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+              {isDanish ? 'Forbundet med receptionisten' : 'Connected to the receptionist'}
             </span>
 
-            {/* Live Captions Stream */}
-            <div className="w-full mt-2 p-2.5 rounded-xl bg-[#07090F] border border-[#161D2B] text-left text-xs text-[#CBD5E1] min-h-[48px]">
-              {speechTranscript.map((t, idx) => (
-                <p key={idx} className="leading-relaxed animate-fade-in">{t}</p>
-              ))}
+            <div className="mt-6 flex w-full items-start gap-2.5 text-left text-[13px] leading-5 text-[var(--text-secondary)]">
+              <Volume2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-primary)]" />
+              <span>
+                {isDanish
+                  ? 'Tal efter hilsenen. Optagelsen gemmes lokalt på arbejdsstationen.'
+                  : 'Speak after the greeting. The recording stays on this workstation.'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {stage === 'error' && (
+          <div className="flex w-full flex-col items-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[var(--danger)]/40 bg-[var(--danger-soft)] text-[var(--danger)]">
+              <AlertTriangle className="h-8 w-8" strokeWidth={1.7} />
+            </div>
+            <div className="mt-6 space-y-2">
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">
+                {isDanish ? 'Opkaldet blev ikke oprettet' : 'Call not established'}
+              </h2>
+              <p className="mx-auto max-w-[300px] text-[13px] leading-6 text-[var(--text-secondary)]">
+                {errorMessage}
+              </p>
             </div>
           </div>
         )}
 
         {stage === 'ended' && (
-          <div className="flex flex-col items-center space-y-4 py-6">
-            <div className="w-16 h-16 rounded-full bg-[#00F5D4]/20 border border-[#00F5D4] flex items-center justify-center text-[#00F5D4]">
-              <CheckCircle className="w-8 h-8" />
+          <div className="flex w-full flex-col items-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[var(--success)]/40 bg-[var(--success)]/10 text-[var(--success)]">
+              <CheckCircle className="h-8 w-8" strokeWidth={1.7} />
             </div>
-            <div className="space-y-1">
-              <h2 className="text-base font-bold text-white">
-                {isDanish ? 'Opkald Afsluttet' : 'Call Completed'}
+            <div className="mt-6 space-y-2">
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">
+                {isDanish ? 'Opkaldet er afsluttet' : 'Call ended'}
               </h2>
-              <p className="text-xs text-[#8E9CAE] max-w-[240px]">
+              <p className="mx-auto max-w-[290px] text-[13px] leading-6 text-[var(--text-secondary)]">
                 {isDanish
-                  ? `Tak for samtalen! Vi har sendt en bekræftelse på SMS til dit telefonnummer ${contact.phone_number || ''}.`
-                  : `Thank you for calling! A confirmation SMS has been sent to ${contact.phone_number || ''}.`}
+                  ? 'Tak for samtalen. Din henvendelse er gemt til gennemsyn.'
+                  : 'Thank you for calling. Your request has been recorded for review.'}
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Action Controls Bar */}
-      <div className="w-full pt-4 border-t border-[#161D2B] z-10 flex items-center justify-center gap-4">
-        {stage === 'idle' && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleStartCall}
-            className="w-full py-3.5 bg-gradient-to-r from-[#00F5D4] to-[#00D2B6] hover:brightness-110 text-black font-bold text-sm rounded-2xl shadow-lg shadow-[#00F5D4]/20 flex items-center justify-center gap-2 transition-all"
-          >
-            <Phone className="w-4 h-4 fill-current" />
-            <span>{isDanish ? 'Start Gratis Opkald Nu' : 'Start Instant Call Now'}</span>
-          </motion.button>
-        )}
+          <div className="p-4 pt-1">
+            {(stage === 'idle' || stage === 'error') && (
+              <button
+                onClick={handleStartCall}
+                disabled={starting}
+                className="flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[10px] bg-[var(--accent-primary)] px-5 text-[14px] font-semibold text-[var(--accent-contrast)] transition-[filter,transform] duration-150 hover:brightness-105 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
+              >
+                <Phone className="h-4 w-4 fill-current" />
+                <span>
+                  {stage === 'error'
+                    ? isDanish ? 'Prøv igen' : 'Try again'
+                    : isDanish ? 'Start opkald' : 'Start call'}
+                </span>
+              </button>
+            )}
 
-        {stage === 'active' && (
-          <div className="flex items-center gap-4">
-            <button
-              onClick={toggleMute}
-              className={`p-3.5 rounded-2xl border transition-all ${
-                isMuted
-                  ? 'bg-[#FF2A85]/20 border-[#FF2A85] text-[#FF2A85]'
-                  : 'bg-[#141A26] border-[#252F45] text-white hover:border-[#00F5D4]'
-              }`}
-              title={isMuted ? 'Unmute' : 'Mute'}
-              aria-label="Toggle Mute"
-            >
-              {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
+            {stage === 'active' && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={toggleMute}
+                  className={`flex h-12 w-12 items-center justify-center rounded-[10px] border transition-colors ${
+                    isMuted
+                      ? 'border-[var(--danger)]/50 bg-[var(--danger-soft)] text-[var(--danger)]'
+                      : 'border-[var(--line)] bg-[var(--bg-raised)] text-[var(--text)] hover:border-[var(--border-strong)]'
+                  }`}
+                  title={isMuted ? 'Slå lyd til' : 'Slå lyd fra'}
+                  aria-label="Toggle microphone"
+                >
+                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </button>
 
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleEndCall}
-              className="p-4 rounded-2xl bg-[#FF2A85] hover:bg-[#D41C68] text-white shadow-lg shadow-[#FF2A85]/30"
-              title="Hang Up"
-              aria-label="End Call"
-            >
-              <PhoneOff className="w-6 h-6 fill-current" />
-            </motion.button>
+                <button
+                  onClick={handleEndCall}
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-[10px] border border-[var(--danger)]/40 bg-[var(--danger)] text-[13px] font-semibold text-white transition-[filter] hover:brightness-105"
+                  aria-label="End call"
+                >
+                  <PhoneOff className="h-4 w-4" />
+                  {isDanish ? 'Afslut opkald' : 'End call'}
+                </button>
+              </div>
+            )}
+
+            {stage === 'ended' && (
+              <button
+                onClick={() => {
+                  setStage('idle');
+                  setDuration(0);
+                }}
+                className="min-h-[48px] w-full rounded-[10px] bg-[var(--bg-raised)] px-5 text-[13px] font-semibold text-[var(--text)] transition-colors hover:bg-[var(--panel-2)]"
+              >
+                {isDanish ? 'Ring igen' : 'Call again'}
+              </button>
+            )}
           </div>
-        )}
+        </section>
 
-        {stage === 'ended' && (
-          <button
-            onClick={() => {
-              setStage('idle');
-              setDuration(0);
-            }}
-            className="px-6 py-2.5 bg-[#141A26] hover:bg-[#1E2638] text-white text-xs font-semibold rounded-xl border border-[#263147] transition-all"
-          >
-            {isDanish ? 'Ring Op Igen' : 'Call Again'}
-          </button>
-        )}
+        <section className="enter enter-delay-2 px-1 lg:col-start-1 lg:row-start-2 lg:pt-2">
+          <dl className="grid gap-5 sm:grid-cols-3 lg:max-w-[600px]">
+            {[
+              {
+                title: isDanish ? 'Opgaven' : 'The work',
+                body: isDanish
+                  ? 'Badeværelse, køkken, tilbygning eller tag.'
+                  : 'Bathroom, kitchen, extension or roof.',
+              },
+              {
+                title: isDanish ? 'Overslaget' : 'The estimate',
+                body: isDanish
+                  ? 'Vejledende, ikke et bindende tilbud.'
+                  : 'A guide only, never a binding quote.',
+              },
+              {
+                title: isDanish ? 'Næste skridt' : 'The next step',
+                body: isDanish
+                  ? 'Gratis besigtigelse med Morten Bondo.'
+                  : 'Free inspection with Morten Bondo.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="enter" style={{ animationDelay: '220ms' }}>
+                <dt className="text-[14px] font-semibold text-[var(--text)]">{item.title}</dt>
+                <dd className="mt-1.5 text-[16px] leading-6 text-[var(--text)]">
+                  {item.body}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-8 max-w-[520px] text-[16px] leading-6 text-[var(--text-secondary)]">
+            {isDanish
+              ? 'Opkaldet optages for at kunne følge op på din henvendelse. Optagelsen opbevares på virksomhedens arbejdsstation.'
+              : 'The call is recorded so the business can follow up. The recording stays on the company workstation.'}
+          </p>
+        </section>
       </div>
     </div>
   );
