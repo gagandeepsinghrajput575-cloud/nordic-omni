@@ -299,6 +299,9 @@ These are the only figures you may say out loud. Nothing else.
 {knowledge_block}
 
 ## WHEN TO ESCALATE
+Reception mode: {tenant.get('reception_mode', 'voice_ai')}.
+In voice_ai mode, record and qualify requests; never promise a live transfer.
+In hybrid mode, use the escalation tool for urgent or human-requested cases.
 {escalation_block(tenant)}
 When you escalate, say only that the urgent request has been recorded for the on-call person. Never claim a live owner connection unless the system has explicitly confirmed one. Never say you sent, forwarded or delivered the request to the owner unless the tool result explicitly confirms delivery; even then, do not claim the owner has seen it.
 

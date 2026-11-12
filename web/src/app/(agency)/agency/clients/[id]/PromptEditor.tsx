@@ -61,7 +61,7 @@ export function PromptEditor({ tenantId, tenantSlug = 'tenant', tenantName = 'Cl
   const isDirty = customerPrompt !== initial.customer_system_prompt || copilotPrompt !== initial.copilot_system_prompt || greeting !== (initial.greeting_script ?? '') || selectedVoice !== (initial.voice_id ?? DEFAULT_VOICE);
   const hasContact = Boolean(contactId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contactId));
   const directCallUrl = hasContact && origin ? `${origin}/call/${contactId}` : '';
-  const embedSnippet = `<script\n  src="${origin}/widget.js"\n  data-tenant="${tenantSlug}"\n  data-contact="${contactId}"\n  data-primary-color="#237653"\n  defer>\n</script>`;
+  const embedSnippet = `<script\n  src="${origin}/widget.js"\n  data-tenant="${tenantSlug}"\n  data-contact="${contactId}"\n  data-primary-color="#7C3AED"\n  defer>\n</script>`;
   const provider = selectedVoice.split(':')[0];
 
   function handleSubmit(event: React.FormEvent) {

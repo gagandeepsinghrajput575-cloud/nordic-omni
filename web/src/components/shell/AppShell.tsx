@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, X, LayoutDashboard, Users, Settings, Building2, Phone, BookOpen, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Users, Settings, Building2, Phone, BookOpen, Webhook, ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/components/ui/core';
 import { BrandLockup, BrandMark } from '@/components/ui/BrandMark';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
@@ -12,7 +12,7 @@ import { buttonClass } from '@/components/ui/form';
 import { useFocusTrap } from '@/components/ui/overlay';
 import { LogoutButton } from './LogoutButton';
 
-const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen } satisfies Record<string, LucideIcon>;
+const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen, webhook: Webhook } satisfies Record<string, LucideIcon>;
 export type IconKey = keyof typeof ICONS;
 export interface NavItem { href: string; label: string; icon: IconKey; exact?: boolean }
 
@@ -95,8 +95,8 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
       <AnimatePresence>
         {open ? (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.button type="button" tabIndex={-1} aria-label="Close navigation" className="absolute inset-0 bg-[rgba(12,22,15,.48)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={close} />
-            <motion.aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" tabIndex={-1} className="app-sidebar absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col shadow-2xl" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}>
+            <motion.button type="button" tabIndex={-1} aria-label="Close navigation" className="absolute inset-0 bg-[rgba(28,21,18,.48)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={close} />
+            <motion.aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" tabIndex={-1} className="app-sidebar absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col shadow-2xl" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}>
               <button type="button" onClick={close} aria-label="Close navigation" className={cn(buttonClass('ghost', 'sm', 'icon-button'), 'absolute right-3 top-5')}><X size={18} /></button>
               {sidebarContent('mobile')}
             </motion.aside>

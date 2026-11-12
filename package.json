@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsx --test test/*.test.ts && cd web && ../node_modules/.bin/tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts && cd web && ../node_modules/.bin/tsx --test test/*.test.ts",
+    "webhooks": "tsx --tsconfig web/tsconfig.json web/scripts/webhook-worker.ts"
   },
   "keywords": [],
   "author": "",

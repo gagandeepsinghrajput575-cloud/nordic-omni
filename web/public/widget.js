@@ -19,8 +19,8 @@
 
   var origin;
   try { origin = new URL(script.src, window.location.href).origin; } catch (error) { return; }
-  var color = script.getAttribute('data-primary-color') || '#237653';
-  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) color = '#237653';
+  var color = script.getAttribute('data-primary-color') || '#7C3AED';
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) color = '#7C3AED';
   var label = script.getAttribute('data-label') || 'Open browser call';
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -32,7 +32,7 @@
   panel.id = 'nordic-omni-widget-panel';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', label);
-  panel.style.cssText = 'display:none;position:absolute;right:0;bottom:72px;width:380px;max-width:calc(100vw - 40px);height:480px;max-height:calc(100dvh - 112px);overflow:hidden;border-radius:16px;border:1px solid rgba(28,41,33,.14);background:#f6f7f4;box-shadow:0 18px 56px rgba(18,22,19,.22);opacity:0;transform:translateY(8px) scale(.985);transition:opacity .18s ease,transform .18s ease;';
+  panel.style.cssText = 'display:none;position:absolute;right:0;bottom:72px;width:380px;max-width:calc(100vw - 40px);height:480px;max-height:calc(100dvh - 112px);overflow:hidden;border-radius:16px;border:1px solid rgba(28,21,18,.14);background:#FAF7F2;box-shadow:0 18px 56px rgba(28,21,18,.22);opacity:0;transform:translateY(8px) scale(.985);transition:opacity .18s ease,transform .18s ease;';
 
   var button = document.createElement('button');
   button.type = 'button';

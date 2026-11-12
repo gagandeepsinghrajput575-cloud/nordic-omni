@@ -40,9 +40,11 @@ export async function POST(req: NextRequest) {
 
   // adminSql: must read `users` before any identity exists (RLS needs app.user_id).
   const rows = await adminSql`
-    select id, password_hash, is_active
-    from users
-    where lower(email) = lower(${email})
+    select u.id, u.password_hash, u.is_active,
+      exists (select 1 from agency_members am where am.user_id = u.id) as is_agency,
+      coalesce(us.must_change_password, false) as must_change_password
+    from users u left join user_security us on us.user_id = u.id
+    where lower(u.email) = lower(${email})
     limit 1
   `;
 
@@ -59,7 +61,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
+  if (!user.is_agency) {
+    const active = await adminSql`
+      select 1 from tenant_members tm join tenants t on t.id = tm.tenant_id
+      where tm.user_id = ${user.id} and t.status = 'active' limit 1
+    `;
+    if (!active[0]) return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+  }
   await createSession(user.id as string, req.headers.get('user-agent') ?? undefined);
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, mustChangePassword: Boolean(user.must_change_password) && !user.is_agency });
 }

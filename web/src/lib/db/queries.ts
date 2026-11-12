@@ -16,6 +16,8 @@ export interface TenantSummary {
   pipeline_dkk: number;
   call_count: number;
   open_dire: number;
+  flynumber_did: string | null;
+  reception_mode: string;
 }
 
 export async function listTenants(userId: string): Promise<TenantSummary[]> {
@@ -26,13 +28,15 @@ export async function listTenants(userId: string): Promise<TenantSummary[]> {
         t.name,
         t.slug,
         t.status,
+        t.reception_mode,
+        t.flynumber_did,
         t.default_language::text as default_language,
         (select count(*)::int from contacts c where c.tenant_id = t.id) as contact_count,
         (select coalesce(sum(c.estimated_value_dkk), 0)::float from contacts c
-           where c.tenant_id = t.id) as pipeline_dkk,
+           where c.tenant_id = t.id and c.pipeline_stage <> 'closed_lost') as pipeline_dkk,
         (select count(*)::int from call_logs cl where cl.tenant_id = t.id) as call_count,
-        (select count(*)::int from contacts c
-           where c.tenant_id = t.id and c.pipeline_stage = 'dire_escalated') as open_dire
+        (select count(*)::int from conversation_escalations e
+           where e.tenant_id = t.id and e.status <> 'resolved' and e.urgency >= 4) as open_dire
       from tenants t
       order by t.name
     `;
@@ -51,7 +55,10 @@ export interface TenantFacts {
   flynumber_did: string | null;
   active_broadcast_message: string | null;
   business_hours: Record<string, { open: string; close: string; closed: boolean }>;
-  pricing_catalog: Array<{ id: string; service: string; price_dkk: number; unit: string }>;
+  pricing_catalog: import('@/lib/estimation').CatalogItem[];
+  status: string;
+  reception_mode: string;
+  telephony_mode: string;
 }
 
 export async function getTenantFacts(userId: string, tenantId: string): Promise<TenantFacts | null> {
@@ -59,7 +66,8 @@ export async function getTenantFacts(userId: string, tenantId: string): Promise<
     const rows = await tx`
       select id, name, slug, owner_name, owner_phone, owner_email,
              default_language::text as default_language, flynumber_did,
-             active_broadcast_message, business_hours, pricing_catalog
+             active_broadcast_message, business_hours, pricing_catalog,
+             status, reception_mode, telephony_mode::text as telephony_mode
       from tenants where id = ${tenantId} limit 1
     `;
     return (rows[0] as unknown as TenantFacts) ?? null;
@@ -347,6 +355,8 @@ export interface PublicCallContext {
     name: string;
     slug: string;
     status: string;
+    reception_mode: string;
+    flynumber_did: string | null;
     default_language: string;
   };
 }
@@ -362,7 +372,7 @@ export async function getPublicCallContext(contactId: string): Promise<PublicCal
   const rows = await adminSql`
     select c.id, c.tenant_id, c.full_name, c.phone_number,
            c.preferred_language, c.ai_auto_reply_enabled,
-           t.name, t.slug, t.status, t.default_language::text as default_language
+           t.name, t.slug, t.status, t.reception_mode, t.flynumber_did, t.default_language::text as default_language
     from contacts c
     join tenants t on t.id = c.tenant_id
     where c.id = ${contactId}
@@ -385,6 +395,8 @@ export async function getPublicCallContext(contactId: string): Promise<PublicCal
       name: row.name as string,
       slug: row.slug as string,
       status: row.status as string,
+      reception_mode: row.reception_mode as string,
+      flynumber_did: row.flynumber_did as string | null,
       default_language: row.default_language as string,
     },
   };
@@ -444,11 +456,11 @@ export async function getTenantOverview(userId: string, tenantId: string): Promi
       select
         (select count(*)::int from contacts where tenant_id = ${tenantId}) as contacts,
         (select coalesce(sum(estimated_value_dkk), 0)::float from contacts
-           where tenant_id = ${tenantId}) as pipeline_dkk,
+           where tenant_id = ${tenantId} and pipeline_stage <> 'closed_lost') as pipeline_dkk,
         (select count(*)::int from contacts
            where tenant_id = ${tenantId} and pipeline_stage = 'booked') as booked,
-        (select count(*)::int from contacts
-           where tenant_id = ${tenantId} and pipeline_stage = 'dire_escalated') as dire,
+        (select count(*)::int from conversation_escalations
+           where tenant_id = ${tenantId} and status <> 'resolved' and urgency >= 4) as dire,
         (select count(*)::int from call_logs where tenant_id = ${tenantId}) as calls,
         (select count(*)::int from messages where tenant_id = ${tenantId}) as messages
     `;

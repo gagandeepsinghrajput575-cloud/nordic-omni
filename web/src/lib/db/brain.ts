@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { withUser } from '@/lib/db/client';
+import { withUser, jsonb } from '@/lib/db/client';
 import { brainKnowledgeItems, type BrainCompilation } from '@/lib/ai/brain';
 
 export interface BrainSourceRow {
@@ -83,8 +83,8 @@ export async function saveBrainDraft(
       values (
         ${tenantId}, ${compilation.model}, ${arrayLiteral}::uuid[],
         ${compilation.payload.business_summary},
-        ${JSON.stringify(compilation.payload)}::jsonb,
-        ${JSON.stringify(compilation.warnings)}::jsonb,
+        ${jsonb(compilation.payload)},
+        ${jsonb(compilation.warnings)},
         ${userId}
       )
       returning id

@@ -22,7 +22,7 @@ export default async function PublicChatPage({ params }: { params: Promise<{ con
   const publicMessages = messages.filter((message) => message.sender === 'customer' || message.sender === 'ai').map((message) => ({ id: message.id, role: message.sender === 'customer' ? ('customer' as const) : ('ai' as const), content: message.content, channel: message.channel, createdAt: message.created_at }));
   return (
     <main className="min-h-dvh bg-[var(--bg)] px-5 py-6 text-[var(--text)] sm:px-8">
-      <ChatClient contactId={contactId} contactName={context.contact.full_name} tenantName={context.tenant.name} isDanish={context.contact.preferred_language.startsWith('da')} initialMessages={publicMessages} autoReply={context.contact.ai_auto_reply_enabled} />
+      <ChatClient contactId={contactId} contactName={context.contact.full_name} tenantName={context.tenant.name} isDanish={context.contact.preferred_language.startsWith('da')} initialMessages={publicMessages} autoReply={context.contact.ai_auto_reply_enabled && context.tenant.reception_mode !== 'human_forward'} />
     </main>
   );
 }

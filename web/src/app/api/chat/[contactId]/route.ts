@@ -89,6 +89,10 @@ export async function POST(
     metadata: { source: 'public_chat' },
   });
 
+  if (context.tenant.reception_mode === 'human_forward') {
+    return NextResponse.json({ ok: true, handedOver: true, reply: null,
+      notice: context.contact.preferred_language.startsWith('da') ? 'Kontoret håndterer opkald personligt. Ring til hovednummeret.' : 'This office handles calls personally. Please call the main number.', message: inbound });
+  }
   if (!context.contact.ai_auto_reply_enabled) {
     return NextResponse.json({
       ok: true,

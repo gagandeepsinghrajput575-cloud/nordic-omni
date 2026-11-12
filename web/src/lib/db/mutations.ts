@@ -1,4 +1,5 @@
-import { withUser } from '@/lib/db/client';
+import { withUser, jsonb } from '@/lib/db/client';
+import { hashPassword } from '@/lib/auth/password';
 
 /**
  * Write functions. Every one runs inside withUser(), so `app.user_id` is set and
@@ -127,6 +128,8 @@ export interface NewTenantInput {
   ownerPhone: string;
   ownerEmail: string;
   defaultLanguage: 'da-DK' | 'en-US';
+  did?: string | null;
+  initialPassword: string;
 }
 
 /**
@@ -183,6 +186,9 @@ export async function createTenantWithAgent(
       `;
 
       const tenantId = tenants[0].id as string;
+      if (input.did) await tx`update tenants set flynumber_did = ${input.did} where id = ${tenantId}`;
+      const passwordHash = hashPassword(input.initialPassword);
+      await tx`select provision_tenant_member(${tenantId}, ${input.ownerEmail}, ${passwordHash}, ${input.ownerName}, 'owner', true)`;
 
       await tx`
         insert into tenant_agent_config (
@@ -190,7 +196,7 @@ export async function createTenantWithAgent(
           greeting_script, escalation_policy, stt_language, updated_by
         ) values (
           ${tenantId}, ${businessPrompt}, ${copilotPrompt}, ${greeting},
-          ${JSON.stringify(escalation)}::jsonb, ${danish ? 'da' : 'en'}, ${userId}
+          ${jsonb(escalation)}, ${danish ? 'da' : 'en'}, ${userId}
         )
       `;
 
@@ -210,7 +216,7 @@ export interface TenantFactsPatch {
   /** `null` clears the broadcast; `undefined` leaves it untouched. */
   activeBroadcastMessage?: string | null;
   businessHours?: Record<string, { open: string; close: string; closed: boolean }>;
-  pricingCatalog?: Array<{ id: string; service: string; price_dkk: number; unit: string }>;
+  pricingCatalog?: import('@/lib/estimation').CatalogItem[];
 }
 
 /**
@@ -225,8 +231,8 @@ export async function updateTenantFacts(
 ): Promise<number> {
   const hasBroadcast = patch.activeBroadcastMessage !== undefined;
   const broadcast = patch.activeBroadcastMessage ?? null;
-  const hours = patch.businessHours ? JSON.stringify(patch.businessHours) : null;
-  const prices = patch.pricingCatalog ? JSON.stringify(patch.pricingCatalog) : null;
+  const hours = patch.businessHours ? jsonb(patch.businessHours) : null;
+  const prices = patch.pricingCatalog ? jsonb(patch.pricingCatalog) : null;
 
   return withUser(userId, async (tx) => {
     const rows = await tx`

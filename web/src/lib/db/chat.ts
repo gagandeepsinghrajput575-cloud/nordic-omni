@@ -1,4 +1,4 @@
-import { adminSql } from '@/lib/db/client';
+import { adminSql, jsonb } from '@/lib/db/client';
 import type { CatalogItem } from '@/lib/estimation';
 
 export interface ChatContactContext {
@@ -20,6 +20,7 @@ export interface ChatContactContext {
     name: string;
     slug: string;
     status: string;
+    reception_mode: string;
     default_language: string;
     owner_name: string;
     owner_phone: string;
@@ -51,7 +52,7 @@ export async function loadChatContext(contactId: string): Promise<ChatContactCon
       c.preferred_language, c.pipeline_stage::text as pipeline_stage,
       c.lead_score, c.estimated_value_dkk::float as estimated_value_dkk,
       c.ai_auto_reply_enabled, c.shared_memory_summary,
-      t.name, t.slug, t.status, t.default_language::text as default_language,
+      t.name, t.slug, t.status, t.reception_mode, t.default_language::text as default_language,
       t.owner_name, t.owner_phone, t.owner_email, t.business_hours,
       t.pricing_catalog, t.active_broadcast_message,
       coalesce(cfg.customer_system_prompt, '') as customer_system_prompt,
@@ -95,6 +96,7 @@ export async function loadChatContext(contactId: string): Promise<ChatContactCon
       name: row.name as string,
       slug: row.slug as string,
       status: row.status as string,
+      reception_mode: row.reception_mode as string,
       default_language: row.default_language as string,
       owner_name: row.owner_name as string,
       owner_phone: row.owner_phone as string,
@@ -153,7 +155,7 @@ export async function appendChatMessage({
     values (
       ${tenantId}, ${contactId}, ${channel}::channel_type,
       ${direction}, ${sender}, ${content.slice(0, 8000)},
-      ${JSON.stringify(metadata)}::jsonb
+      ${jsonb(metadata)}
     )
     returning id, created_at
   `;
@@ -260,7 +262,7 @@ export async function recordChatEstimate({
       insert into ui_command_events (tenant_id, command_type, payload)
       values (
         ${tenantId}, 'PROJECT_ESTIMATE_RECORDED',
-        ${JSON.stringify({ contactId, catalogItemId, estimatedValueDkk: midpoint })}::jsonb
+        ${jsonb({ contactId, catalogItemId, estimatedValueDkk: midpoint })}
       )
     `;
     return rows[0].id as string;
@@ -293,7 +295,7 @@ export async function requestChatInspection({
       insert into ui_command_events (tenant_id, command_type, payload)
       values (
         ${tenantId}, 'INSPECTION_REQUESTED',
-        ${JSON.stringify({ contactId, status: 'requested' })}::jsonb
+        ${jsonb({ contactId, status: 'requested' })}
       )
     `;
     return rows[0].id as string;

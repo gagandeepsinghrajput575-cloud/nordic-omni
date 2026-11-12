@@ -104,7 +104,7 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
     let last = 0;
 
     const render = (now = 0) => {
-      if (!reducedMotion && now - last < 33) {
+      if (!reducedMotion && now - last < 16) {
         animationFrameRef.current = requestAnimationFrame(render);
         return;
       }
@@ -112,7 +112,7 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
       time += reducedMotion ? 0 : 0.035;
 
       const styles = getComputedStyle(canvas);
-      const accent = styles.getPropertyValue('--accent-primary').trim() || '#237653';
+      const accent = styles.getPropertyValue('--accent-primary').trim() || '#7C3AED';
       const secondary = styles.getPropertyValue('--accent-secondary').trim() || accent;
       const danger = styles.getPropertyValue('--danger').trim() || accent;
       const warning = styles.getPropertyValue('--warning').trim() || accent;

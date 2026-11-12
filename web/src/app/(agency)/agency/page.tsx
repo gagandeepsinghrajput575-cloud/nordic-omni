@@ -20,13 +20,13 @@ export default async function AgencyPortfolioPage() {
 
   return (
     <div className="space-y-7">
-      <PageHeader eyebrow="Agency console" title="Your portfolio" description="The businesses you operate, their customer pipelines and the conversations that need a human touch." actions={<Link href="/agency/clients/new" className={buttonClass('primary')}><Plus size={15} />New client</Link>} />
+      <PageHeader eyebrow="Agency console" title="Your portfolio" description="The businesses you operate, their customer pipelines and the conversations that need a human touch." actions={<Link href="/agency/clients/new" className={buttonClass('primary')}><Plus size={15} />New Client Workspace</Link>} />
       {totalDire > 0 ? <div className="notice notice-danger items-center"><AlertTriangle size={17} className="mt-0.5 shrink-0" aria-hidden /><p className="flex-1 text-[13px] font-medium">{totalDire} open {totalDire === 1 ? 'emergency needs' : 'emergencies need'} attention across your portfolio.</p><Link href="/agency/clients" className={buttonClass('ghost', 'sm', 'text-[var(--danger)]')}>Review clients<ArrowRight size={13} /></Link></div> : null}
       <StatGroup>
-        <Stat label="Managed pipeline" value={dkk(totalPipeline)} unit="DKK" hint="Across all client workspaces" />
-        <Stat label="Workspaces" value={tenants.length} unit={tenants.length === 1 ? 'client' : 'clients'} hint={`${tenants.filter((tenant) => tenant.status === 'active').length} active`} />
-        <Stat label="Callers" value={totalContacts} unit="total" hint="Across your portfolio" />
-        <Stat label="Calls handled" value={totalCalls} unit={totalCalls === 1 ? 'session' : 'sessions'} hint="Recorded call sessions" />
+        <Stat label="Total managed pipeline" value={dkk(totalPipeline)} unit="DKK" tone="accent" hint="Open estimated value across all clients" />
+        <Stat label="Active client workspaces" value={tenants.filter((tenant) => tenant.status === 'active').length} unit={`/ ${tenants.length}`} hint="Accepting calls and client sign-ins" />
+        <Stat label="Combined call volume" value={totalCalls} unit="calls" hint={`${totalContacts} callers across your portfolio`} />
+        <Stat label="Urgent escalations" value={totalDire} tone={totalDire ? 'danger' : 'default'} hint="Unresolved cases · urgency 4–5" />
       </StatGroup>
       <section>
         <SectionTitle action={<Link href="/agency/clients" className={buttonClass('ghost', 'sm')}>All clients<ArrowRight size={13} aria-hidden /></Link>}>Your workspaces</SectionTitle>
@@ -37,8 +37,9 @@ export default async function AgencyPortfolioPage() {
                 <Card interactive className="h-full p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3"><Avatar name={tenant.name} size={42} /><div className="min-w-0"><h3 className="truncate text-[15px] font-semibold tracking-[-0.025em]">{tenant.name}</h3><p className="mt-1 text-[12px] text-[var(--muted)]">/{tenant.slug} · {tenant.default_language === 'da-DK' ? 'Dansk' : 'English'}</p></div></div>
-                    <Badge tone={tenant.status === 'active' ? 'success' : 'warning'} dot>{tenant.status === 'active' ? 'Active' : tenant.status}</Badge>
+                    <Badge tone={tenant.status === 'active' ? 'success' : tenant.status === 'suspended' ? 'danger' : 'warning'} dot>{tenant.status}</Badge>
                   </div>
+                  <p className="mt-4 flex items-center gap-2 text-[12px] text-[var(--text-secondary)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)]" aria-hidden />{tenant.flynumber_did || 'Browser calls only'}<span className="ml-auto text-[11px] text-[var(--muted)]">{tenant.reception_mode === 'human_forward' ? 'Human forward' : tenant.reception_mode === 'hybrid' ? 'Hybrid reception' : 'Voice AI'}</span></p>
                   <dl className="mt-5 grid grid-cols-3 gap-4 border-t border-[var(--line)] pt-4">
                     <div><dt className="text-[12px] text-[var(--muted)]">Callers</dt><dd className="mt-1.5 text-[21px] font-medium tabular-nums tracking-[-0.03em]">{tenant.contact_count}</dd></div>
                     <div><dt className="text-[12px] text-[var(--muted)]">Pipeline · DKK</dt><dd className="mt-1.5 text-[21px] font-medium tabular-nums tracking-[-0.03em]">{dkk(tenant.pipeline_dkk)}</dd></div>

@@ -14,7 +14,7 @@ export default async function AgencyClientsPage() {
   const tenants = await listTenants(session.userId);
   return (
     <div className="space-y-7">
-      <PageHeader eyebrow="Agency" title="Client workspaces" description="Every business you operate. Open a workspace to manage its receptionist, knowledge and business facts." actions={<Link href="/agency/clients/new" className={buttonClass('primary')}><Plus size={15} />New client</Link>} />
+      <PageHeader eyebrow="Agency" title="Client workspaces" description="Every business you operate. Open a workspace to manage its receptionist, knowledge and business facts." actions={<Link href="/agency/clients/new" className={buttonClass('primary')}><Plus size={15} />New Client Workspace</Link>} />
       <ClientDirectory tenants={tenants} />
     </div>
   );

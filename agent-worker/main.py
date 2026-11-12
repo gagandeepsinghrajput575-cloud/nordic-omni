@@ -39,6 +39,7 @@ from agents.azure_tts import SafeAzureTTS
 from agents.owner_copilot_agent import OwnerCopilotAgent
 from config import Config, load as load_config
 from services.db import Database
+from services.phone import forward_sip_call
 from services.recordings import duration_seconds, history_to_turns, preserve
 
 load_dotenv()
@@ -405,6 +406,28 @@ async def entrypoint(ctx: JobContext) -> None:
     )
 
     started_at = time.time()
+    if sip_call and tenant.get("reception_mode") == "human_forward":
+        # read_metadata resolved the actual room participant. JobContext has no
+        # `.participant` property in LiveKit Agents 1.x; use that verified identity.
+        identity = str(meta.get("participant_identity") or "")
+        transferred, detail = await forward_sip_call(
+            ctx.room.name, identity, str(tenant.get("owner_phone") or "")
+        )
+        await db.update_call_status(
+            room_name=ctx.room.name, tenant_id=str(tenant["id"]),
+            status="completed" if transferred else "missed",
+            dire_reason=None,
+            briefing="Human forwarding confirmed by SIP provider." if transferred else "Human forwarding failed; no live connection was established.",
+        )
+        await db.emit_event(str(tenant["id"]), "HUMAN_FORWARD_RESULT", {
+            "contactId": str(contact["id"]), "confirmed": transferred,
+        })
+        if not transferred:
+            logger.error("Human forward failed for tenant %s: %s", tenant["id"], detail)
+        ctx.add_shutdown_callback(close_db)
+        ctx.shutdown("human forwarding finished")
+        return
+
     should_record = bool(tenant.get("record_calls", True))
     record_opts = (
         {"audio": True, "traces": False, "logs": False, "transcript": False}

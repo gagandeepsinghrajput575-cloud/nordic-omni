@@ -13,7 +13,7 @@ import { Spinner } from '@/components/ui/SubmitButton';
 
 interface CallClientViewProps {
   contact: { id: string; full_name: string | null; phone_number: string | null; preferred_language: string; shared_memory_summary?: string | null };
-  tenant: { id: string; name: string; slug: string; default_language: string };
+  tenant: { id: string; name: string; slug: string; default_language: string; reception_mode?: string; flynumber_did?: string | null };
   compact?: boolean;
 }
 
@@ -134,7 +134,7 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
         {stage === 'ended' ? <><span className="mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--success-line)] bg-[var(--success-soft)] text-[var(--success)]"><CheckCircle2 size={28} strokeWidth={1.7} /></span><h2 className="text-[19px] font-semibold tracking-[-0.03em]">{t('Opkaldet er afsluttet', 'Call ended')}</h2><p className="mt-2 max-w-[290px] text-[13px] leading-6 text-[var(--muted)]">{t('Tak for samtalen. Din henvendelse er gemt til opfølgning.', 'Thank you for calling. Your request has been recorded for follow-up.')}</p></> : null}
       </div>
       <div className="border-t border-[var(--line)] p-4">
-        {stage === 'idle' || stage === 'error' ? <button type="button" onClick={handleStartCall} className={buttonClass('primary', 'md', 'min-h-12 w-full')}><Phone size={16} />{stage === 'error' ? t('Prøv igen', 'Try again') : t('Start opkald', 'Start call')}</button> : null}
+        {tenant.reception_mode === 'human_forward' ? <div className="notice notice-info flex-col"><p className="text-[13px]">{t('Dette kontor viderestiller opkald til en medarbejder. Ring til hovednummeret.', 'This office forwards calls to a team member. Please call the main number.')}</p>{tenant.flynumber_did ? <a href={`tel:${tenant.flynumber_did}`} className={buttonClass('primary', 'md', 'min-h-12 w-full')}><Phone size={16} />{tenant.flynumber_did}</a> : <p className="text-[12px]">{t('Telefonnummeret er ikke offentliggjort endnu.', 'The phone number is not published yet.')}</p>}</div> : stage === 'idle' || stage === 'error' ? <button type="button" onClick={handleStartCall} className={buttonClass('primary', 'md', 'min-h-12 w-full')}><Phone size={16} />{stage === 'error' ? t('Prøv igen', 'Try again') : t('Start opkald', 'Start call')}</button> : null}
         {stage === 'active' ? <div className="flex items-center gap-3"><button type="button" onClick={toggleMute} aria-pressed={isMuted} aria-label={isMuted ? t('Slå mikrofon til', 'Unmute microphone') : t('Slå mikrofon fra', 'Mute microphone')} className={buttonClass(isMuted ? 'danger' : 'secondary', 'md', 'icon-button h-12 w-12')}>{isMuted ? <MicOff size={18} /> : <Mic size={18} />}</button><button type="button" onClick={handleEndCall} className={buttonClass('danger', 'md', 'min-h-12 flex-1')}><PhoneOff size={16} />{t('Afslut opkald', 'End call')}</button></div> : null}
         {stage === 'ended' ? <button type="button" onClick={() => { setStage('idle'); setDuration(0); setErrorMessage(''); }} className={buttonClass('secondary', 'md', 'min-h-12 w-full')}>{t('Ring igen', 'Call again')}</button> : null}
         {stage === 'connecting' || stage === 'waiting_for_agent' ? <button type="button" onClick={handleEndCall} className={buttonClass('ghost', 'md', 'min-h-12 w-full')}>{t('Annuller', 'Cancel')}</button> : null}

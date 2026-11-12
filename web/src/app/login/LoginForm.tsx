@@ -30,7 +30,7 @@ export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
       const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { setError(data.error ?? 'Sign in failed. Please try again.'); setIsBusy(false); return; }
-      router.replace(redirectTo);
+      router.replace(data.mustChangePassword ? '/account/password' : redirectTo);
       router.refresh();
     } catch {
       setError('We couldn’t reach the server. Check your connection and try again.');
