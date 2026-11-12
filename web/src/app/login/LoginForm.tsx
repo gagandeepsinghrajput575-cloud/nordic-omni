@@ -1,151 +1,75 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Lock, Mail, Sparkles } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, ChevronRight } from 'lucide-react';
+import { Field, Input, FormAlert, buttonClass } from '@/components/ui/form';
+import { Spinner } from '@/components/ui/SubmitButton';
 
-export function LoginForm() {
+const DEMO_ACCOUNTS = [
+  { email: 'agency@nordic-omni.local', label: 'Agency console', detail: 'Manage every workspace' },
+  { email: 'morten@danskbyg.dk', label: 'Dansk Byg', detail: 'Danish business portal' },
+  { email: 'mette@nordicdental.dk', label: 'Nordic Dental', detail: 'English business portal' },
+];
+
+export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const submitRef = useRef<HTMLButtonElement>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (isBusy) return;
-
     setError(null);
     setIsBusy(true);
-
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setError(data.error ?? 'Sign in failed');
-        setIsBusy(false);
-        return;
-      }
-
-      router.replace('/');
+      const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(data.error ?? 'Sign in failed. Please try again.'); setIsBusy(false); return; }
+      router.replace(redirectTo);
       router.refresh();
     } catch {
-      setError('Network error. Is the server running?');
+      setError('We couldn’t reach the server. Check your connection and try again.');
       setIsBusy(false);
     }
   }
 
   function fillDemo(demoEmail: string) {
+    if (isBusy) return;
     setEmail(demoEmail);
     setPassword('demo1234');
     setError(null);
+    submitRef.current?.focus();
   }
 
   return (
-    <div className="space-y-5">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label
-            htmlFor="email"
-            className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]"
-          >
-            Email Address
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@company.com"
-            className="w-full rounded-xl border border-[var(--line)] bg-[rgba(0,0,0,0.35)] px-4 py-2.5 text-xs text-[var(--text)] placeholder-[var(--muted)] outline-none transition focus:border-[rgba(139,92,246,0.65)] focus:ring-2 focus:ring-[rgba(139,92,246,0.2)]"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="password"
-            className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className="w-full rounded-xl border border-[var(--line)] bg-[rgba(0,0,0,0.35)] px-4 py-2.5 text-xs text-[var(--text)] placeholder-[var(--muted)] outline-none transition focus:border-[rgba(139,92,246,0.65)] focus:ring-2 focus:ring-[rgba(139,92,246,0.2)]"
-          />
-        </div>
-
-        {error && (
-          <p
-            role="alert"
-            className="rounded-xl border border-[var(--bad)]/40 bg-[var(--bad)]/10 p-3 text-xs text-[#fca5a5]"
-          >
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={isBusy}
-          className="btn primary glow w-full py-3 text-sm font-bold flex items-center justify-center gap-2"
-        >
-          {isBusy ? 'Signing in…' : 'Sign in to Workspace'}
-          <ArrowRight className="h-4 w-4" />
+    <div className="space-y-7">
+      <form onSubmit={handleSubmit} className="space-y-5" aria-busy={isBusy}>
+        <Field htmlFor="email" label="Email address">
+          <Input id="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" disabled={isBusy} />
+        </Field>
+        <Field htmlFor="password" label="Password">
+          <div className="relative">
+            <Input id="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="pr-12" disabled={isBusy} />
+            <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} className="absolute right-1 top-1 flex h-8 w-9 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--bg-raised)] hover:text-[var(--text)]"><span aria-hidden>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</span></button>
+          </div>
+        </Field>
+        {error ? <FormAlert tone="error">{error}</FormAlert> : null}
+        <button ref={submitRef} type="submit" disabled={isBusy} aria-busy={isBusy} className={buttonClass('primary', 'md', 'min-h-11 w-full justify-between px-4')}>
+          <span>{isBusy ? 'Opening your workspace…' : 'Sign in to workspace'}</span>{isBusy ? <Spinner /> : <ArrowRight size={16} aria-hidden />}
         </button>
       </form>
-
-      {/* 1-click Demo Accounts in Pulse Card style */}
-      <div className="border-t border-[var(--line)] pt-4">
-        <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
-          <Sparkles size={13} className="text-[#a78bfa]" />
-          <span>Demo credentials (password: demo1234)</span>
+      <details className="border-t border-[var(--line)] pt-5" open>
+        <summary className="text-[12px] font-medium text-[var(--text-secondary)]">Explore a demo workspace</summary>
+        <p className="mb-3 mt-2 text-[11px] leading-5 text-[var(--muted)]">Choose an account to fill the form. Demo password: <code className="rounded bg-[var(--bg-raised)] px-1.5 py-0.5">demo1234</code></p>
+        <div className="space-y-2">
+          {DEMO_ACCOUNTS.map((account) => <button key={account.email} type="button" disabled={isBusy} onClick={() => fillDemo(account.email)} className="auth-demo group" aria-label={`Use demo account ${account.email}`}><span className="min-w-0"><span className="flex items-center gap-2 text-[12px] font-medium">{account.label}<span className="text-[11px] font-normal text-[var(--muted)]">{account.detail}</span></span><span className="mt-0.5 block truncate text-[11px] text-[var(--muted)]">{account.email}</span></span><ChevronRight size={15} className="shrink-0 text-[var(--muted)] transition-transform group-hover:translate-x-0.5" aria-hidden /></button>)}
         </div>
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => fillDemo('agency@nordic-omni.local')}
-            className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2 text-left text-xs transition hover:bg-white/[0.12] hover:-translate-y-0.5"
-          >
-            <span className="font-mono text-xs text-[var(--text)]">agency@nordic-omni.local</span>
-            <span className="rounded-full bg-[rgba(139,92,246,0.2)] px-2 py-0.5 font-mono text-[10px] font-bold text-[#c4b5fd]">
-              Agency Admin
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemo('jens@kbhvvs.dk')}
-            className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2 text-left text-xs transition hover:bg-white/[0.12] hover:-translate-y-0.5"
-          >
-            <span className="font-mono text-xs text-[var(--text)]">jens@kbhvvs.dk</span>
-            <span className="rounded-full bg-[rgba(34,211,238,0.18)] px-2 py-0.5 font-mono text-[10px] font-bold text-[#a5f3fc]">
-              Client: VVS
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemo('mette@nordicdental.dk')}
-            className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2 text-left text-xs transition hover:bg-white/[0.12] hover:-translate-y-0.5"
-          >
-            <span className="font-mono text-xs text-[var(--text)]">mette@nordicdental.dk</span>
-            <span className="rounded-full bg-[rgba(52,211,153,0.18)] px-2 py-0.5 font-mono text-[10px] font-bold text-[#a7f3d0]">
-              Client: Dental
-            </span>
-          </button>
-        </div>
-      </div>
+      </details>
     </div>
   );
 }

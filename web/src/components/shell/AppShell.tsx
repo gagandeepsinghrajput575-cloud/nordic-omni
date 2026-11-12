@@ -2,95 +2,51 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-import {
-  Menu,
-  X,
-  LayoutDashboard,
-  Users,
-  Settings,
-  Building2,
-  Phone,
-  BookOpen,
-  Activity,
-  Headphones,
-  type LucideIcon,
-} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Menu, X, LayoutDashboard, Users, Settings, Building2, Phone, BookOpen, ChevronRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/components/ui/core';
+import { BrandLockup, BrandMark } from '@/components/ui/BrandMark';
+import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+import { buttonClass } from '@/components/ui/form';
+import { useFocusTrap } from '@/components/ui/overlay';
+import { LogoutButton } from './LogoutButton';
 
-const ICONS = {
-  dashboard: LayoutDashboard,
-  users: Users,
-  settings: Settings,
-  building: Building2,
-  phone: Phone,
-  knowledge: BookOpen,
-} satisfies Record<string, LucideIcon>;
-
+const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen } satisfies Record<string, LucideIcon>;
 export type IconKey = keyof typeof ICONS;
+export interface NavItem { href: string; label: string; icon: IconKey; exact?: boolean }
 
-export interface NavItem {
-  href: string;
-  label: string;
-  icon: IconKey;
-  exact?: boolean;
-}
-
-export function AppShell({
-  nav,
-  brandEyebrow,
-  brandName,
-  brandHref,
-  footer,
-  toolbar,
-  children,
-}: {
-  nav: NavItem[];
-  brandEyebrow: string;
-  brandName: string;
-  brandHref: string;
-  footer?: React.ReactNode;
-  toolbar?: React.ReactNode;
-  children: React.ReactNode;
+export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, toolbar, accountEmail, children }: {
+  nav: NavItem[]; brandEyebrow: string; brandName: string; brandHref: string;
+  footer?: ReactNode; toolbar?: ReactNode; accountEmail?: string; children: ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useFocusTrap(drawerRef, open, close);
 
-  const isActive = (item: NavItem) =>
-    item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const changed = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener('change', changed);
+    return () => desktop.removeEventListener('change', changed);
+  }, []);
 
-  const navList = (
-    <nav className="flex flex-col gap-1 p-3">
+  const isActive = (item: NavItem) => item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const current = [...nav].reverse().find(isActive);
+
+  const navigation = (scope: string) => (
+    <nav aria-label={`${brandEyebrow} navigation`} className="flex flex-col gap-1 px-4">
       {nav.map((item) => {
         const active = isActive(item);
         const Icon = ICONS[item.icon];
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            aria-current={active ? 'page' : undefined}
-            className={cn(
-              'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-150',
-              active
-                ? 'text-white'
-                : 'text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--text)]'
-            )}
-          >
-            {active ? (
-              <span
-                className="absolute inset-0 rounded-xl bg-[var(--bg-raised)]"
-                style={{ borderLeft: '2px solid var(--accent-primary)' }}
-              />
-            ) : null}
-            <Icon
-              size={17}
-              strokeWidth={active ? 2.1 : 1.8}
-              className={cn(
-                'relative z-10 transition-colors',
-                active ? 'text-[var(--accent-primary)]' : 'text-[var(--muted)] group-hover:text-[var(--text)]'
-              )}
-            />
+          <Link key={item.href} href={item.href} onClick={close} aria-current={active ? 'page' : undefined} className="nav-link">
+            {active ? <motion.span layoutId={`nav-${scope}`} className="nav-indicator" transition={{ type: 'spring', stiffness: 420, damping: 36 }} aria-hidden /> : null}
+            <Icon size={17} strokeWidth={1.7} className="relative z-10 shrink-0" aria-hidden />
             <span className="relative z-10 truncate">{item.label}</span>
           </Link>
         );
@@ -98,106 +54,55 @@ export function AppShell({
     </nav>
   );
 
+  const sidebarContent = (scope: string) => (
+    <>
+      <Link href={brandHref} onClick={close} className="flex min-h-[76px] items-center px-6" aria-label="Nordic Omni home"><BrandLockup eyebrow="Voice-led business" /></Link>
+      <div className="workspace-switcher">
+        <div className="mb-1 flex items-center gap-1.5 text-[11px] text-[var(--muted)]"><BrandMark size={12} />{brandEyebrow}</div>
+        <p className="truncate text-[13px] font-semibold tracking-[-0.015em]" title={brandName}>{brandName}</p>
+      </div>
+      <p className="mb-2 px-7 text-[11px] font-medium text-[var(--muted)]">{brandEyebrow === 'Agency' ? 'Management' : 'Workspace'}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-6">{navigation(scope)}</div>
+      <div className="border-t border-[var(--line)] px-5 py-4">
+        {footer ? <div className="mb-4">{footer}</div> : null}
+        {accountEmail ? <p className="mb-2 truncate text-[11px] text-[var(--muted)]" title={accountEmail}>{accountEmail}</p> : null}
+        <LogoutButton />
+      </div>
+    </>
+  );
+
   return (
-    <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      {/* Pulse Ambient Aurora Lighting */}
-      <div className="aurora" aria-hidden>
-        <span className="blob b1" />
-        <span className="blob b2" />
-        <span className="blob b3" />
-      </div>
-
-      {/* Mobile top bar */}
-      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-[var(--line)] bg-[var(--bg-surface)] px-4 py-3 lg:hidden">
-        <Link href={brandHref} className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--bg-raised)] text-[var(--accent-primary)]">
-            <Activity size={17} strokeWidth={2.3} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{brandEyebrow}</span>
-            <span className="text-xs font-extrabold tracking-tight text-[var(--text)]">{brandName}</span>
-          </div>
-        </Link>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          aria-expanded={open}
-          className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-2 text-[var(--muted)] hover:text-white"
-        >
-          {open ? <X size={17} /> : <Menu size={17} />}
-        </button>
-      </div>
-
-      <div className="flex">
-        {/* Pulse Frosted Sidebar */}
-        <aside
-          className={cn(
-            'fixed inset-y-0 left-0 z-30 w-[240px] shrink-0 border-r border-[var(--line)]',
-            'bg-[var(--bg-surface)] transition-transform duration-200',
-            'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
-            open ? 'translate-x-0' : '-translate-x-full'
-          )}
-        >
-          <div className="flex h-full flex-col">
-            {/* Brand Header */}
-            <Link
-              href={brandHref}
-              className="flex items-center gap-3 border-b border-[var(--line)] px-4 py-4 transition hover:opacity-90"
-            >
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] text-[var(--accent-primary)]"
-              >
-                <Activity size={19} strokeWidth={2.3} />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{brandEyebrow}</span>
-                <span className="line-clamp-2 text-[13px] font-extrabold leading-tight tracking-tight text-[var(--text)]">
-                  {brandName}
-                </span>
-              </div>
-            </Link>
-
-            {/* Navigation links */}
-            <div className="flex-1 overflow-y-auto py-2">{navList}</div>
-
-            {/* Live Indicator Chip */}
-            <div className="px-3 pb-2">
-              <div className="mode-chip" title="Browser voice uses LiveKit WebRTC">
-                <Headphones size={13} className="shrink-0" />
-                <span className="truncate">Browser voice · WebRTC</span>
-              </div>
+    <div className="app-shell">
+      <a href="#main-content" className="skip-link">Skip to content</a>
+      <div className="flex min-h-dvh">
+        <aside className="app-sidebar sticky top-0 hidden h-dvh shrink-0 lg:flex lg:flex-col">{sidebarContent('desktop')}</aside>
+        <div className="min-w-0 flex-1">
+          <header className="app-toolbar sticky top-0 z-30 flex items-center justify-between gap-3 px-4 lg:hidden">
+            <Link href={brandHref} aria-label={`${brandName} overview`}><BrandLockup eyebrow={brandEyebrow} name={brandName} compact /></Link>
+            <div className="flex items-center gap-2">
+              <ThemeSwitcher />
+              <button ref={menuRef} type="button" onClick={() => setOpen(true)} aria-label="Open navigation" aria-expanded={open} className={buttonClass('secondary', 'sm', 'icon-button')}><Menu size={18} /></button>
             </div>
-
-            {/* Footer */}
-            {footer ? (
-              <div className="border-t border-[var(--line)] p-3 text-xs">{footer}</div>
-            ) : null}
+          </header>
+          <div className="app-toolbar sticky top-0 z-20 hidden items-center justify-between gap-4 px-8 lg:flex">
+            <div className="flex min-w-0 items-center gap-2 text-[12px]"><span className="truncate text-[var(--muted)]">{brandName}</span><ChevronRight size={13} className="shrink-0 text-[var(--muted)]" aria-hidden /><span className="shrink-0 font-medium">{current?.label ?? brandEyebrow}</span></div>
+            <div className="flex shrink-0 items-center gap-4">{toolbar}<ThemeSwitcher /></div>
           </div>
-        </aside>
-
-        {/* Backdrop for mobile drawer */}
-        {open ? (
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden"
-          />
-        ) : null}
-
-        {/* Main Content Area */}
-        <div className="relative z-10 min-w-0 flex-1">
-          {toolbar ? (
-            <div className="sticky top-0 z-20 hidden items-center justify-end gap-2.5 border-b border-[var(--line)] bg-[var(--bg-surface)] px-6 py-2.5 lg:flex">
-              {toolbar}
-            </div>
-          ) : null}
-          <main className="mx-auto w-full max-w-[1400px] px-5 py-7 sm:px-8 lg:py-8">
-            {children}
-          </main>
+          <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1440px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8">{children}</main>
         </div>
       </div>
+
+      <AnimatePresence>
+        {open ? (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <motion.button type="button" tabIndex={-1} aria-label="Close navigation" className="absolute inset-0 bg-[rgba(12,22,15,.48)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={close} />
+            <motion.aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" tabIndex={-1} className="app-sidebar absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col shadow-2xl" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}>
+              <button type="button" onClick={close} aria-label="Close navigation" className={cn(buttonClass('ghost', 'sm', 'icon-button'), 'absolute right-3 top-5')}><X size={18} /></button>
+              {sidebarContent('mobile')}
+            </motion.aside>
+          </div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

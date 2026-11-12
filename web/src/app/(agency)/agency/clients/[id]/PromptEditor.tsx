@@ -1,27 +1,15 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import {
-  updateAgentConfig,
-  generateAgentConfigAction,
-  type ActionResult,
-} from './actions';
+import { useEffect, useState, useTransition } from 'react';
+import { Bot, Volume2, Code2, PhoneCall, Check, Copy, ExternalLink, Sliders, Sparkles, ShieldCheck, Link2 } from 'lucide-react';
+import { updateAgentConfig, generateAgentConfigAction, type ActionResult } from './actions';
 import { CallPanel } from '@/components/call/CallPanel';
-import {
-  Mic,
-  Sparkles,
-  Bot,
-  Volume2,
-  Code2,
-  Play,
-  Check,
-  Copy,
-  ExternalLink,
-  PhoneCall,
-  Sliders,
-  ShieldCheck,
-  AlertTriangle,
-} from 'lucide-react';
+import { Badge, Card } from '@/components/ui/core';
+import { EmptyState } from '@/components/ui/feedback';
+import { Field, Input, Select, Textarea, FormAlert, buttonClass } from '@/components/ui/form';
+import { Spinner } from '@/components/ui/SubmitButton';
+import { Tabs, tabPanelProps } from '@/components/ui/Tabs';
+import { Dialog } from '@/components/ui/Dialog';
 
 interface PromptEditorProps {
   tenantId: string;
@@ -30,601 +18,127 @@ interface PromptEditorProps {
   defaultLanguage?: string;
   contactId?: string;
   contactName?: string;
-  initial: {
-    customer_system_prompt: string;
-    copilot_system_prompt: string;
-    greeting_script: string | null;
-    voice_id: string | null;
-  };
+  initial: { customer_system_prompt: string; copilot_system_prompt: string; greeting_script: string | null; voice_id: string | null };
 }
 
 const VOICES = [
-  {
-    id: 'azure:da-DK-ChristelNeural',
-    provider: 'Microsoft Azure',
-    name: 'Christel Neural (Native Danish)',
-    lang: 'Dansk (da-DK)',
-    flag: '🇩🇰',
-    gender: 'Female',
-    style: '100% Native Copenhagen Danish. Warm, articulate receptionist. Switches to English with Danish accent.',
-    recommended: true,
-  },
-  {
-    id: 'azure:en-US-NovaTurboMultilingualNeural',
-    provider: 'Microsoft Azure (OpenAI Turbo)',
-    name: 'Nova Turbo (Multilingual)',
-    lang: 'Bilingual (da-DK / en-US)',
-    flag: '🇩🇰/🇺🇸',
-    gender: 'Female',
-    style: 'Warm, dynamic, high human emotion & lively conversational tempo. Fluent Danish with international lilt.',
-  },
-  {
-    id: 'azure:da-DK-JeppeNeural',
-    provider: 'Microsoft Azure',
-    name: 'Jeppe Neural',
-    lang: 'Dansk (da-DK)',
-    flag: '🇩🇰',
-    gender: 'Male',
-    style: 'Calm, authoritative technician voice. Ideal for emergency dispatch & trades.',
-  },
-  {
-    id: 'azure:en-US-JennyNeural',
-    provider: 'Microsoft Azure',
-    name: 'Jenny Neural',
-    lang: 'English (US)',
-    flag: '🇺🇸',
-    gender: 'Female',
-    style: 'Natural, friendly customer service voice with clear enunciation.',
-  },
-  {
-    id: 'azure:en-US-GuyNeural',
-    provider: 'Microsoft Azure',
-    name: 'Guy Neural',
-    lang: 'English (US)',
-    flag: '🇺🇸',
-    gender: 'Male',
-    style: 'Casual, confident, conversational voice for general business.',
-  },
-  {
-    id: 'azure:en-US-AriaNeural',
-    provider: 'Microsoft Azure',
-    name: 'Aria Neural',
-    lang: 'English (US)',
-    flag: '🇺🇸',
-    gender: 'Female',
-    style: 'Expressive and empathetic. Excellent for healthcare & clinic appointments.',
-  },
-  {
-    id: 'cartesia:sonic-3',
-    provider: 'Cartesia',
-    name: 'Sonic-3 Stream',
-    lang: 'Danish & English',
-    flag: '⚡',
-    gender: 'Neural',
-    style: 'Ultra-low latency (~400ms turnaround) with dual Danish & English fluency.',
-  },
+  { id: 'azure:da-DK-ChristelNeural', provider: 'Microsoft Azure', name: 'Christel Neural', lang: 'Dansk', gender: 'Female', style: 'Warm, articulate Danish receptionist. Switches to English when the caller does.', recommended: true },
+  { id: 'azure:en-US-NovaTurboMultilingualNeural', provider: 'Microsoft Azure', name: 'Nova Turbo', lang: 'Dansk / English', gender: 'Female', style: 'A lively, multilingual voice for Danish and international callers.' },
+  { id: 'azure:da-DK-JeppeNeural', provider: 'Microsoft Azure', name: 'Jeppe Neural', lang: 'Dansk', gender: 'Male', style: 'A calm, clear Danish voice for service and dispatch conversations.' },
+  { id: 'azure:en-US-JennyNeural', provider: 'Microsoft Azure', name: 'Jenny Neural', lang: 'English · US', gender: 'Female', style: 'Friendly customer service with clear enunciation.' },
+  { id: 'azure:en-US-GuyNeural', provider: 'Microsoft Azure', name: 'Guy Neural', lang: 'English · US', gender: 'Male', style: 'A confident, conversational voice for everyday business.' },
+  { id: 'azure:en-US-AriaNeural', provider: 'Microsoft Azure', name: 'Aria Neural', lang: 'English · US', gender: 'Female', style: 'An expressive voice for clinics and customer care.' },
+  { id: 'cartesia:sonic-3', provider: 'Cartesia', name: 'Sonic-3 Stream', lang: 'Dansk / English', gender: 'Neural', style: 'Streaming neural voice with Danish and English support.' },
 ];
+const DEFAULT_VOICE = 'azure:da-DK-ChristelNeural';
+type StudioTab = 'prompt' | 'voice' | 'simulator' | 'embed';
 
-export function PromptEditor({
-  tenantId,
-  tenantSlug = 'tenant',
-  tenantName = 'Client Workspace',
-  defaultLanguage = 'da-DK',
-  contactId = 'demo-caller',
-  contactName = 'Demo Caller',
-  initial,
-}: PromptEditorProps) {
-  const [activeTab, setActiveTab] = useState<'prompt' | 'voice' | 'simulator' | 'embed'>('prompt');
+export function PromptEditor({ tenantId, tenantSlug = 'tenant', tenantName = 'Client workspace', defaultLanguage = 'da-DK', contactId, contactName = 'Caller', initial }: PromptEditorProps) {
+  const [activeTab, setActiveTab] = useState<StudioTab>('prompt');
   const [customerPrompt, setCustomerPrompt] = useState(initial.customer_system_prompt);
   const [copilotPrompt, setCopilotPrompt] = useState(initial.copilot_system_prompt);
   const [greeting, setGreeting] = useState(initial.greeting_script ?? '');
-  const [selectedVoice, setSelectedVoice] = useState(initial.voice_id ?? 'azure:da-DK-ChristelNeural');
+  const [selectedVoice, setSelectedVoice] = useState(initial.voice_id ?? DEFAULT_VOICE);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  // AI Generator Modal state
   const [showAiModal, setShowAiModal] = useState(false);
   const [genCompany, setGenCompany] = useState(tenantName);
-  const [genIndustry, setGenIndustry] = useState(
-    defaultLanguage.startsWith('da') ? 'VVS og Varmepumper' : 'Emergency Plumbing & HVAC'
-  );
+  const [genIndustry, setGenIndustry] = useState(defaultLanguage.startsWith('da') ? 'VVS og Varmepumper' : 'Plumbing & HVAC');
   const [genTone, setGenTone] = useState<'professional' | 'warm' | 'urgent_dispatcher'>('professional');
-  const [genServices, setGenServices] = useState(
-    defaultLanguage.startsWith('da')
-      ? 'Døgnvagt udrykning, sprængte rør, serviceeftersyn og tilbud på badeværelser'
-      : '24/7 emergency leak repair, boiler maintenance, and bathroom consultations'
-  );
+  const [genServices, setGenServices] = useState(defaultLanguage.startsWith('da') ? 'Døgnvagt, sprængte rør, serviceeftersyn og tilbud på badeværelser' : 'Emergency leak repair, boiler maintenance and bathroom consultations');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [genError, setGenError] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [copyState, setCopyState] = useState<'embed' | 'link' | null>(null);
+  const [copyError, setCopyError] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    if (!copyState) return;
+    const timer = setTimeout(() => setCopyState(null), 2000);
+    return () => clearTimeout(timer);
+  }, [copyState]);
 
-  const isDirty =
-    customerPrompt !== initial.customer_system_prompt ||
-    copilotPrompt !== initial.copilot_system_prompt ||
-    greeting !== (initial.greeting_script ?? '') ||
-    selectedVoice !== (initial.voice_id ?? 'azure:da-DK-ChristelNeural');
+  const isDirty = customerPrompt !== initial.customer_system_prompt || copilotPrompt !== initial.copilot_system_prompt || greeting !== (initial.greeting_script ?? '') || selectedVoice !== (initial.voice_id ?? DEFAULT_VOICE);
+  const hasContact = Boolean(contactId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contactId));
+  const directCallUrl = hasContact && origin ? `${origin}/call/${contactId}` : '';
+  const embedSnippet = `<script\n  src="${origin}/widget.js"\n  data-tenant="${tenantSlug}"\n  data-contact="${contactId}"\n  data-primary-color="#237653"\n  defer>\n</script>`;
+  const provider = selectedVoice.split(':')[0];
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const fd = new FormData();
-    fd.set('tenantId', tenantId);
-    fd.set('customer_system_prompt', customerPrompt);
-    fd.set('copilot_system_prompt', copilotPrompt);
-    fd.set('greeting_script', greeting);
-    fd.set('voice_id', selectedVoice);
-
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (isPending || !isDirty) return;
+    const data = new FormData();
+    data.set('tenantId', tenantId);
+    data.set('customer_system_prompt', customerPrompt);
+    data.set('copilot_system_prompt', copilotPrompt);
+    data.set('greeting_script', greeting);
+    data.set('voice_id', selectedVoice);
     startTransition(async () => {
-      const res = await updateAgentConfig(fd);
-      setResult(res);
+      try { setResult(await updateAgentConfig(data)); }
+      catch { setResult({ ok: false, error: 'Could not save the agent. Please try again.' }); }
     });
   }
 
   async function handleGeneratePrompt() {
+    if (isGenerating) return;
     setIsGenerating(true);
+    setGenError('');
     try {
-      const isDa = defaultLanguage.toLowerCase().startsWith('da');
-      const res = await generateAgentConfigAction({
-        companyName: genCompany,
-        industry: genIndustry,
-        language: isDa ? 'da' : 'en',
-        tone: genTone,
-        keyServices: genServices,
-      });
-
-      if (res.ok && res.data) {
-        setCustomerPrompt(res.data.customer_system_prompt);
-        setCopilotPrompt(res.data.copilot_system_prompt);
-        setGreeting(res.data.greeting_script);
-        if (res.data.voice_id) {
-          setSelectedVoice(res.data.voice_id);
-        }
+      const response = await generateAgentConfigAction({ companyName: genCompany, industry: genIndustry, language: defaultLanguage.toLowerCase().startsWith('da') ? 'da' : 'en', tone: genTone, keyServices: genServices });
+      if (response.ok && response.data) {
+        setCustomerPrompt(response.data.customer_system_prompt);
+        setCopilotPrompt(response.data.copilot_system_prompt);
+        setGreeting(response.data.greeting_script);
+        if (response.data.voice_id) setSelectedVoice(response.data.voice_id);
         setShowAiModal(false);
-        setResult({
-          ok: true,
-          message: 'AI generated new agent prompts! Click "Save Agent Studio" to apply.',
-        });
-      } else {
-        setResult({ ok: false, error: res.error ?? 'Generation failed' });
-      }
-    } catch (e) {
-      setResult({ ok: false, error: e instanceof Error ? e.message : 'Error generating' });
-    } finally {
-      setIsGenerating(false);
-    }
+        setResult({ ok: true, message: 'Draft generated. Review the prompt and voice, then save your changes.' });
+      } else setGenError(response.error ?? 'Generation failed. Please try again.');
+    } catch { setGenError('The assistant could not be reached. Please try again.'); }
+    finally { setIsGenerating(false); }
   }
 
-  const embedScriptSnippet = `<!-- Nordic-Omni Voice & Chat Agent Widget -->
-<script
-  src="${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/widget.js"
-  data-tenant="${tenantSlug}"
-  data-primary-color="#6366F1"
-  defer>
-</script>`;
+  async function copy(kind: 'embed' | 'link', value: string) {
+    setCopyError('');
+    try { await navigator.clipboard.writeText(value); setCopyState(kind); }
+    catch { setCopyError('Clipboard access was blocked. Select the text and copy it manually.'); }
+  }
 
-  const directCallUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/call/demo-caller-${tenantSlug}`
-    : `http://localhost:3000/call/demo-caller-${tenantSlug}`;
-
-  const field =
-    'w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)]';
+  const tabs = [
+    { id: 'prompt' as const, label: 'Prompt & logic', icon: <Sliders size={15} /> },
+    { id: 'voice' as const, label: 'Voice', icon: <Volume2 size={15} /> },
+    { id: 'simulator' as const, label: 'Simulator', icon: <PhoneCall size={15} /> },
+    { id: 'embed' as const, label: 'Share & embed', icon: <Code2 size={15} /> },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Studio Header & Sub-Nav */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]">
-            <Bot className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold">Retell-Grade Agent Studio</div>
-            <div className="text-[10px] text-[var(--text-muted)]">
-              Voice Provider: <span className="font-mono text-[var(--text-primary)]">{selectedVoice.split(':')[0].toUpperCase()}</span> · Model: <span className="font-mono text-[var(--text-primary)]">Gemini 2.5 Flash</span>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2.5"><Bot size={20} strokeWidth={1.6} className="text-[var(--accent-primary)]" aria-hidden /><div><h3 className="text-[15px] font-semibold tracking-[-0.02em]">Agent studio</h3><p className="mt-0.5 text-[12px] text-[var(--muted)]">Voice provider: {provider === 'azure' ? 'Microsoft Azure' : provider === 'cartesia' ? 'Cartesia' : provider}</p></div></div><Badge tone="neutral"><ShieldCheck size={12} />Agency only</Badge></div>
+      <Tabs id="agent-studio" items={tabs} value={activeTab} onChange={setActiveTab} label="Agent studio sections" />
+      <form onSubmit={handleSubmit} className="space-y-6" aria-busy={isPending}>
+        <div key="prompt" {...tabPanelProps('agent-studio', activeTab, 'prompt')} className="tab-enter space-y-5">
+          <div className="notice notice-info items-center"><Sparkles size={18} className="mt-0.5 shrink-0 text-[var(--accent-primary)]" aria-hidden /><div className="flex-1"><p className="text-[13px] font-medium text-[var(--text)]">Start with a tailored draft</p><p className="mt-0.5 text-[12px] text-[var(--muted)]">Generate a prompt and greeting from the business details. Review before saving.</p></div><button type="button" onClick={() => { setGenError(''); setShowAiModal(true); }} className={buttonClass('secondary', 'sm')}><Sparkles size={13} />Generate with AI</button></div>
+          <Field htmlFor="greeting" label="Opening spoken greeting" hint="Spoken before the caller responds"><Input id="greeting" value={greeting} onChange={(event) => setGreeting(event.target.value)} placeholder={`Goddag, du har ringet til ${tenantName}. Hvad kan jeg hjælpe dig med?`} maxLength={500} /></Field>
+          <Field htmlFor="customer_prompt" label="Voice receptionist prompt" hint={`${customerPrompt.length} / 8,000 characters`}><Textarea id="customer_prompt" rows={10} value={customerPrompt} onChange={(event) => setCustomerPrompt(event.target.value)} className="font-mono text-[12px] leading-6" spellCheck={false} maxLength={8000} /></Field>
+          <p className="text-[12px] leading-5 text-[var(--muted)]">Combined with live business hours, verified prices, approved knowledge and the escalation policy before each call.</p>
+          <Field htmlFor="copilot_prompt" label="Owner co-pilot prompt" hint={`${copilotPrompt.length} / 8,000 characters`}><Textarea id="copilot_prompt" rows={5} value={copilotPrompt} onChange={(event) => setCopilotPrompt(event.target.value)} className="font-mono text-[12px] leading-6" spellCheck={false} maxLength={8000} /></Field>
         </div>
-
-        {/* Pulse Segmented Tab Controls */}
-        <div className="flex items-center gap-1 rounded-xl border border-[var(--line)] bg-[rgba(0,0,0,0.35)] p-1 text-[11px]">
-          <button
-            type="button"
-            onClick={() => setActiveTab('prompt')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
-              activeTab === 'prompt'
-                ? 'bg-gradient-to-r from-[#8b5cf6]/80 to-[#22d3ee]/80 text-white shadow-md'
-                : 'text-[var(--muted)] hover:text-[var(--text)]'
-            }`}
-          >
-            <Sliders className="h-3.5 w-3.5" />
-            Prompt & Logic
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('voice')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
-              activeTab === 'voice'
-                ? 'bg-gradient-to-r from-[#8b5cf6]/80 to-[#22d3ee]/80 text-white shadow-md'
-                : 'text-[var(--muted)] hover:text-[var(--text)]'
-            }`}
-          >
-            <Volume2 className="h-3.5 w-3.5" />
-            Voice Studio
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('simulator')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
-              activeTab === 'simulator'
-                ? 'bg-gradient-to-r from-[#8b5cf6]/80 to-[#22d3ee]/80 text-white shadow-md'
-                : 'text-[var(--muted)] hover:text-[var(--text)]'
-            }`}
-          >
-            <PhoneCall className="h-3.5 w-3.5" />
-            Simulator
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('embed')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition-all ${
-              activeTab === 'embed'
-                ? 'bg-gradient-to-r from-[#8b5cf6]/80 to-[#22d3ee]/80 text-white shadow-md'
-                : 'text-[var(--muted)] hover:text-[var(--text)]'
-            }`}
-          >
-            <Code2 className="h-3.5 w-3.5" />
-            Share & Embed
-          </button>
-        </div>
-      </div>
-
-      {/* Main Studio Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* TAB 1: PROMPT & LOGIC */}
-        {activeTab === 'prompt' && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between rounded-xl border border-[var(--accent-primary)]/20 bg-[var(--accent-primary)]/5 p-3">
-              <div>
-                <div className="text-xs font-semibold text-[var(--accent-primary)]">
-                  ✨ Instant Agent Builder
-                </div>
-                <div className="text-[11px] text-[var(--text-secondary)]">
-                  Spin up a complete agent prompt, greeting, and rules in seconds with AI.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAiModal(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] shadow-sm hover:opacity-90"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Generate with AI
-              </button>
-            </div>
-
-            <div>
-              <label htmlFor="greeting" className="mb-1.5 block text-xs font-medium">
-                Opening Spoken Greeting <span className="text-[var(--text-muted)]">(spoken first before user speaks)</span>
-              </label>
-              <input
-                id="greeting"
-                type="text"
-                value={greeting}
-                onChange={(e) => setGreeting(e.target.value)}
-                placeholder="e.g. Goddag, du har ringet til København VVS. Hvad kan jeg hjælpe dig med?"
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)] font-mono"
-              />
-            </div>
-
-            <div>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <label htmlFor="customer_prompt" className="text-xs font-medium">
-                  Voice Receptionist System Prompt
-                </label>
-                <span className="font-mono text-[10px] text-[var(--text-muted)]">
-                  {customerPrompt.length} chars
-                </span>
-              </div>
-              <textarea
-                id="customer_prompt"
-                rows={10}
-                value={customerPrompt}
-                onChange={(e) => setCustomerPrompt(e.target.value)}
-                className={field}
-                spellCheck={false}
-              />
-              <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-                The agent dynamically combines this with live database facts: open/closed hours, verified prices, knowledge items, and emergency escalation policies.
-              </p>
-            </div>
-
-            <div>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <label htmlFor="copilot_prompt" className="text-xs font-medium">
-                  Owner Co-Pilot Prompt
-                </label>
-                <span className="font-mono text-[10px] text-[var(--text-muted)]">
-                  {copilotPrompt.length} chars
-                </span>
-              </div>
-              <textarea
-                id="copilot_prompt"
-                rows={4}
-                value={copilotPrompt}
-                onChange={(e) => setCopilotPrompt(e.target.value)}
-                className={field}
-                spellCheck={false}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: VOICE STUDIO */}
-        {activeTab === 'voice' && (
-          <div className="space-y-4">
-            <div className="text-xs text-[var(--text-secondary)]">
-              Choose the neural voice persona for this client. Changes take effect on the next phone or WebRTC call.
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {VOICES.map((v) => {
-                const isSelected = selectedVoice === v.id;
-                return (
-                  <div
-                    key={v.id}
-                    onClick={() => setSelectedVoice(v.id)}
-                    className={`glass cursor-pointer rounded-2xl p-4 transition-all duration-150 ${
-                      isSelected
-                        ? 'border-[var(--a)] bg-[rgba(139,92,246,0.16)] shadow-[0_8px_26px_rgba(139,92,246,0.25)] ring-1 ring-[var(--a)]'
-                        : 'hover:border-white/[0.18] hover:-translate-y-0.5'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xl">{v.flag}</span>
-                        <div>
-                          <div className="text-xs font-bold text-[var(--text)]">{v.name}</div>
-                          <div className="text-[10px] text-[var(--muted)]">{v.provider}</div>
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <span
-                          className="rounded-full p-1 text-white shadow"
-                          style={{ background: 'var(--grad)' }}
-                        >
-                          <Check className="h-3 w-3" />
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-2 text-[10px]">
-                      <span className="rounded-md border border-[var(--line)] bg-white/[0.04] px-2 py-0.5 font-mono text-[var(--muted)]">
-                        {v.gender}
-                      </span>
-                      <span className="rounded-md border border-[var(--line)] bg-white/[0.04] px-2 py-0.5 font-mono text-[#a5f3fc]">
-                        {v.lang}
-                      </span>
-                    </div>
-
-                    <p className="mt-2.5 text-[11px] leading-relaxed text-[var(--muted)]">
-                      {v.style}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: LIVE SIMULATOR */}
-        {activeTab === 'simulator' && (
-          <div className="space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-ground)] p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)]">
-                  Interactive Browser Simulator
-                </h3>
-                <p className="text-[11px] text-[var(--text-muted)]">
-                  Test your prompt, tools, and voice response directly in the browser over LiveKit WebRTC.
-                </p>
-              </div>
-              <a
-                href={directCallUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 text-[11px] text-[var(--accent-primary)] hover:underline"
-              >
-                Open full screen <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
-              <CallPanel
-                tenantId={tenantId}
-                tenantSlug={tenantSlug}
-                contactId={contactId}
-                contactName={contactName}
-                isDanish={defaultLanguage.startsWith('da')}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: EMBED & SHARE */}
-        {activeTab === 'embed' && (
-          <div className="space-y-5">
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)]">
-                Website Embed Snippet
-              </h3>
-              <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                Your client can paste this 1-line script onto their website (WordPress, Webflow, Shopify, custom HTML) to give visitors 24/7 AI voice and chat reception.
-              </p>
-            </div>
-
-            <div className="relative">
-              <pre className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] p-4 font-mono text-[11px] text-[var(--text-primary)] leading-relaxed">
-                {embedScriptSnippet}
-              </pre>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(embedScriptSnippet);
-                  setCopiedEmbed(true);
-                  setTimeout(() => setCopiedEmbed(false), 2000);
-                }}
-                className="absolute right-3 top-3 flex items-center gap-1 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] px-2 py-1 text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                {copiedEmbed ? <Check className="h-3 w-3 text-[var(--success)]" /> : <Copy className="h-3 w-3" />}
-                {copiedEmbed ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-medium">Direct WebRTC Customer Call Link</h4>
-              <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                Share this link in SMS, email, or marketing ads for direct 1-click calls.
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={directCallUrl}
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(directCallUrl)}
-                  className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Result Message */}
-        {result && (
-          <p
-            role="status"
-            className={`rounded-lg border px-3 py-2 text-xs ${
-              result.ok
-                ? 'border-[var(--success)]/40 bg-[var(--success)]/10 text-[var(--success)]'
-                : 'border-[var(--danger)]/40 bg-[var(--danger)]/10 text-[var(--danger)]'
-            }`}
-          >
-            {result.ok ? result.message : result.error}
-          </p>
-        )}
-
-        {/* Submit Actions */}
-        <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-4">
-          <button
-            type="submit"
-            disabled={isPending || !isDirty}
-            className="rounded-lg bg-[var(--accent-primary)] px-5 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] transition hover:opacity-90 disabled:opacity-40"
-          >
-            {isPending ? 'Saving Agent Studio…' : 'Save Agent Studio'}
-          </button>
-          {isDirty && !isPending && (
-            <span className="text-[11px] text-[var(--warning)]">You have unsaved changes</span>
-          )}
-        </div>
+        <div key="voice" {...tabPanelProps('agent-studio', activeTab, 'voice')} className="tab-enter space-y-4"><p className="text-[13px] leading-6 text-[var(--muted)]">Choose the voice for this business. Your saved selection is used on the next call.</p><fieldset><legend className="sr-only">Receptionist voice</legend><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{VOICES.map((voice) => {
+          const selected = selectedVoice === voice.id;
+          return <label key={voice.id} className={`voice-option glass relative cursor-pointer p-4 transition-[border-color,background-color,transform] hover:-translate-y-0.5 ${selected ? 'border-[var(--accent-primary)] bg-[var(--accent-soft)]' : 'hover:border-[var(--border-strong)]'}`}><input type="radio" name="voice" value={voice.id} checked={selected} onChange={() => setSelectedVoice(voice.id)} className="sr-only" /><span className="flex items-start justify-between gap-2"><span><span className="block text-[13px] font-semibold">{voice.name}</span><span className="mt-1 block text-[11px] text-[var(--muted)]">{voice.provider}</span></span>{selected ? <Check size={16} className="shrink-0 text-[var(--accent-primary)]" aria-label="Selected" /> : null}</span><span className="mt-3 flex flex-wrap gap-1.5"><Badge tone="neutral">{voice.lang}</Badge><Badge tone="neutral">{voice.gender}</Badge>{voice.recommended ? <Badge tone="accent">Default</Badge> : null}</span><span className="mt-3 block text-[12px] leading-5 text-[var(--text-secondary)]">{voice.style}</span></label>;
+        })}</div></fieldset>{!VOICES.some((voice) => voice.id === selectedVoice) ? <p className="text-[12px] text-[var(--muted)]">Currently saved voice: <code>{selectedVoice}</code>. Select a listed voice to replace it.</p> : null}</div>
+        <div key="simulator" {...tabPanelProps('agent-studio', activeTab, 'simulator')} className="tab-enter space-y-4">{activeTab === 'simulator' ? <><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-[14px] font-medium">Browser simulator</h3><p className="mt-1 text-[12px] text-[var(--muted)]">Test the receptionist over LiveKit. Save changes before placing a test call.</p></div>{directCallUrl ? <a href={directCallUrl} target="_blank" rel="noreferrer" className={buttonClass('ghost', 'sm')}>Open full screen<ExternalLink size={13} /></a> : null}</div>{hasContact ? <Card className="p-5"><CallPanel tenantId={tenantId} tenantSlug={tenantSlug} contactId={contactId!} contactName={contactName} isDanish={defaultLanguage.startsWith('da')} /></Card> : <Card><EmptyState icon={<PhoneCall size={20} />} title="Add a caller before testing" description="Create a caller in the client portal, then return here to test the receptionist with that caller’s context." /></Card>}{isDirty ? <p className="text-[12px] text-[var(--warning)]">You have unsaved changes. The simulator uses the last saved configuration.</p> : null}</> : null}</div>
+        <div key="embed" {...tabPanelProps('agent-studio', activeTab, 'embed')} className="tab-enter space-y-5">{hasContact && origin ? <>
+          <div><h3 className="text-[14px] font-medium">Put the receptionist on their website</h3><p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">Paste this snippet before the closing body tag. It opens a compact browser-call panel for {contactName}.</p></div>
+          <div className="relative"><pre className="overflow-x-auto rounded-lg border border-[var(--line)] bg-[var(--bg-raised)] p-4 pr-24 font-mono text-[12px] leading-6">{embedSnippet}</pre><button type="button" onClick={() => void copy('embed', embedSnippet)} className={buttonClass('secondary', 'sm', 'absolute right-3 top-3')}>{copyState === 'embed' ? <Check size={13} /> : <Copy size={13} />}{copyState === 'embed' ? 'Copied' : 'Copy'}</button></div>
+          <Field htmlFor="direct-call-link" label="Direct browser-call link" hint="Share by email or SMS"><div className="flex items-center gap-2"><Input id="direct-call-link" readOnly value={directCallUrl} className="min-w-0 flex-1 font-mono text-[12px]" /><button type="button" onClick={() => void copy('link', directCallUrl)} className={buttonClass('secondary', 'md', 'shrink-0')}>{copyState === 'link' ? <Check size={14} /> : <Link2 size={14} />}{copyState === 'link' ? 'Copied' : 'Copy'}</button></div></Field>
+          <p className="text-[12px] leading-5 text-[var(--muted)]">This link is scoped to one caller. Generate a separate link for each customer; never share one customer’s link with another.</p>
+        </> : <Card><EmptyState icon={<Link2 size={20} />} title="No shareable caller link yet" description="Add a caller in the client portal to create a real, customer-scoped call link and website widget." /></Card>}{copyError ? <FormAlert tone="error">{copyError}</FormAlert> : null}</div>
+        {result ? <FormAlert tone={result.ok ? 'success' : 'error'}>{result.ok ? result.message : result.error}</FormAlert> : null}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-5"><p className="text-[12px] text-[var(--muted)]">{isDirty ? <span className="text-[var(--warning)]">Unsaved changes</span> : 'Changes apply to the next conversation after saving.'}</p><button type="submit" disabled={isPending || !isDirty} aria-busy={isPending} className={buttonClass('primary')}>{isPending ? <Spinner /> : <Check size={15} />}{isPending ? 'Saving changes…' : 'Save changes'}</button></div>
       </form>
-
-      {/* AI GENERATOR MODAL */}
-      {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-[var(--accent-primary)]" />
-                <h3 className="text-sm font-semibold">AI Agent Architect</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAiModal(false)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3.5">
-              <div>
-                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  value={genCompany}
-                  onChange={(e) => setGenCompany(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Industry / Trade
-                </label>
-                <input
-                  type="text"
-                  value={genIndustry}
-                  onChange={(e) => setGenIndustry(e.target.value)}
-                  placeholder="e.g. Tandlægeklinik, Autoværksted, Advokatfirma"
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Key Services & Focus
-                </label>
-                <textarea
-                  rows={2}
-                  value={genServices}
-                  onChange={(e) => setGenServices(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1">
-                  Agent Persona & Tone
-                </label>
-                <select
-                  value={genTone}
-                  onChange={(e) => setGenTone(e.target.value as any)}
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)]"
-                >
-                  <option value="professional">Professional & Polite (Corporate & Standard)</option>
-                  <option value="warm">Warm & Empathetic (Clinics & Healthcare)</option>
-                  <option value="urgent_dispatcher">Urgent Dispatcher (24/7 Emergency Trades)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] pt-4">
-              <button
-                type="button"
-                onClick={() => setShowAiModal(false)}
-                className="rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleGeneratePrompt}
-                disabled={isGenerating}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-xs font-semibold text-[var(--accent-contrast)] hover:opacity-90 disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {isGenerating ? 'Synthesizing...' : 'Synthesize Production Agent'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={showAiModal} onClose={() => setShowAiModal(false)} title="AI agent architect" description="Draft instructions from the business context. Nothing goes live until you review and save." footer={<><button type="button" onClick={() => setShowAiModal(false)} className={buttonClass('ghost')}>Cancel</button><button type="button" onClick={handleGeneratePrompt} disabled={isGenerating || !genCompany.trim() || !genIndustry.trim()} aria-busy={isGenerating} className={buttonClass('primary')}>{isGenerating ? <Spinner /> : <Sparkles size={15} />}{isGenerating ? 'Generating draft…' : 'Generate draft'}</button></>}>
+        <div className="space-y-4">{genError ? <FormAlert tone="error">{genError}</FormAlert> : null}<Field htmlFor="gen-company" label="Company name"><Input id="gen-company" value={genCompany} onChange={(event) => setGenCompany(event.target.value)} disabled={isGenerating} /></Field><Field htmlFor="gen-industry" label="Industry or trade"><Input id="gen-industry" value={genIndustry} onChange={(event) => setGenIndustry(event.target.value)} placeholder="e.g. Dental clinic, auto repair, legal practice" disabled={isGenerating} /></Field><Field htmlFor="gen-services" label="Key services"><Textarea id="gen-services" rows={3} value={genServices} onChange={(event) => setGenServices(event.target.value)} disabled={isGenerating} /></Field><Field htmlFor="gen-tone" label="Personality and tone"><Select id="gen-tone" value={genTone} onChange={(event) => setGenTone(event.target.value as typeof genTone)} disabled={isGenerating}><option value="professional">Professional and polite</option><option value="warm">Warm and empathetic</option><option value="urgent_dispatcher">Urgent dispatcher · emergency trades</option></Select></Field></div>
+      </Dialog>
     </div>
   );
 }

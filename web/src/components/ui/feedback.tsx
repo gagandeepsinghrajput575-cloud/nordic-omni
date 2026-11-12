@@ -1,183 +1,72 @@
 import type { ReactNode } from 'react';
 import { cn } from './core';
 
-/* ------------------------------------------------------------ PageHeader --- */
-
-export function PageHeader({
-  eyebrow,
-  title,
-  description,
-  actions,
-}: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  actions?: ReactNode;
+export function PageHeader({ eyebrow, title, description, actions }: {
+  eyebrow?: string; title: string; description?: string; actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          {eyebrow ? (
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
-              {eyebrow}
-            </p>
-          ) : null}
-          <h1 className="text-[26px] font-semibold tracking-[-0.04em] text-[var(--text)] sm:text-[30px]">
-            {title}
-          </h1>
-          {description ? (
-            <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-[var(--muted)]">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2.5">{actions}</div> : null}
+    <header className="page-header">
+      <div className="min-w-0 flex-1 basis-64">
+        {eyebrow ? <p className="mb-1.5 text-[12px] font-medium text-[var(--muted)]">{eyebrow}</p> : null}
+        <h1 className="page-title">{title}</h1>
+        {description ? <p className="page-description">{description}</p> : null}
       </div>
-      <div className="rule-accent mt-5" />
-    </div>
+      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+    </header>
   );
 }
 
-/* ------------------------------------------------------------ EmptyState --- */
-
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon?: ReactNode;
-  title: string;
-  description?: string;
-  action?: ReactNode;
+export function EmptyState({ icon, title, description, action, compact = false }: {
+  icon?: ReactNode; title: string; description?: string; action?: ReactNode; compact?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      {icon ? (
-        <div
-          className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(139,92,246,0.35)] text-[#c4b5fd]"
-          style={{
-            background: 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(34,211,238,0.15))',
-          }}
-        >
-          {icon}
-        </div>
-      ) : null}
-      <p className="text-base font-bold text-[var(--text)]">{title}</p>
-      {description ? (
-        <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-[var(--muted)]">
-          {description}
-        </p>
-      ) : null}
+    <div className={cn('flex flex-col items-center justify-center px-6 text-center', compact ? 'py-9' : 'py-14')}>
+      {icon ? <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--bg-raised)] text-[var(--muted)]" aria-hidden>{icon}</div> : null}
+      <h3 className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--text)]">{title}</h3>
+      {description ? <p className="mt-2 max-w-sm text-[13px] leading-6 text-[var(--muted)]">{description}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );
 }
 
-/* --------------------------------------------------------------- Avatar --- */
-
-const AVATAR_GRADS = [
-  ['#8b5cf6', '#22d3ee'],
-  ['#f472b6', '#8b5cf6'],
-  ['#22d3ee', '#34d399'],
-  ['#fbbf24', '#f472b6'],
-  ['#60a5fa', '#a78bfa'],
-  ['#34d399', '#38bdf8'],
-  ['#fb7185', '#fbbf24'],
+const AVATAR_TONES = [
+  ['var(--accent-soft)', 'var(--accent-primary)'],
+  ['var(--info-soft)', 'var(--info)'],
+  ['var(--warning-soft)', 'var(--warning)'],
+  ['var(--neutral-soft)', 'var(--text-secondary)'],
 ];
 
-function gradFor(seed: string) {
-  let h = 0;
-  for (const c of String(seed || 'x')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const [a, b] = AVATAR_GRADS[h % AVATAR_GRADS.length];
-  return `linear-gradient(135deg, ${a}, ${b})`;
+export function Avatar({ name, size = 34, seed }: { name: string | null; size?: number; seed?: string }) {
+  const source = seed || name || 'caller';
+  let hash = 0;
+  for (const char of source) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const [background, color] = AVATAR_TONES[hash % AVATAR_TONES.length];
+  const initials = (name ?? '?').split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? '').join('') || '?';
+  return <span className="avatar select-none" style={{ width: size, height: size, fontSize: Math.round(size * 0.34), background, color }} aria-hidden>{initials}</span>;
 }
-
-export function Avatar({
-  name,
-  size = 32,
-  seed,
-}: {
-  name: string | null;
-  size?: number;
-  seed?: string;
-}) {
-  const initials =
-    (name ?? '?')
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? '')
-      .join('') || '?';
-
-  return (
-    <div
-      className="avatar shrink-0 font-bold text-white select-none"
-      style={{
-        width: size,
-        height: size,
-        fontSize: Math.round(size * 0.38),
-        background: gradFor(seed || name || 'prospect'),
-      }}
-      aria-hidden
-    >
-      {initials}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------- ScoreBar --- */
 
 export function ScoreBar({ score, max = 100 }: { score: number; max?: number }) {
-  const pct = Math.max(0, Math.min(100, (score / max) * 100));
-  const tone = pct >= 70 ? 'var(--ok)' : pct >= 40 ? 'var(--warn)' : 'var(--bad)';
+  const safeMax = Math.max(1, max);
+  const value = Math.max(0, Math.min(safeMax, score));
+  const pct = (value / safeMax) * 100;
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-white/[0.08]">
-        <div
-          className="h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${pct}%`, background: tone }}
-        />
-      </div>
-      <span className="font-mono text-[11px] tabular-nums text-[var(--muted)]">
-        {score}
+    <div className="flex items-center gap-2.5" role="meter" aria-label="Lead score" aria-valuenow={value} aria-valuemin={0} aria-valuemax={safeMax}>
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--active)]" aria-hidden>
+        <span className="block h-full rounded-full bg-[var(--accent-primary)] transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </span>
+      <span className="text-[12px] tabular-nums text-[var(--text-secondary)]" aria-hidden>{score}</span>
     </div>
   );
 }
 
-/* -------------------------------------------------------------- Skeleton --- */
-
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('skeleton', className)} />;
+  return <div aria-hidden className={cn('skeleton', className)} />;
 }
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="space-y-2 p-5">
-      {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-10 w-full" />
-      ))}
-    </div>
-  );
+  return <div className="space-y-3 p-5" aria-hidden>{Array.from({ length: rows }).map((_, index) => <div key={index} className="flex items-center gap-3"><Skeleton className="h-9 w-9 shrink-0 rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-3 w-1/3" /><Skeleton className="h-2.5 w-1/4" /></div><Skeleton className="h-6 w-16" /></div>)}</div>;
 }
 
-/* ------------------------------------------------------------ SectionTitle --- */
-
-export function SectionTitle({
-  children,
-  action,
-}: {
-  children: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
-        {children}
-      </h2>
-      {action}
-    </div>
-  );
+export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="section-title">{children}</h2>{action ? <div className="flex items-center gap-2">{action}</div> : null}</div>;
 }

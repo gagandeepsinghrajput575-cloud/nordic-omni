@@ -7,15 +7,7 @@ module.exports = {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
-    extend: {
-      colors: {
-        neon: {
-          cyan: '#00F5D4',
-          purple: '#7B61FF',
-          pink: '#FF2A85',
-        },
-      },
-    },
+    extend: {},
   },
   plugins: [],
 };

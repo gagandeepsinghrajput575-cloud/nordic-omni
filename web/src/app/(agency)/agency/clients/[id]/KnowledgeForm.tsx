@@ -6,7 +6,7 @@ import {
   updateKnowledgeAction,
 } from './knowledge-actions';
 import { EMPTY_STATE } from '@/lib/actions/types';
-import { Field, Input, Textarea, FormAlert, buttonClass } from '@/components/ui/form';
+import { Field, Input, Select, Textarea, FormAlert, buttonClass } from '@/components/ui/form';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
 export interface KnowledgeItemRow {
@@ -59,18 +59,17 @@ export function KnowledgeForm({
         </Field>
 
         <Field htmlFor={`category-${uid}`} label="Category">
-          <select
+          <Select
             id={`category-${uid}`}
             name="category"
             defaultValue={item?.category ?? 'general'}
-            className="w-full rounded-[var(--r-sm)] border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-2 py-2 text-xs text-[var(--text-primary)]"
           >
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field htmlFor={`priority-${uid}`} label="Priority" hint="0–100">

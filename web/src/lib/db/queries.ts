@@ -346,6 +346,7 @@ export interface PublicCallContext {
     id: string;
     name: string;
     slug: string;
+    status: string;
     default_language: string;
   };
 }
@@ -361,7 +362,7 @@ export async function getPublicCallContext(contactId: string): Promise<PublicCal
   const rows = await adminSql`
     select c.id, c.tenant_id, c.full_name, c.phone_number,
            c.preferred_language, c.ai_auto_reply_enabled,
-           t.name, t.slug, t.default_language::text as default_language
+           t.name, t.slug, t.status, t.default_language::text as default_language
     from contacts c
     join tenants t on t.id = c.tenant_id
     where c.id = ${contactId}
@@ -383,6 +384,7 @@ export async function getPublicCallContext(contactId: string): Promise<PublicCal
       id: row.tenant_id as string,
       name: row.name as string,
       slug: row.slug as string,
+      status: row.status as string,
       default_language: row.default_language as string,
     },
   };
