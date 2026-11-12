@@ -111,7 +111,8 @@ export async function loadChatContext(contactId: string): Promise<ChatContactCon
       escalation_policy: (row.escalation_policy as Record<string, unknown>) ?? {},
     },
     knowledge,
-  };
+    };
+  });
 }
 
 export async function loadChatMessages(
@@ -222,47 +223,5 @@ export async function updateChatContactState(
     `;
   });
 }
-    await tx`
-      insert into ui_command_events (tenant_id, command_type, payload)
-      values (
-        ${tenantId}, 'PROJECT_ESTIMATE_RECORDED',
-        ${jsonb({ contactId, catalogItemId, estimatedValueDkk: midpoint })}
-      )
-    `;
-    return rows[0].id as string;
-  });
-}
 
-export async function requestChatInspection({
-  tenantId,
-  contactId,
-  requestedTimeText,
-  address,
-  notes,
-}: {
-  tenantId: string;
-  contactId: string;
-  requestedTimeText: string;
-  address: string;
-  notes: string;
-}): Promise<string> {
-  return adminSql.begin(async (tx) => {
-    const rows = await tx`
-      insert into inspection_requests (
-        tenant_id, contact_id, call_log_id, requested_time_text, address, notes, status
-      ) values (
-        ${tenantId}, ${contactId}, null, ${requestedTimeText}, ${address}, ${notes}, 'requested'
-      )
-      returning id
-    `;
-    await tx`
-      insert into ui_command_events (tenant_id, command_type, payload)
-      values (
-        ${tenantId}, 'INSPECTION_REQUESTED',
-        ${jsonb({ contactId, status: 'requested' })}
-      )
-    `;
-    return rows[0].id as string;
-  });
-}
 

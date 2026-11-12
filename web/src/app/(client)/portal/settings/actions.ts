@@ -100,7 +100,7 @@ type PricingRowInput = {
   service: string;
   price_dkk: number;
   unit: string;
-  estimate_model?: string;
+  estimate_model?: 'fixed' | 'per_square_meter';
   estimate_min_dkk?: number;
   estimate_max_dkk?: number;
 };

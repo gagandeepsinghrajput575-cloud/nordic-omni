@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { adminSql } from '@/lib/db/client';
 import { env } from '@/lib/env';
+import { verifyPassword } from '@/lib/auth/password';
 
 /**
  * Server-side session cookies.
@@ -145,3 +146,10 @@ export async function destroySession(): Promise<void> {
 
   jar.delete(SESSION_COOKIE);
 }
+
+export async function verifyUserPassword(userId: string, candidate: string): Promise<boolean> {
+  const rows = await adminSql`select password_hash from users where id = ${userId}`;
+  if (!rows[0]?.password_hash) return false;
+  return verifyPassword(candidate, rows[0].password_hash as string);
+}
+

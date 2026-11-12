@@ -182,7 +182,7 @@ export async function executeClientAiCommand(prompt: string): Promise<AiCommandR
             unit: 'hour',
           });
         }
-        patch.pricingCatalog = catalog;
+        patch.pricingCatalog = catalog as import('@/lib/estimation').CatalogItem[];
         updatedFields.push('pricing_catalog');
         actionTaken = 'update_hourly_rate';
         reply = isDanish
@@ -216,7 +216,7 @@ export async function executeClientAiCommand(prompt: string): Promise<AiCommandR
             unit: 'call-out',
           });
         }
-        patch.pricingCatalog = catalog;
+        patch.pricingCatalog = catalog as import('@/lib/estimation').CatalogItem[];
         updatedFields.push('pricing_catalog');
         actionTaken = 'update_emergency_rate';
         reply = isDanish
@@ -236,7 +236,7 @@ export async function executeClientAiCommand(prompt: string): Promise<AiCommandR
           price_dkk: newPrice,
           unit: 'fixed',
         });
-        patch.pricingCatalog = catalog;
+        patch.pricingCatalog = catalog as import('@/lib/estimation').CatalogItem[];
         updatedFields.push('pricing_catalog');
         actionTaken = 'add_service';
         reply = isDanish

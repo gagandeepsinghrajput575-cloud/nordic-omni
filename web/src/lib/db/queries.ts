@@ -54,18 +54,11 @@ export interface TenantFacts {
   default_language: string;
   telephony_mode: 'zero_cost_webrtc' | 'paid_sip_trunk';
   status: 'active' | 'paused' | 'archived';
+  reception_mode: string;
   flynumber_did: string | null;
   active_broadcast_message: string | null;
   business_hours: Record<string, { open: string; close: string; closed: boolean }>;
-  pricing_catalog: Array<{
-    id: string;
-    service: string;
-    price_dkk: number;
-    unit: string;
-    estimate_model?: string;
-    estimate_min_dkk?: number;
-    estimate_max_dkk?: number;
-  }>;
+  pricing_catalog: import('@/lib/estimation').CatalogItem[];
 }
 
 export async function getTenantFacts(userId: string, tenantId: string): Promise<TenantFacts | null> {
@@ -387,7 +380,8 @@ export async function getPublicCallContext(contactId: string): Promise<PublicCal
     const rows = await tx`
       select c.id, c.tenant_id, c.full_name, c.phone_number,
              c.preferred_language, c.ai_auto_reply_enabled,
-             t.name, t.slug, t.default_language::text as default_language
+             t.name, t.slug, t.status, t.reception_mode, t.flynumber_did,
+             t.default_language::text as default_language
       from contacts c
       join tenants t on t.id = c.tenant_id
       where c.id = ${contactId} and c.tenant_id = t.id and t.status = 'active'
@@ -397,24 +391,25 @@ export async function getPublicCallContext(contactId: string): Promise<PublicCal
     const row = rows[0];
     if (!row) return null;
 
-  return {
-    contact: {
-      id: row.id as string,
-      tenant_id: row.tenant_id as string,
-      full_name: (row.full_name as string | null) ?? null,
-      phone_number: (row.phone_number as string | null) ?? null,
-      preferred_language: (row.preferred_language as string) ?? 'da',
-    },
-    tenant: {
-      id: row.tenant_id as string,
-      name: row.name as string,
-      slug: row.slug as string,
-      status: row.status as string,
-      reception_mode: row.reception_mode as string,
-      flynumber_did: row.flynumber_did as string | null,
-      default_language: row.default_language as string,
-    },
-  };
+    return {
+      contact: {
+        id: row.id as string,
+        tenant_id: row.tenant_id as string,
+        full_name: (row.full_name as string | null) ?? null,
+        phone_number: (row.phone_number as string | null) ?? null,
+        preferred_language: (row.preferred_language as string) ?? 'da',
+      },
+      tenant: {
+        id: row.tenant_id as string,
+        name: row.name as string,
+        slug: row.slug as string,
+        status: row.status as string,
+        reception_mode: row.reception_mode as string,
+        flynumber_did: row.flynumber_did as string | null,
+        default_language: row.default_language as string,
+      },
+    };
+  });
 }
 
 export async function listConfigHistory(

@@ -38,6 +38,7 @@ test('owner-pool imports are limited to explicit infrastructure/trusted-write bo
     'lib/auth/session.ts',
     'lib/db/client.ts',
     'lib/db/trusted-records.ts',
+    'lib/webhooks/dispatcher.ts',
   ]);
   assert.doesNotMatch(source('../src/lib/db/queries.ts'), /adminSql/);
   assert.doesNotMatch(source('../src/lib/ai/escalation.ts'), /adminSql/);

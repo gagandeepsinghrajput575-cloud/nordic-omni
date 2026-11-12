@@ -35,10 +35,15 @@ class PhoneTests(unittest.TestCase):
 
     def test_sql_index_uses_the_same_00_and_digits_rules(self):
         root = pathlib.Path(__file__).resolve().parents[2]
+        migration_dir = root / "db" / "migrations"
+        parity_file = next(
+            (p.name for p in migration_dir.glob("*phone_normalization_parity.sql")),
+            "0017_phone_normalization_parity.sql",
+        )
         for migration in (
             "0008_sip_inbound_routing.sql",
             "0009_unique_contact_phone.sql",
-            "0012_phone_normalization_parity.sql",
+            parity_file,
         ):
             sql = (root / "db" / "migrations" / migration).read_text()
             self.assertIn("regexp_replace", sql)

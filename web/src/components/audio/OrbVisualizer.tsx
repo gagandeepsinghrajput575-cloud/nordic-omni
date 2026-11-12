@@ -21,30 +21,72 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
   className = '',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
   const { theme } = useTheme();
 
-  // Each stream owns one runtime. React runs the previous cleanup before a
-  // rapid stream replacement, so old contexts/listeners cannot accumulate.
+  // Set up Web Audio Analyser if stream provided
   useEffect(() => {
-    if (!audioStream) {
+    if (!audioStream || audioStream.getAudioTracks().length === 0) {
+      sourceRef.current?.disconnect();
+      sourceRef.current = null;
       analyserRef.current = null;
       dataArrayRef.current = null;
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
       return;
     }
-    const runtime = createAnalyserRuntime(audioStream);
-    analyserRef.current = runtime?.analyser ?? null;
-    dataArrayRef.current = runtime?.dataArray ?? null;
-    return () => {
-      runtime?.dispose();
-      if (analyserRef.current === runtime?.analyser) analyserRef.current = null;
-      if (dataArrayRef.current === runtime?.dataArray) dataArrayRef.current = null;
-    };
+
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.78;
+      const source = audioCtx.createMediaStreamSource(audioStream);
+      source.connect(analyser);
+
+      const resume = () => {
+        if (audioCtx.state === 'suspended') void audioCtx.resume().catch(() => undefined);
+      };
+      resume();
+      audioCtx.addEventListener('statechange', resume);
+      document.addEventListener('visibilitychange', resume);
+
+      sourceRef.current = source;
+      audioContextRef.current = audioCtx;
+      analyserRef.current = analyser;
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+
+      return () => {
+        audioCtx.removeEventListener('statechange', resume);
+        document.removeEventListener('visibilitychange', resume);
+        try {
+          source.disconnect();
+        } catch {
+          /* already gone */
+        }
+        if (audioCtx.state !== 'closed') audioCtx.close().catch(() => {});
+        sourceRef.current = null;
+        audioContextRef.current = null;
+        analyserRef.current = null;
+        dataArrayRef.current = null;
+      };
+    } catch {
+      // A blocked analyser must yield a still orb, not a synthetic performance.
+      analyserRef.current = null;
+      dataArrayRef.current = null;
+    }
   }, [audioStream]);
 
-  // Canvas resolution follows DPR; colours follow the active theme. Motion and
-  // RAF ownership react immediately to media-query changes and effect teardown.
+  // Canvas render loop. Resolution follows the device pixel ratio; motion stops
+  // for reduced-motion users; colours come from the active theme rather than a
+  // hard-coded palette.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -57,6 +99,7 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
     canvas.style.width = `${size}px`;
     canvas.style.height = `${size}px`;
 
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let time = 0;
     let last = 0;
 
@@ -90,15 +133,14 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
+
       const centerX = size / 2;
       const centerY = size / 2;
       const baseRadius = size * 0.27;
 
       let amplitude = state === 'speaking' ? 0.08 : state === 'listening' ? 0.045 : 0.02;
       if (analyserRef.current && dataArrayRef.current) {
-        analyserRef.current.getByteFrequencyData(
-          dataArrayRef.current as unknown as Uint8Array<ArrayBuffer>,
-        );
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current as unknown as Uint8Array<ArrayBuffer>);
         let energy = 0;
         for (let i = 0; i < dataArrayRef.current.length; i += 1) {
           const normalized = dataArrayRef.current[i] / 255;
@@ -107,6 +149,8 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
         amplitude = Math.min(1, Math.sqrt(energy / dataArrayRef.current.length) * 1.8);
       }
 
+      // A single restrained halo; no synthetic pulse is added when no analyser
+      // is available.
       ctx.save();
       ctx.globalAlpha = 0.18 + amplitude * 0.16;
       const glowGradient = ctx.createRadialGradient(
@@ -169,13 +213,17 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
       ctx.strokeStyle = styles.getPropertyValue('--line').trim() || 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1;
       ctx.stroke();
+
+      if (!reducedMotion) {
+        animationFrameRef.current = requestAnimationFrame(render);
+      }
     };
 
-    loop = createPacedFrameLoop(draw, () => isActive && !motion.reduced);
+    render();
 
     return () => {
-      loop?.dispose();
-      motion.dispose();
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     };
   }, [isActive, state, size, theme]);
 

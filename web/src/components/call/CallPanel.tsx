@@ -37,14 +37,9 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
 
   const cleanupCall = useCallback(() => {
     intentionalDisconnectRef.current = true;
-    reachedAgentRef.current = false;
-    const room = roomRef.current;
+    roomRef.current?.disconnect();
     roomRef.current = null;
-    if (room) {
-      room.removeAllListeners();
-      void room.disconnect().catch(() => undefined);
-    }
-    if (audioRef.current) disposeAudioElement(audioRef.current);
+    audioRef.current?.remove();
     audioRef.current = null;
     setAgentStream(null);
     setAgentSpeaking(false);
@@ -66,7 +61,6 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
     setStage('requesting');
     setSeconds(0);
     intentionalDisconnectRef.current = false;
-    reachedAgentRef.current = false;
     attemptIdRef.current = null;
     let agentAudioResolved = false;
 
@@ -75,10 +69,6 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.token || !data.serverUrl) throw new Error(data.error ?? t('Kunne ikke starte opkaldet.', 'Could not start the call.'));
       attemptIdRef.current = data.attemptId ?? null;
-      if (disposedRef.current) {
-        abandonCallAttempt(attemptIdRef.current);
-        return;
-      }
       setStage('connecting');
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
@@ -100,12 +90,10 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
       room.on(RoomEvent.TrackUnsubscribed, (track) => {
         track.detach().forEach((element) => element.remove());
         if (audioRef.current && !audioRef.current.isConnected) audioRef.current = null;
-        setAgentStream(null);
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setAgentSpeaking(speakers.some((participant) => !participant.isLocal)));
       room.on(RoomEvent.Disconnected, () => {
         if (intentionalDisconnectRef.current) return;
-        if (!reachedAgentRef.current) abandonCallAttempt(attemptIdRef.current);
         cleanupCall();
         setStage('ended');
       });
@@ -122,7 +110,6 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
       if (timeoutId) clearTimeout(timeoutId);
       if (!audioElement || !roomRef.current) throw new Error(t('Receptionisten svarede ikke. Prøv igen om et øjeblik.', 'The receptionist did not answer. Please try again shortly.'));
       await audioElement.play();
-      reachedAgentRef.current = true;
       setStage('live');
     } catch (reason) {
       if (attemptIdRef.current) {
