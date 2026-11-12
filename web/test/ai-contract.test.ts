@@ -96,6 +96,7 @@ test('chat prompt carries cross-channel memory and hard guardrails', async () =>
       name: 'Dansk Byg',
       slug: 'dansk-byg',
       status: 'active',
+      reception_mode: 'hybrid',
       default_language: 'da-DK',
       owner_name: 'Morten',
       owner_phone: '+4522222222',

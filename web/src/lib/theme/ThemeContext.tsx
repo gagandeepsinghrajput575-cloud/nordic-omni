@@ -1,8 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { MotionConfig } from 'framer-motion';
 
-export type ThemeMode = 'nordic-noir' | 'industrial-volt' | 'surgical-daylight';
+export type ThemeMode = 'light' | 'dark';
+const STORAGE_KEY = 'nordic-omni-theme';
 
 interface ThemeContextType {
   theme: ThemeMode;
@@ -12,76 +14,57 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const THEMES: ThemeMode[] = ['nordic-noir', 'industrial-volt', 'surgical-daylight'];
+function readTheme(): ThemeMode {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    // Migrate the old three-theme engine without losing a user's dark preference.
+    if (saved === 'dark' || saved === 'nordic-noir' || saved === 'industrial-volt') return 'dark';
+  } catch { /* Storage can be unavailable in private or embedded browsing. */ }
+  return 'light';
+}
+
+function applyTheme(theme: ThemeMode) {
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  root.style.colorScheme = theme;
+  root.classList.remove('light', 'dark', 'theme-nordic-noir', 'theme-industrial-volt', 'theme-surgical-daylight');
+  root.classList.add(theme);
+  document.body.classList.remove('theme-nordic-noir', 'theme-industrial-volt', 'theme-surgical-daylight');
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>('nordic-noir');
-  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>('light');
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('nordic-omni-theme') as ThemeMode | null;
-      if (savedTheme && THEMES.includes(savedTheme)) {
-        setThemeState(savedTheme);
-      }
-    } catch {
-      // Ignore localStorage errors (e.g. private browsing)
-    }
-    setMounted(true);
+    setTheme(readTheme());
+    setReady(true);
+    const sync = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY) setTheme(readTheme());
+    };
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
-    const root = document.documentElement;
-    const body = document.body;
+    if (!ready) return;
+    applyTheme(theme);
+    try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* In-memory preference still works. */ }
+  }, [theme, ready]);
 
-    // Remove any previous theme classes
-    THEMES.forEach((t) => {
-      root.classList.remove(`theme-${t}`);
-      body.classList.remove(`theme-${t}`);
-    });
-
-    // Add current theme class
-    root.classList.add(`theme-${theme}`);
-    body.classList.add(`theme-${theme}`);
-
-    // Manage standard dark class for Tailwind
-    if (theme === 'surgical-daylight') {
-      root.classList.remove('dark');
-      body.classList.remove('dark');
-    } else {
-      root.classList.add('dark');
-      body.classList.add('dark');
-    }
-
-    try {
-      localStorage.setItem('nordic-omni-theme', theme);
-    } catch {
-      // Ignore
-    }
-  }, [theme, mounted]);
-
-  const setTheme = (newTheme: ThemeMode) => {
-    setThemeState(newTheme);
-  };
-
-  const cycleTheme = () => {
-    const nextIndex = (THEMES.indexOf(theme) + 1) % THEMES.length;
-    setThemeState(THEMES[nextIndex]);
-  };
+  const cycleTheme = useCallback(() => setTheme((current) => current === 'light' ? 'dark' : 'light'), []);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, cycleTheme }}>
-      {children}
+      <MotionConfig reducedMotion="user" transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
+        {children}
+      </MotionConfig>
     </ThemeContext.Provider>
   );
 }
 
 export function useTheme() {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
+  if (!context) throw new Error('useTheme must be used within a ThemeProvider');
   return context;
 }
-

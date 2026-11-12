@@ -3,11 +3,18 @@ from __future__ import annotations
 import pathlib
 import sys
 import unittest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from services.phone import normalize_phone  # noqa: E402
+from services.phone import forward_sip_call, normalize_phone  # noqa: E402
+
+try:
+    from livekit import api
+except ImportError:
+    api = None
 
 
 class PhoneTests(unittest.TestCase):
@@ -44,6 +51,38 @@ class PhoneTests(unittest.TestCase):
         self.assertIsNone(normalize_phone(""))
         self.assertIsNone(normalize_phone("not a phone"))
         self.assertIsNone(normalize_phone("123"))
+
+
+class SipTransferTests(unittest.IsolatedAsyncioTestCase):
+    async def test_invalid_input_never_dials(self):
+        ok, _ = await forward_sip_call("room", "sip-caller", "123")
+        self.assertFalse(ok)
+        ok, _ = await forward_sip_call("room", "", "+4522334455")
+        self.assertFalse(ok)
+
+    @unittest.skipIf(api is None, "install agent-worker requirements for the SDK contract")
+    async def test_only_a_confirmed_provider_result_counts_as_success(self):
+        env = {"LIVEKIT_URL": "wss://example.invalid", "LIVEKIT_API_KEY": "test", "LIVEKIT_API_SECRET": "test"}
+        for status, expected in (
+            (api.SIPTransferStatus.STS_TRANSFER_SUCCESSFUL, True),
+            (api.SIPTransferStatus.STS_TRANSFER_FAILED, False),
+        ):
+            client = AsyncMock()
+            client.__aenter__.return_value = client
+            client.sip.transfer_sip_participant.return_value = SimpleNamespace(status=status, reason="test")
+            with patch.dict("os.environ", env), patch.object(api, "LiveKitAPI", return_value=client):
+                ok, _ = await forward_sip_call("room", "sip Caller", "+45 22 33 44 55")
+            self.assertEqual(ok, expected)
+            request = client.sip.transfer_sip_participant.call_args.args[0]
+            self.assertEqual(request.room_name, "room")
+            self.assertEqual(request.participant_identity, "sip Caller")
+            self.assertEqual(request.transfer_to, "tel:+4522334455")
+            self.assertTrue(request.play_dialtone)
+
+    def test_entrypoint_uses_the_identity_resolved_from_the_room(self):
+        source = (ROOT / "main.py").read_text()
+        self.assertIn('identity = str(meta.get("participant_identity") or "")', source)
+        self.assertNotIn("participant = ctx.participant", source)
 
 
 if __name__ == "__main__":

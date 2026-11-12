@@ -1,0 +1,2 @@
+/** Runs before paint so a saved dark theme never flashes white. No network or dependencies. */
+export const themeInitScript = `(function(){try{var t=localStorage.getItem('nordic-omni-theme');if(t==='nordic-noir'||t==='industrial-volt')t='dark';if(t==='surgical-daylight')t='light';if(t!=='dark')t='light';var r=document.documentElement;r.dataset.theme=t;r.classList.remove('light','dark');r.classList.add(t);r.style.colorScheme=t;}catch(e){}})();`;

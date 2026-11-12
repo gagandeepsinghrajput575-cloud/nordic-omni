@@ -20,6 +20,7 @@ export interface ChatContactContext {
     name: string;
     slug: string;
     status: string;
+    reception_mode: string;
     default_language: string;
     owner_name: string;
     owner_phone: string;
@@ -77,40 +78,40 @@ export async function loadChatContext(contactId: string): Promise<ChatContactCon
       .join('\n')
       .slice(0, 24_000);
 
-    return {
-      contact: {
-        id: row.id as string,
-        tenant_id: row.tenant_id as string,
-        full_name: (row.full_name as string | null) ?? null,
-        phone_number: (row.phone_number as string | null) ?? null,
-        email: (row.email as string | null) ?? null,
-        preferred_language: (row.preferred_language as string) ?? 'da',
-        pipeline_stage: row.pipeline_stage as string,
-        lead_score: Number(row.lead_score ?? 50),
-        estimated_value_dkk: Number(row.estimated_value_dkk ?? 0),
-        ai_auto_reply_enabled: Boolean(row.ai_auto_reply_enabled),
-        shared_memory_summary: (row.shared_memory_summary as string) ?? '',
-      },
-      tenant: {
-        id: row.tenant_id as string,
-        name: row.name as string,
-        slug: row.slug as string,
-        status: row.status as string,
-        default_language: row.default_language as string,
-        owner_name: row.owner_name as string,
-        owner_phone: row.owner_phone as string,
-        owner_email: row.owner_email as string,
-        business_hours: (row.business_hours as Record<string, unknown>) ?? {},
-        pricing_catalog: (row.pricing_catalog as CatalogItem[]) ?? [],
-        active_broadcast_message: (row.active_broadcast_message as string | null) ?? null,
-      },
-      agent: {
-        customer_system_prompt: (row.customer_system_prompt as string) ?? '',
-        escalation_policy: (row.escalation_policy as Record<string, unknown>) ?? {},
-      },
-      knowledge,
-    };
-  });
+  return {
+    contact: {
+      id: row.id as string,
+      tenant_id: row.tenant_id as string,
+      full_name: (row.full_name as string | null) ?? null,
+      phone_number: (row.phone_number as string | null) ?? null,
+      email: (row.email as string | null) ?? null,
+      preferred_language: (row.preferred_language as string) ?? 'da',
+      pipeline_stage: row.pipeline_stage as string,
+      lead_score: Number(row.lead_score ?? 50),
+      estimated_value_dkk: Number(row.estimated_value_dkk ?? 0),
+      ai_auto_reply_enabled: Boolean(row.ai_auto_reply_enabled),
+      shared_memory_summary: (row.shared_memory_summary as string) ?? '',
+    },
+    tenant: {
+      id: row.tenant_id as string,
+      name: row.name as string,
+      slug: row.slug as string,
+      status: row.status as string,
+      reception_mode: row.reception_mode as string,
+      default_language: row.default_language as string,
+      owner_name: row.owner_name as string,
+      owner_phone: row.owner_phone as string,
+      owner_email: row.owner_email as string,
+      business_hours: (row.business_hours as Record<string, unknown>) ?? {},
+      pricing_catalog: (row.pricing_catalog as CatalogItem[]) ?? [],
+      active_broadcast_message: (row.active_broadcast_message as string | null) ?? null,
+    },
+    agent: {
+      customer_system_prompt: (row.customer_system_prompt as string) ?? '',
+      escalation_policy: (row.escalation_policy as Record<string, unknown>) ?? {},
+    },
+    knowledge,
+  };
 }
 
 export async function loadChatMessages(
@@ -221,3 +222,47 @@ export async function updateChatContactState(
     `;
   });
 }
+    await tx`
+      insert into ui_command_events (tenant_id, command_type, payload)
+      values (
+        ${tenantId}, 'PROJECT_ESTIMATE_RECORDED',
+        ${jsonb({ contactId, catalogItemId, estimatedValueDkk: midpoint })}
+      )
+    `;
+    return rows[0].id as string;
+  });
+}
+
+export async function requestChatInspection({
+  tenantId,
+  contactId,
+  requestedTimeText,
+  address,
+  notes,
+}: {
+  tenantId: string;
+  contactId: string;
+  requestedTimeText: string;
+  address: string;
+  notes: string;
+}): Promise<string> {
+  return adminSql.begin(async (tx) => {
+    const rows = await tx`
+      insert into inspection_requests (
+        tenant_id, contact_id, call_log_id, requested_time_text, address, notes, status
+      ) values (
+        ${tenantId}, ${contactId}, null, ${requestedTimeText}, ${address}, ${notes}, 'requested'
+      )
+      returning id
+    `;
+    await tx`
+      insert into ui_command_events (tenant_id, command_type, payload)
+      values (
+        ${tenantId}, 'INSPECTION_REQUESTED',
+        ${jsonb({ contactId, status: 'requested' })}
+      )
+    `;
+    return rows[0].id as string;
+  });
+}
+

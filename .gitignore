@@ -1,3 +1,6 @@
+# Arena-local preview tools, browser captures and database
+.arena/
+
 # Dependencies
 node_modules/
 .pnp

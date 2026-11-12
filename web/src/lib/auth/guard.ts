@@ -12,6 +12,8 @@ import { getSession, type SessionUser } from './session';
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect('/login');
+  if (session.mustChangePassword) redirect('/account/password');
+  if (!session.isAgency && session.tenantIds.length === 0) redirect('/no-access');
   return session;
 }
 

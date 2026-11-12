@@ -44,6 +44,10 @@ if (env.NODE_ENV !== 'production') {
 
 export type Tx = postgres.TransactionSql<Record<string, unknown>>;
 
+/** postgres.js v4 no longer infers objects as JSON. Explicit OID 3802 prevents
+ * double-encoding JSON strings into JSONB scalar strings (hours/catalog/prompts). */
+export function jsonb(value: postgres.JSONValue) { return sql.json(value); }
+
 /**
  * Runs `fn` inside a transaction with `app.user_id` set, which is what the RLS
  * policies read via `current_setting('app.user_id', true)`.

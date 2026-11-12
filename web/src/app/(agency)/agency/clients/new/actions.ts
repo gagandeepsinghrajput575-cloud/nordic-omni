@@ -31,6 +31,9 @@ const schema = z.object({
   ownerEmail: z.string().trim().email('Enter a valid email address.'),
   ownerPassword: z.string().min(8, 'Enter an initial portal password (at least 8 characters).').max(200),
   defaultLanguage: z.enum(['da-DK', 'en-US']).default('da-DK'),
+  did: z.string().trim().max(40).optional().transform((value) => value?.replace(/[^0-9+]/g, '') || null)
+    .refine((value) => !value || /^\+[1-9]\d{6,14}$/.test(value), 'Use an international DID, e.g. +4532123456.'),
+  initialPassword: z.string().min(12, 'Use an initial password of at least 12 characters.').max(128),
 });
 
 
@@ -51,6 +54,8 @@ export async function createWorkspaceAction(
     ownerEmail: formData.get('ownerEmail'),
     ownerPassword: String(formData.get('ownerPassword') ?? ''),
     defaultLanguage: formData.get('defaultLanguage') ?? 'da-DK',
+    did: formData.get('did'),
+    initialPassword: formData.get('initialPassword'),
   });
 
   if (!parsed.success) {
@@ -72,8 +77,8 @@ export async function createWorkspaceAction(
       }
       return {
         ok: false,
-        field: 'slug',
-        error: 'That slug is already taken. Pick another one.',
+        field: e.field,
+        error: e.field === 'phone_number' ? 'That DID is already assigned to another workspace.' : e.field === 'email' ? 'That email already has an account.' : 'That slug is already taken. Pick another one.',
       };
     }
     return { ok: false, error: 'Could not create the workspace. Please try again.' };

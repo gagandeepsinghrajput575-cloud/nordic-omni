@@ -1,289 +1,56 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowLeft, History, Phone, ShieldCheck } from 'lucide-react';
 import { requireAgency } from '@/lib/auth/guard';
-import {
-  getTenantFacts,
-  getTenantOverview,
-  getAgentConfig,
-  listKnowledge,
-  listConfigHistory,
-  listContacts,
-} from '@/lib/db/queries';
+import { getTenantFacts, getTenantOverview, getAgentConfig, listKnowledge, listConfigHistory, listContacts } from '@/lib/db/queries';
+import { listWebhooks, listWorkspaceMembers } from '@/lib/db/agency';
+import { getLatestBrainBundle } from '@/lib/db/brain';
+import type { BrainPayload } from '@/lib/ai/brain';
+import { Badge, Card, CardHeader, Stat, StatGroup } from '@/components/ui/core';
+import { EmptyState, PageHeader, SectionTitle } from '@/components/ui/feedback';
+import { buttonClass } from '@/components/ui/form';
+import { SubmitButton } from '@/components/ui/SubmitButton';
+import { WorkspaceStudio } from '@/components/agency/WorkspaceStudio';
+import { WorkspaceControls } from '@/components/agency/WorkspaceControls';
+import { TeamManager } from '@/components/agency/TeamManager';
+import { WebhookHub } from '@/components/agency/WebhookHub';
+import { AgencyHoursEditor, AgencyPricingEditor } from '@/components/agency/WorkspaceFactsEditor';
 import { PromptEditor } from './PromptEditor';
 import { KnowledgeEditor } from './KnowledgeEditor';
 import { AiBrainPanel } from './AiBrainPanel';
-import { getLatestBrainBundle } from '@/lib/db/brain';
-import { listSubaccountUsers } from '@/lib/db/subaccounts';
-import { listWebhookDeliveries, listWebhooks } from '@/lib/webhooks';
-import { WebhookManager } from '@/components/webhooks/WebhookManager';
-import { AgencyTenantSettingsForm } from './AgencyTenantSettingsForm';
-import { SubaccountUsersManager } from './SubaccountUsersManager';
-import type { BrainPayload } from '@/lib/ai/brain';
 import { restoreAgentConfigForm } from './actions';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Manage workspace' };
+const dkk = (value: number) => value.toLocaleString('da-DK', { maximumFractionDigits: 0 });
 
-const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
-
-export default async function AgencyClientDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function AgencyClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireAgency();
-
-  const [tenant, overview, config, knowledge, history, contacts, brain, subaccountUsers, webhooks, deliveries] =
-    await Promise.all([
-      getTenantFacts(session.userId, id),
-      getTenantOverview(session.userId, id),
-      getAgentConfig(session.userId, id),
-      listKnowledge(session.userId, id),
-      listConfigHistory(session.userId, id),
-      listContacts(session.userId, id, 1),
-      getLatestBrainBundle(session.userId, id),
-      listSubaccountUsers(session.userId, id),
-      listWebhooks(session.userId, id),
-      listWebhookDeliveries(session.userId, id),
-    ]);
-
+  const tenant = await getTenantFacts(session.userId, id);
   if (!tenant) notFound();
+  const [overview, config, knowledge, history, contacts, brain, members, endpoints] = await Promise.all([
+    getTenantOverview(session.userId, id), getAgentConfig(session.userId, id),
+    listKnowledge(session.userId, id), listConfigHistory(session.userId, id), listContacts(session.userId, id, 1),
+    getLatestBrainBundle(session.userId, id), listWorkspaceMembers(session.userId, id), listWebhooks(session.userId, id),
+  ]);
+  const isDanish = tenant.default_language === 'da-DK';
+  const promptHistory = <Card>
+    <CardHeader title="Prompt history" hint="Every save creates a reversible snapshot." action={<Badge tone="neutral"><History size={12} />{history.length}</Badge>} />
+    {!history.length ? <EmptyState compact icon={<History size={18} />} title="No previous versions yet" description="The first saved prompt change will appear here." /> : <ul className="divide-y divide-[var(--line)]">{history.map((entry) => <li key={entry.id} className="flex flex-wrap items-start justify-between gap-3 px-5 py-4"><div className="min-w-0 flex-1 basis-64"><p className="text-[12px] tabular-nums text-[var(--muted)]">{new Date(entry.changed_at).toLocaleString('en-GB', { timeZone: 'Europe/Copenhagen' })}</p><p className="mt-1.5 line-clamp-2 text-[12px] leading-5 text-[var(--text-secondary)]">{entry.customer_system_prompt}</p></div><form action={restoreAgentConfigForm}><input type="hidden" name="tenantId" value={tenant.id} /><input type="hidden" name="historyId" value={entry.id} /><SubmitButton variant="secondary" size="sm" pendingLabel="Restoring…">Restore</SubmitButton></form></li>)}</ul>}
+  </Card>;
 
-  return (
-    <div className="space-y-8">
-      <div>
-        <Link
-          href="/agency/clients"
-          className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--accent-primary)]"
-        >
-          ← Clients
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-lg font-semibold tracking-tight">{tenant.name}</h1>
-          <span className="rounded border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
-            /{tenant.slug}
-          </span>
-          <span className="rounded border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-1.5 py-0.5 font-mono text-[10px] text-[var(--accent-primary)]">
-            {tenant.default_language}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: 'Leads', value: String(overview.contacts) },
-          {
-            label: 'Pipeline',
-            value: overview.pipeline_dkk.toLocaleString('da-DK', { maximumFractionDigits: 0 }),
-          },
-          { label: 'Calls', value: String(overview.calls) },
-          { label: 'Emergencies', value: String(overview.dire) },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3"
-          >
-            <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-              {s.label}
-            </div>
-            <div className="mt-1 font-mono text-lg font-bold tabular-nums">{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-            Facts — client can edit these
-          </h2>
-          <span className="font-mono text-[10px] text-[var(--success)]">tenant-editable</span>
-        </div>
-
-        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <dt className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Owner</dt>
-            <dd className="text-xs">{tenant.owner_name}</dd>
-          </div>
-          <div>
-            <dt className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Phone</dt>
-            <dd className="font-mono text-xs">{tenant.owner_phone}</dd>
-          </div>
-          <div>
-            <dt className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-              Inbound line
-            </dt>
-            <dd className="font-mono text-xs">{tenant.flynumber_did ?? 'WebRTC only'}</dd>
-          </div>
-          <div>
-            <dt className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Email</dt>
-            <dd className="truncate text-xs">{tenant.owner_email}</dd>
-          </div>
-        </dl>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 border-t border-[var(--border-subtle)] pt-4 lg:grid-cols-2">
-          <div>
-            <h3 className="mb-2 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-              Business hours
-            </h3>
-            <ul className="space-y-1">
-              {DAY_ORDER.map((day) => {
-                const d = tenant.business_hours?.[day];
-                return (
-                  <li key={day} className="flex justify-between font-mono text-[11px]">
-                    <span className="uppercase text-[var(--text-muted)]">{day}</span>
-                    <span className="tabular-nums">
-                      {!d || d.closed ? (
-                        <span className="text-[var(--text-muted)]">closed</span>
-                      ) : (
-                        `${d.open}–${d.close}`
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="mb-2 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-              Pricing catalog
-            </h3>
-            <ul className="space-y-1">
-              {(tenant.pricing_catalog ?? []).map((p) => (
-                <li key={p.id} className="flex justify-between gap-3 text-[11px]">
-                  <span className="truncate text-[var(--text-secondary)]">{p.service}</span>
-                  <span className="shrink-0 font-mono tabular-nums">
-                    {p.price_dkk.toLocaleString('da-DK')} / {p.unit}
-                  </span>
-                </li>
-              ))}
-              {(tenant.pricing_catalog ?? []).length === 0 && (
-                <li className="text-[11px] text-[var(--text-muted)]">No services configured</li>
-              )}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-5 border-t border-[var(--border-subtle)] pt-3">
-          <h3 className="mb-1 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-            Broadcast
-          </h3>
-          <p className="text-xs text-[var(--text-secondary)]">
-            {tenant.active_broadcast_message ?? (
-              <span className="italic text-[var(--text-muted)]">No active broadcast</span>
-            )}
-          </p>
-        </div>
-      </section>
-
-      <AiBrainPanel
-        tenantId={tenant.id}
-        bundle={
-          brain
-            ? {
-                ...brain,
-                payload: brain.payload as BrainPayload,
-              }
-            : null
-        }
-      />
-
-      {/* BEHAVIOUR — agency-only */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-            Behaviour — agency only
-          </h2>
-          <span className="font-mono text-[10px] text-[var(--accent-primary)]">restricted</span>
-        </div>
-
-        {config ? (
-          <PromptEditor
-            tenantId={tenant.id}
-            tenantSlug={tenant.slug}
-            tenantName={tenant.name}
-            defaultLanguage={tenant.default_language}
-            contactId={contacts[0]?.id ?? 'demo-caller'}
-            contactName={contacts[0]?.full_name ?? 'Demo Caller'}
-            initial={{
-              customer_system_prompt: config.customer_system_prompt,
-              copilot_system_prompt: config.copilot_system_prompt,
-              greeting_script: config.greeting_script,
-              voice_id: config.voice_id,
-            }}
-          />
-        ) : (
-          <p className="text-xs text-[var(--text-muted)]">No agent config on file.</p>
-        )}
-      </section>
-
-      {/* KNOWLEDGE */}
-      <KnowledgeEditor
-        tenantId={tenant.id}
-        items={knowledge.map((k) => ({
-          id: k.id,
-          title: k.title,
-          content: k.content,
-          category: String(k.category),
-          priority: k.priority,
-        }))}
-      />
-
-      {/* HISTORY */}
-      <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-5">
-        <h2 className="mb-3 text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-          Prompt history ({history.length})
-        </h2>
-        {history.length === 0 ? (
-          <p className="text-[11px] text-[var(--text-muted)]">
-            No previous versions yet. Saving a prompt creates a snapshot here.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[var(--border-subtle)]">
-            {history.map((h) => (
-              <li key={h.id} className="flex items-start justify-between gap-4 py-2.5">
-                <div className="min-w-0">
-                  <div className="font-mono text-[10px] text-[var(--text-muted)]">
-                    {new Date(h.changed_at).toLocaleString('da-DK')}
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">
-                    {h.customer_system_prompt}
-                  </p>
-                </div>
-                <form action={restoreAgentConfigForm} className="shrink-0">
-                  <input type="hidden" name="tenantId" value={tenant.id} />
-                  <input type="hidden" name="historyId" value={h.id} />
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-[var(--border-subtle)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-secondary)] transition hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
-                  >
-                    Restore
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <AgencyTenantSettingsForm
-        tenantId={tenant.id}
-        name={tenant.name}
-        status={tenant.status}
-        flynumberDid={tenant.flynumber_did}
-        telephonyMode={tenant.telephony_mode}
-        defaultLanguage={tenant.default_language}
-      />
-
-      <SubaccountUsersManager tenantId={tenant.id} users={subaccountUsers} />
-
-      <WebhookManager
-        tenantId={tenant.id}
-        webhooks={webhooks}
-        deliveries={deliveries}
-        title="Client Outbound Webhooks"
-        hint="Tenant-scoped webhooks editable by you or the client owner. Signed with X-OMNI-Signature."
-      />
-    </div>
-  );
+  return <div className="space-y-7">
+    <PageHeader eyebrow="Client workspace" title={tenant.name} description={`/${tenant.slug} · ${isDanish ? 'Danish' : 'English'} reception · Full agency control`} actions={<><Badge tone={tenant.status === 'active' ? 'success' : 'warning'} dot>{tenant.status}</Badge><Link href="/agency/clients" className={buttonClass('ghost', 'sm')}><ArrowLeft size={13} />All clients</Link></>} />
+    <StatGroup><Stat label="Callers" value={overview.contacts} hint="In this workspace" /><Stat label="Pipeline" value={dkk(overview.pipeline_dkk)} unit="DKK" hint="Estimated caller value" /><Stat label="Calls" value={overview.calls} hint="Recorded sessions" /><Stat label="Urgent escalations" value={overview.dire} tone={overview.dire > 0 ? 'danger' : 'default'} hint="Open emergency cases" /></StatGroup>
+    <WorkspaceStudio panels={{
+      overview: <div className="space-y-5"><WorkspaceControls tenantId={id} status={tenant.status} receptionMode={tenant.reception_mode} did={tenant.flynumber_did} /><Card><CardHeader title="Business identity" hint="Contact facts are shared with the client portal." /><dl className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-4">{[['Owner', tenant.owner_name], ['Owner phone', tenant.owner_phone], ['Owner email', tenant.owner_email], ['Assigned DID', tenant.flynumber_did ?? 'Browser calls only']].map(([label,value]) => <div key={label} className="min-w-0"><dt className="text-[12px] text-[var(--muted)]">{label}</dt><dd className="mt-1 break-words text-[13px] font-medium">{value || '—'}</dd></div>)}</dl><div className="border-t border-[var(--line)] p-5"><h3 className="mb-2 text-[13px] font-medium">Operational notice</h3><p className="text-[13px] text-[var(--text-secondary)]">{tenant.active_broadcast_message || 'No active notice.'}</p></div></Card><div className="notice notice-info"><Phone size={17} className="shrink-0" /><p className="text-[12px]">Carrier setup remains external: point the DID at your LiveKit SIP trunk and run the SIP provisioning script. Saving controls here does not purchase a number or claim a carrier connection.</p></div></div>,
+      team: <TeamManager tenantId={id} members={members} />,
+      hours: <AgencyHoursEditor tenantId={id} hours={tenant.business_hours ?? {}} />,
+      pricing: <AgencyPricingEditor tenantId={id} rows={(tenant.pricing_catalog ?? []).map((row) => ({ ...row, price_dkk: row.price_dkk ?? 0, unit: row.unit ?? 'fixed' }))} />,
+      knowledge: <div className="space-y-6"><AiBrainPanel tenantId={id} bundle={brain ? { ...brain, payload: brain.payload as BrainPayload } : null} /><KnowledgeEditor tenantId={id} items={knowledge.map((item) => ({ id: item.id, title: item.title, content: item.content, category: String(item.category), priority: item.priority }))} /></div>,
+      prompt: <div className="space-y-6"><section><SectionTitle action={<Badge tone="accent"><ShieldCheck size={12} />Agency only</Badge>}>Receptionist instructions</SectionTitle><Card className="p-5">{config ? <PromptEditor tenantId={id} tenantSlug={tenant.slug} tenantName={tenant.name} defaultLanguage={tenant.default_language} contactId={contacts[0]?.id} contactName={contacts[0]?.full_name ?? 'Caller'} initial={{ customer_system_prompt: config.customer_system_prompt, copilot_system_prompt: config.copilot_system_prompt, greeting_script: config.greeting_script, voice_id: config.voice_id }} /> : <EmptyState compact title="No agent configuration" description="This workspace has no agent configuration on file." />}</Card></section>{promptHistory}</div>,
+      webhooks: <WebhookHub tenantId={id} endpoints={endpoints} />,
+    }} />
+  </div>;
 }

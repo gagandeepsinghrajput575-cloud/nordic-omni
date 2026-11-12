@@ -1,11 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import {
-  createAnalyserRuntime,
-  createMotionPreference,
-  createPacedFrameLoop,
-} from '@/lib/audio/visualizer-runtime';
+import { useTheme } from '@/lib/theme/ThemeContext';
 
 export type VisualizerState = 'idle' | 'speaking' | 'listening' | 'dire_hold' | 'consulting';
 
@@ -27,6 +23,7 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
+  const { theme } = useTheme();
 
   // Each stream owns one runtime. React runs the previous cleanup before a
   // rapid stream replacement, so old contexts/listeners cannot accumulate.
@@ -61,14 +58,18 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
     canvas.style.height = `${size}px`;
 
     let time = 0;
-    let loop: ReturnType<typeof createPacedFrameLoop> | null = null;
-    const motion = createMotionPreference(() => loop?.refresh());
-    const draw = (now: number) => {
-      const reduced = motion.reduced;
-      if (!reduced && isActive && now > 0) time += 0.035;
+    let last = 0;
+
+    const render = (now = 0) => {
+      if (!reducedMotion && now - last < 16) {
+        animationFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
+      last = now;
+      time += reducedMotion ? 0 : 0.035;
 
       const styles = getComputedStyle(canvas);
-      const accent = styles.getPropertyValue('--accent-primary').trim() || '#34d399';
+      const accent = styles.getPropertyValue('--accent-primary').trim() || '#7C3AED';
       const secondary = styles.getPropertyValue('--accent-secondary').trim() || accent;
       const danger = styles.getPropertyValue('--danger').trim() || accent;
       const warning = styles.getPropertyValue('--warning').trim() || accent;
@@ -176,7 +177,7 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
       loop?.dispose();
       motion.dispose();
     };
-  }, [isActive, state, size]);
+  }, [isActive, state, size, theme]);
 
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
@@ -188,8 +189,8 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
         style={{ width: `${size}px`, height: `${size}px` }}
       />
       {state === 'dire_hold' && (
-        <span className="absolute -bottom-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white bg-red-600 rounded-full animate-pulse border border-red-400">
-          Hold for Owner
+        <span className="absolute -bottom-2 rounded-full border border-[var(--danger-line)] bg-[var(--danger-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--danger)]">
+          Hold for owner
         </span>
       )}
     </div>

@@ -6,9 +6,36 @@ This document is the ground truth for the NORDIC-OMNI codebase. It records what
 was found, what was concluded, what was changed, and what is still fiction. It
 supersedes `README.md`, which describes a product that never existed.
 
-Last updated **11 November 2026** after the release-hardening pass. Later commits may
-have changed code but not this document; when that happens, trust the code and
-correct this file.
+Last updated **12 November 2026** after the agency control-plane and warm editorial theme pass. Later
+commits may have changed code but not this document; when that happens, trust the
+code and correct this file.
+
+> ## 12 November interface status
+>
+> The web surfaces now share one warm sand/oat, espresso and amethyst design system with two themes
+> (`light` and `dark`). The old `nordic-noir` and `industrial-volt` preferences
+> migrate to dark; `surgical-daylight` migrates to light. Agency, portal, login,
+> public call/chat and the embeddable call widget were rebuilt on the same
+> primitives. The public call console comes first on phones. The widget remains
+> embeddable while production frame-deny headers protect the authenticated
+> consoles and sign-in. The 24 TypeScript contract tests and typecheck pass.
+> Browser checks covered both themes, phone layouts, keyboard tabs,
+> dialog focus, theme persistence and the embedded widget. Live voice/AI quality
+> still depends on the external services described below.
+
+> ## Agency control-plane status (12 November)
+>
+> Migration `0012_agency_control_plane.sql` adds lifecycle/reception controls,
+> secure initial-password and session-version state, and agency-only webhook
+> endpoints/events/deliveries. `/agency` exposes portfolio KPIs, a client directory,
+> global webhooks and full per-client tabs (controls, team, hours, pricing,
+> knowledge, prompt, scoped webhooks). Client logins remain portal-only at both
+> action and RLS boundaries. The durable webhook worker is `npm run webhooks`;
+> deployment and signing details are in `web/docs/agency-control-plane.md`.
+> Apply migration 0012 before deploying. Carrier/SIP setup is still external.
+> The expanded contract suite has 24 tests; the agency RLS probe and browser
+> control-plane flow pass. JSONB writes now explicitly use postgres.js v4 JSON
+> typing, preventing double-encoded hours/catalog/prompt payloads.
 
 > ## 11 November repair status
 >
@@ -1049,7 +1076,8 @@ web/src/
       password.ts                   42 lines, scrypt hash + timingSafeEqual
       session.ts                   133 lines, HMAC cookie + server-side sessions
       guard.ts                      69 lines, requireUser/requireAgency/resolveTenant
-    theme/ThemeContext.tsx          theme tokens (3 palettes)
+    theme/ThemeContext.tsx          light/dark preference + legacy migration
+    theme/theme-script.ts           pre-paint theme bootstrap
   app/
     page.tsx                        redirect by role
     login/{page,LoginForm}.tsx
@@ -1068,7 +1096,7 @@ web/src/
         actions.ts                  server actions: update + rollback (snapshot first)
     call/[contactId]/
       page.tsx                      public call page (minimal context only)
-      CallClientView.tsx            legacy public call UI
+      CallClientView.tsx            public call UI (compact when embed=1)
     api/
       auth/login/route.ts           scrypt verify + session create
       auth/logout/route.ts
@@ -1272,23 +1300,33 @@ lib/slug.ts                    Danish-aware slugify (æ→ae, ø→oe, å→aa)
 
 ### 17.3 Design system
 
+The current system is a warm editorial workspace with two themes: sand/oat
+surfaces, espresso contrast and an amethyst gradient for brand/navigation badges.
+Cards have subtle specular highlights, figures are tabular, and spring-like
+`cubic-bezier(0.16, 1, 0.3, 1)` motion respects `prefers-reduced-motion`.
+
 ```
-lib:        globals.css — token layer only (radius, elevation, motion, derived
-            surfaces, focus ring, skeletons, reduced-motion)
-components/ui/core.tsx       cn, Card, CardHeader, Stat, Badge, StagePill
-components/ui/feedback.tsx   PageHeader, EmptyState, Avatar, ScoreBar, Skeleton
+app/globals.css              light/dark tokens + shared primitives
+components/ui/core.tsx       cn, Card, CardHeader, StatGroup, Stat, Badge, StagePill
+components/ui/feedback.tsx   PageHeader, EmptyState, Avatar, ScoreBar, Skeleton,
+                             TableSkeleton, SectionTitle
 components/ui/form.tsx       Label, Input, Textarea, Select, Field, FormAlert,
                              buttonClass
-components/ui/SubmitButton   client component, disables itself while pending
+components/ui/SubmitButton   pending lock + Spinner
+components/ui/Dialog         portal dialog, focus trap, Escape, focus restore
+components/ui/Tabs           roving keyboard focus + shared tabPanelProps
+components/ui/BrandMark      product mark and lockup
 components/shell/AppShell    sidebar shell, icon nav, mobile drawer
+lib/theme/                   pre-paint bootstrap + light/dark preference
+lib/pipeline.ts              the seven Postgres stages and Danish/English labels
 ```
 
 Two rules the primitives enforce:
 
-1. **Nothing reads a raw hex.** Every colour is a `var(--token)`, so all three
-   themes work without touching a component.
-2. **No page hand-rolls a table.** If a table is needed it is a `Card` plus a
-   shared header row, not a bespoke `<table className="w-full">`.
+1. **Nothing reads a raw hex.** Every colour is a `var(--token)`, so both themes
+   work without touching a component.
+2. **Lists share one table skin.** `data-table` supplies alignment, divided rows
+   and the phone record layout; directories own only their filters and columns.
 
 ### 17.4 Three bugs this pass found in its own new code
 
@@ -1765,6 +1803,7 @@ psql -U omni_app -f db/tests/rls_probe.sql              # 8/8 tenant isolation
 psql -U omni_app -f db/tests/create_probe.sql           # insert / RLS deny / 23505
 psql -U omni_app -f db/tests/stage_enum_probe.sql       # 7 real stages, 1 rejected
 psql -U omni_app -f db/tests/recording_probe.sql        # seeds a servable recording
+psql -U omni_app -f db/tests/agency_control_probe.sql   # agency-only controls + outbox
 
 # worker (no network)
 .venv/bin/python tests/test_agent_smoke.py              # 21 checks
@@ -1776,6 +1815,10 @@ psql -U omni_app -f db/tests/recording_probe.sql        # seeds a servable recor
 
 # web
 npx tsc --noEmit                                        # 0 errors
+npm run build                                           # from web/, stop dev first
+# from repository root:
+npm test                                                # 18 root + 5 web tests
+npm run webhooks                                        # durable delivery worker
 ```
 
 HTTP checks are in §12.2; the recording endpoint's matrix is in §19.5.

@@ -38,8 +38,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many call attempts. Try again shortly.' }, { status: 429 });
   }
 
-  const tenantRows = await adminSql`select slug, status from tenants where id = ${tenantId} limit 1`;
-  const tenant = tenantRows[0] as { slug?: string; status?: string } | undefined;
+  const tenantRows = await adminSql`select slug, status, reception_mode from tenants where id = ${tenantId} limit 1`;
+  const tenant = tenantRows[0] as { slug?: string; status?: string; reception_mode?: string } | undefined;
+  if (tenant?.reception_mode === 'human_forward' && requestedRole === 'customer') {
+    return NextResponse.json({ error: 'This workspace forwards phone calls to its team. Call the assigned phone number instead.' }, { status: 409 });
+  }
   const contactRows = contactId
     ? await adminSql`select tenant_id, full_name from contacts where id = ${contactId} limit 1`
     : [];
