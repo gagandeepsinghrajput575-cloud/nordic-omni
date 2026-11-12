@@ -13,6 +13,11 @@ import { PromptEditor } from './PromptEditor';
 import { KnowledgeEditor } from './KnowledgeEditor';
 import { AiBrainPanel } from './AiBrainPanel';
 import { getLatestBrainBundle } from '@/lib/db/brain';
+import { listSubaccountUsers } from '@/lib/db/subaccounts';
+import { listWebhookDeliveries, listWebhooks } from '@/lib/webhooks';
+import { WebhookManager } from '@/components/webhooks/WebhookManager';
+import { AgencyTenantSettingsForm } from './AgencyTenantSettingsForm';
+import { SubaccountUsersManager } from './SubaccountUsersManager';
 import type { BrainPayload } from '@/lib/ai/brain';
 import { restoreAgentConfigForm } from './actions';
 
@@ -28,15 +33,19 @@ export default async function AgencyClientDetailPage({
   const { id } = await params;
   const session = await requireAgency();
 
-  const [tenant, overview, config, knowledge, history, contacts, brain] = await Promise.all([
-    getTenantFacts(session.userId, id),
-    getTenantOverview(session.userId, id),
-    getAgentConfig(session.userId, id),
-    listKnowledge(session.userId, id),
-    listConfigHistory(session.userId, id),
-    listContacts(session.userId, id, 1),
-    getLatestBrainBundle(session.userId, id),
-  ]);
+  const [tenant, overview, config, knowledge, history, contacts, brain, subaccountUsers, webhooks, deliveries] =
+    await Promise.all([
+      getTenantFacts(session.userId, id),
+      getTenantOverview(session.userId, id),
+      getAgentConfig(session.userId, id),
+      listKnowledge(session.userId, id),
+      listConfigHistory(session.userId, id),
+      listContacts(session.userId, id, 1),
+      getLatestBrainBundle(session.userId, id),
+      listSubaccountUsers(session.userId, id),
+      listWebhooks(session.userId, id),
+      listWebhookDeliveries(session.userId, id),
+    ]);
 
   if (!tenant) notFound();
 
@@ -256,6 +265,25 @@ export default async function AgencyClientDetailPage({
           </ul>
         )}
       </section>
+
+      <AgencyTenantSettingsForm
+        tenantId={tenant.id}
+        name={tenant.name}
+        status={tenant.status}
+        flynumberDid={tenant.flynumber_did}
+        telephonyMode={tenant.telephony_mode}
+        defaultLanguage={tenant.default_language}
+      />
+
+      <SubaccountUsersManager tenantId={tenant.id} users={subaccountUsers} />
+
+      <WebhookManager
+        tenantId={tenant.id}
+        webhooks={webhooks}
+        deliveries={deliveries}
+        title="Client Outbound Webhooks"
+        hint="Tenant-scoped webhooks editable by you or the client owner. Signed with X-OMNI-Signature."
+      />
     </div>
   );
 }

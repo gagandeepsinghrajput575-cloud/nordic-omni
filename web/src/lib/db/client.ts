@@ -8,9 +8,10 @@ import { env } from '@/lib/env';
  *                Security is enforced on every statement. Every query must run
  *                inside `withUser()` so identity is known.
  *
- *   adminSql  -> connects as the owner and therefore bypasses RLS. Used ONLY by
- *                webhooks and by the login lookup (which runs before identity
- *                exists). Never use it for user-initiated reads.
+ *   adminSql  -> connects as the owner and therefore bypasses RLS. Its narrow
+ *                allowlist is pre-auth identity, health, server-minted LiveKit
+ *                attempts, and validated server-owned estimate/inspection writes.
+ *                Never use it for ordinary user-initiated reads or mutations.
  */
 
 const g = globalThis as unknown as {
@@ -55,6 +56,8 @@ export async function withUser<T>(
   fn: (tx: Tx) => Promise<T>
 ): Promise<T> {
   const result = await sql.begin(async (tx) => {
+    // Never combine a portal identity with a public-contact capability.
+    await tx`select set_config('app.public_contact_id', '', true)`;
     if (userId) {
       // set_config(name, value, is_local=true) is the parameterised form of
       // SET LOCAL, and is scoped to this transaction only.
@@ -63,6 +66,26 @@ export async function withUser<T>(
     return fn(tx as unknown as Tx);
   });
 
+  return result as unknown as T;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Public chat/call access is a single-contact capability, enforced by RLS.
+ * The UUID is a capability in the same way as the public URL; policies never
+ * trust a separately supplied tenant ID. No owner connection is involved.
+ */
+export async function withPublicContact<T>(
+  contactId: string,
+  fn: (tx: Tx) => Promise<T>
+): Promise<T> {
+  if (!UUID.test(contactId)) throw new Error('Invalid public contact');
+  const result = await sql.begin(async (tx) => {
+    await tx`select set_config('app.user_id', '', true)`;
+    await tx`select set_config('app.public_contact_id', ${contactId}, true)`;
+    return fn(tx as unknown as Tx);
+  });
   return result as unknown as T;
 }
 

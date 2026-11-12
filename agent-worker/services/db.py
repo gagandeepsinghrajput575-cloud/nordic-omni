@@ -10,6 +10,7 @@ Replaces `services/supabase_service.py`. Two things are fixed here:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -23,23 +24,53 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _normalized_phone_sql(column: str) -> str:
+    """SQL equivalent of services.phone.normalize_phone for indexed columns."""
+    digits = f"regexp_replace({column}, '[^0-9]', '', 'g')"
+    return (
+        f"(CASE WHEN {digits} LIKE '00%' "
+        f"THEN '+' || substr({digits}, 3) ELSE '+' || {digits} END)"
+    )
+
+
 class Database:
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
         self._pool: Optional[asyncpg.Pool] = None
+        self._lifecycle_lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        if self._pool is None:
-            self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=4)
+        async with self._lifecycle_lock:
+            if self._pool is not None:
+                return
+            try:
+                self._pool = await asyncpg.create_pool(
+                    self._dsn,
+                    min_size=0,
+                    max_size=2,
+                    command_timeout=10,
+                    timeout=10,
+                    max_inactive_connection_lifetime=30,
+                    server_settings={
+                        "application_name": "nordic-omni-worker",
+                        "statement_timeout": "10000",
+                        "lock_timeout": "2000",
+                        "idle_in_transaction_session_timeout": "10000",
+                    },
+                )
+            except BaseException:
+                self._pool = None
+                raise
 
     @property
     def is_connected(self) -> bool:
-        return self._pool is not None and not self._pool._closed
+        return self._pool is not None and not self._pool.is_closing()
 
     async def close(self) -> None:
-        if self._pool is not None:
-            await self._pool.close()
-            self._pool = None
+        async with self._lifecycle_lock:
+            pool, self._pool = self._pool, None
+            if pool is not None:
+                await pool.close()
 
     @property
     def pool(self) -> asyncpg.Pool:
@@ -77,12 +108,12 @@ class Database:
         if not normalized:
             return None
         row = await self.pool.fetchrow(
-            """
+            f"""
             SELECT t.*, c.customer_system_prompt, c.copilot_system_prompt,
                    c.greeting_script, c.escalation_policy, c.voice_id, c.stt_language
             FROM tenants t
             LEFT JOIN tenant_agent_config c ON c.tenant_id = t.id
-            WHERE regexp_replace(t.flynumber_did, '[^0-9+]', '', 'g') = $1
+            WHERE {_normalized_phone_sql("t.flynumber_did")} = $1
               AND t.status = 'active'
             LIMIT 1
             """,
@@ -113,7 +144,12 @@ class Database:
         if not normalized:
             return None
         row = await self.pool.fetchrow(
-            "SELECT * FROM contacts WHERE tenant_id = $1 AND phone_number = $2 LIMIT 1",
+            f"""
+            SELECT * FROM contacts
+            WHERE tenant_id = $1
+              AND {_normalized_phone_sql("phone_number")} = $2
+            LIMIT 1
+            """,
             tenant_id,
             normalized,
         )
@@ -129,13 +165,13 @@ class Database:
         if existing:
             return existing
         row = await self.pool.fetchrow(
-            """
+            f"""
             INSERT INTO contacts (
               tenant_id, phone_number, preferred_language, preferred_channel,
               pipeline_stage, lead_score, shared_memory_summary
             ) VALUES ($1, $2, $3, 'voice_inbound'::channel_type, 'new_lead', 50,
                       'Indgående telefonopkald')
-            ON CONFLICT (tenant_id, (regexp_replace(phone_number, '[^0-9+]', '', 'g')))
+            ON CONFLICT (tenant_id, {_normalized_phone_sql("phone_number")})
               WHERE phone_number IS NOT NULL
               DO NOTHING
             RETURNING *
@@ -234,7 +270,10 @@ class Database:
             """
             INSERT INTO conversation_escalations
               (tenant_id, contact_id, channel, reason, urgency, briefing, payload)
-            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
+            SELECT $1,$2,$3,$4,$5,$6,$7::jsonb
+            WHERE EXISTS (
+              SELECT 1 FROM contacts WHERE id = $2 AND tenant_id = $1
+            )
             RETURNING id
             """,
             tenant_id,
@@ -245,20 +284,23 @@ class Database:
             briefing[:1200],
             json.dumps(payload),
         )
+        if not row:
+            raise RuntimeError("escalation contact is outside the worker tenant")
         return str(row["id"])
 
     async def set_escalation_notification(
-        self, escalation_id: str, *, delivered: bool, error: Optional[str] = None
+        self, escalation_id: str, *, tenant_id: str, delivered: bool, error: Optional[str] = None
     ) -> None:
         await self.pool.execute(
             """
             UPDATE conversation_escalations
-               SET n8n_status = $2,
-                   n8n_error = $3,
-                   status = CASE WHEN $2::text = 'delivered' THEN 'notified' ELSE status END
-             WHERE id = $1
+               SET n8n_status = $3,
+                   n8n_error = $4,
+                   status = CASE WHEN $3::text = 'delivered' THEN 'notified' ELSE status END
+             WHERE id = $1 AND tenant_id = $2
             """,
             escalation_id,
+            tenant_id,
             "delivered" if delivered else "failed",
             error[:500] if error else None,
         )
@@ -279,28 +321,28 @@ class Database:
     async def ensure_call_log(
         self, *, tenant_id: str, contact_id: str, room_name: str, channel: str
     ) -> str:
+        """Atomically claim a room without reviving a terminal call.
+
+        The single upsert removes the SELECT/INSERT unique-key race with token
+        creation and repeated tool calls. The conflict predicate also prevents
+        a room-name collision from crossing tenant or contact boundaries.
+        """
         row = await self.pool.fetchrow(
             """
-            SELECT id FROM call_logs
-            WHERE room_name = $1 AND tenant_id = $2 AND contact_id = $3
-            LIMIT 1
-            """,
-            room_name,
-            tenant_id,
-            contact_id,
-        )
-        if row:
-            call_id = str(row["id"])
-            await self.pool.execute(
-                "UPDATE call_logs SET status = 'in_progress', updated_at = now() WHERE id = $1",
-                call_id,
-            )
-            return call_id
-
-        new = await self.pool.fetchrow(
-            """
             INSERT INTO call_logs (tenant_id, contact_id, room_name, channel, status)
-            VALUES ($1, $2, $3, $4, 'in_progress')
+            SELECT $1, $2, $3, $4, 'in_progress'
+            WHERE EXISTS (
+              SELECT 1 FROM contacts WHERE id = $2 AND tenant_id = $1
+            )
+            ON CONFLICT (room_name) DO UPDATE
+               SET status = CASE
+                     WHEN call_logs.status IN ('completed', 'missed')
+                     THEN call_logs.status ELSE 'in_progress'::call_status END,
+                   updated_at = CASE
+                     WHEN call_logs.status IN ('completed', 'missed')
+                     THEN call_logs.updated_at ELSE now() END
+             WHERE call_logs.tenant_id = $1
+               AND call_logs.contact_id = $2
             RETURNING id
             """,
             tenant_id,
@@ -308,7 +350,9 @@ class Database:
             room_name,
             channel,
         )
-        return str(new["id"])
+        if not row:
+            raise RuntimeError("call room conflicts with another tenant or contact")
+        return str(row["id"])
 
     # --- Writes ----------------------------------------------------------------
 
@@ -318,7 +362,16 @@ class Database:
         await self.pool.execute(
             """
             UPDATE contacts
-               SET pipeline_stage = $3::pipeline_stage,
+               SET pipeline_stage = CASE
+                     WHEN pipeline_stage IN ('closed_won', 'closed_lost') THEN pipeline_stage
+                     WHEN $3::pipeline_stage = 'dire_escalated' THEN 'dire_escalated'::pipeline_stage
+                     WHEN pipeline_stage IN ('booked', 'dire_escalated') THEN pipeline_stage
+                     WHEN pipeline_stage = 'qualified'
+                      AND $3::pipeline_stage IN ('new_lead', 'contacted') THEN pipeline_stage
+                     WHEN pipeline_stage = 'contacted'
+                      AND $3::pipeline_stage = 'new_lead' THEN pipeline_stage
+                     ELSE $3::pipeline_stage
+                   END,
                    lead_score = $4,
                    shared_memory_summary = CASE
                      WHEN nullif(trim($5), '') IS NULL THEN shared_memory_summary
@@ -344,7 +397,7 @@ class Database:
         """Persist estimate history and the headline CRM value atomically."""
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute(
+                contact_update = await conn.execute(
                     """
                     UPDATE contacts
                        SET estimated_value_dkk = $3,
@@ -359,18 +412,27 @@ class Database:
                     """,
                     contact_id, tenant_id, estimated_value_dkk, lead_score, scope_summary, _now(),
                 )
-                await conn.execute(
+                if contact_update != "UPDATE 1":
+                    raise RuntimeError("estimate contact is outside the worker tenant")
+                estimate_insert = await conn.execute(
                     """
                     INSERT INTO project_estimates (
                       tenant_id, contact_id, call_log_id, project_type, scope_details,
                       square_meters, estimated_min_dkk, estimated_max_dkk,
                       estimated_value_dkk, followup_notes
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+                    )
+                    SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
+                    WHERE $3::uuid IS NULL OR EXISTS (
+                      SELECT 1 FROM call_logs
+                      WHERE id = $3 AND tenant_id = $1 AND contact_id = $2
+                    )
                     """,
                     tenant_id, contact_id, call_log_id, project_type, scope_details,
                     square_meters, estimated_min_dkk, estimated_max_dkk,
                     estimated_value_dkk, followup_notes,
                 )
+                if estimate_insert != "INSERT 0 1":
+                    raise RuntimeError("estimate call log is outside the worker tenant/contact")
                 await conn.execute(
                     """
                     INSERT INTO ui_command_events (tenant_id, command_type, payload)
@@ -388,15 +450,25 @@ class Database:
         """Record interest without pretending a calendar booking was confirmed."""
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute(
+                inspection_insert = await conn.execute(
                     """
                     INSERT INTO inspection_requests (
                       tenant_id, contact_id, call_log_id, requested_time_text,
                       address, notes, status
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+                    )
+                    SELECT $1,$2,$3,$4,$5,$6,$7
+                    WHERE EXISTS (
+                      SELECT 1 FROM contacts WHERE id = $2 AND tenant_id = $1
+                    )
+                      AND ($3::uuid IS NULL OR EXISTS (
+                        SELECT 1 FROM call_logs
+                        WHERE id = $3 AND tenant_id = $1 AND contact_id = $2
+                      ))
                     """,
                     tenant_id, contact_id, call_log_id, requested_time_text, address, notes, status,
                 )
+                if inspection_insert != "INSERT 0 1":
+                    raise RuntimeError("inspection contact/call is outside the worker tenant")
                 await conn.execute(
                     """
                     INSERT INTO ui_command_events (tenant_id, command_type, payload)
@@ -423,6 +495,7 @@ class Database:
                    summary = COALESCE($5, summary),
                    updated_at = $6
              WHERE room_name = $1 AND tenant_id = $2
+               AND status NOT IN ('completed', 'missed')
             """,
             room_name,
             tenant_id,
@@ -444,9 +517,14 @@ class Database:
         await self.pool.execute(
             """
             UPDATE call_logs
-               SET status = $3::call_status,
-                   transcript_full = $4::jsonb,
-                   duration_seconds = $5,
+               SET status = CASE
+                     WHEN status IN ('completed', 'missed') THEN status
+                     ELSE $3::call_status END,
+                   transcript_full = CASE
+                     WHEN jsonb_array_length(transcript_full) > 0
+                      AND jsonb_array_length($4::jsonb) = 0
+                     THEN transcript_full ELSE $4::jsonb END,
+                   duration_seconds = GREATEST(duration_seconds, $5),
                    updated_at = now()
              WHERE room_name = $1 AND tenant_id = $2
             """,
@@ -478,7 +556,13 @@ class Database:
         recorded_bytes: Optional[int] = None,
         error: Optional[str] = None,
     ) -> None:
-        """Record the verified outcome without exposing a filesystem URL."""
+        """Record a complete, SQL-CHECK-compatible recording outcome."""
+        if status not in {"ok", "failed", "skipped"}:
+            raise ValueError(f"invalid recording status: {status}")
+        if status == "ok" and (not path or not recorded_bytes or recorded_bytes <= 0):
+            raise ValueError("an ok recording requires a path and positive byte count")
+        if status == "failed" and not error:
+            raise ValueError("a failed recording requires an error")
         await self.pool.execute(
             """
             UPDATE call_logs
@@ -504,6 +588,7 @@ class Database:
         self,
         *,
         room_name: str,
+        tenant_id: str,
         turns: list[dict[str, Any]],
         duration: int = 0,
     ) -> None:
@@ -515,12 +600,13 @@ class Database:
         await self.pool.execute(
             """
             UPDATE call_logs
-               SET transcript_full  = $2::jsonb,
-                   duration_seconds = GREATEST(duration_seconds, $3),
+               SET transcript_full  = $3::jsonb,
+                   duration_seconds = GREATEST(duration_seconds, $4),
                    updated_at       = now()
-             WHERE room_name = $1
+             WHERE room_name = $1 AND tenant_id = $2
             """,
             room_name,
+            tenant_id,
             json.dumps(turns),
-            duration,
+            max(0, duration),
         )

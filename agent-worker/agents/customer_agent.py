@@ -493,7 +493,7 @@ class CustomerAgent(Agent):
             tenant_id=str(self.tenant["id"]),
             contact_id=str(self.contact["id"]),
             room_name=self.room_name,
-            channel="voice_instant_webrtc",
+            channel=self.channel,
         )
         summary = (
             f"Overslag: {project_type} ({estimate.minimum:,.0f}-{estimate.maximum:,.0f} DKK). "
@@ -545,7 +545,7 @@ class CustomerAgent(Agent):
             tenant_id=str(self.tenant["id"]),
             contact_id=str(self.contact["id"]),
             room_name=self.room_name,
-            channel="voice_instant_webrtc",
+            channel=self.channel,
         )
         await self.db.request_inspection(
             tenant_id=str(self.tenant["id"]),
@@ -578,15 +578,23 @@ class CustomerAgent(Agent):
         """Record an urgent request for the owner without claiming a live transfer.
 
         Args:
-            dire_reason: One of angry_customer, high_value_emergency, ai_unanswered_question.
+            dire_reason: One of angry_customer, high_value_emergency, ai_unanswered_question, human_requested.
             briefing_for_owner: One or two sentences the owner needs before speaking.
             estimated_value_dkk: Estimated value of the job in DKK.
         """
         reason = (
             dire_reason
             if dire_reason
-            in ("angry_customer", "high_value_emergency", "ai_unanswered_question")
+            in (
+                "angry_customer",
+                "high_value_emergency",
+                "ai_unanswered_question",
+                "human_requested",
+            )
             else "high_value_emergency"
+        )
+        call_dire_reason = (
+            "ai_unanswered_question" if reason == "human_requested" else reason
         )
 
         await self.db.update_contact_stage(
@@ -597,7 +605,7 @@ class CustomerAgent(Agent):
             room_name=self.room_name,
             tenant_id=str(self.tenant["id"]),
             status="dire_hold_for_owner",
-            dire_reason=reason,
+            dire_reason=call_dire_reason,
             briefing=briefing_for_owner,
         )
 
@@ -607,7 +615,7 @@ class CustomerAgent(Agent):
             tenant_id=str(self.tenant["id"]),
             contact_id=str(self.contact["id"]),
             room_name=self.room_name,
-            channel="voice_instant_webrtc",
+            channel=self.channel,
         )
 
         await self.db.emit_event(
@@ -658,9 +666,12 @@ class CustomerAgent(Agent):
             payload=payload,
         )
         delivered, notify_error = await notify_owner_escalation(payload)
-        if notify_error:
+        if delivered or notify_error:
             await self.db.set_escalation_notification(
-                escalation_id, delivered=False, error=notify_error
+                escalation_id,
+                tenant_id=str(self.tenant["id"]),
+                delivered=delivered,
+                error=notify_error,
             )
 
         if self.danish:

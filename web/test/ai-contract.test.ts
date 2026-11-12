@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type { CatalogItem } from '../src/lib/estimation';
 
 process.env.DATABASE_URL ||= 'postgres://test:test@127.0.0.1:5432/test';
 process.env.DATABASE_ADMIN_URL ||= 'postgres://test:test@127.0.0.1:5432/test';
@@ -62,9 +63,9 @@ test('website text extraction strips executable content and decodes Danish entit
 
 test('estimate calculation is catalog-grounded and rejects unsupported work', async () => {
   const { calculateEstimate } = await import('../src/lib/estimation');
-  const catalog = [
-    { id: 'bath', service: 'Bathroom', estimate_model: 'fixed', estimate_min_dkk: 95000, estimate_max_dkk: 165000 },
-    { id: 'roof', service: 'Roof', estimate_model: 'per_square_meter', estimate_min_dkk: 1400, estimate_max_dkk: 2400 },
+  const catalog: CatalogItem[] = [
+    { id: 'bath', service: 'Bathroom', price_dkk: 130000, unit: 'fixed', estimate_model: 'fixed', estimate_min_dkk: 95000, estimate_max_dkk: 165000 },
+    { id: 'roof', service: 'Roof', price_dkk: 1900, unit: 'm²', estimate_model: 'per_square_meter', estimate_min_dkk: 1400, estimate_max_dkk: 2400 },
   ];
   const bath = calculateEstimate(catalog, 'bath', 8);
   assert.equal(bath.minimum, 95000);
@@ -101,7 +102,7 @@ test('chat prompt carries cross-channel memory and hard guardrails', async () =>
       owner_email: 'm@example.dk',
       business_hours: {},
       pricing_catalog: [
-        { id: 'roof', service: 'Nyt tag', estimate_min_dkk: 1400, estimate_max_dkk: 2400, unit: 'm²' },
+        { id: 'roof', service: 'Nyt tag', price_dkk: 1900, estimate_min_dkk: 1400, estimate_max_dkk: 2400, unit: 'm²' },
       ],
       active_broadcast_message: null,
     },
@@ -160,4 +161,29 @@ test('chat prompt carries cross-channel memory and hard guardrails', async () =>
   });
   assert.equal(human.escalation?.urgency, 3);
   assert.equal(human.escalation?.needed, true);
+});
+
+test('website importer blocks IPv4-mapped IPv6 SSRF targets and invalid HTML entities', async () => {
+  const { isPrivateAddress, extractReadableHtml } = await import('../src/lib/ai/website');
+
+  for (const addr of [
+    '::ffff:169.254.169.254',
+    '::ffff:a9fe:a9fe',
+    '::ffff:127.0.0.1',
+    '::ffff:10.0.0.1',
+    '::ffff:192.168.1.5',
+    '::ffff:172.16.0.1',
+  ]) {
+    assert.equal(isPrivateAddress(addr), true, `Expected ${addr} to be blocked`);
+  }
+  assert.equal(isPrivateAddress('::ffff:8.8.8.8'), false);
+  assert.equal(isPrivateAddress('8.8.8.8'), false);
+
+  const parsed = extractReadableHtml(
+    '<title>Dansk &#x110000; Byg &amp; Tag &#xD800;</title><p>Pris &#999999999; fra &#230;gte fagfolk</p>'
+  );
+  assert.match(parsed.title, /&#x110000;/);
+  assert.match(parsed.title, /&#xD800;/);
+  assert.match(parsed.title, /& Tag/);
+  assert.match(parsed.text, /æg/);
 });

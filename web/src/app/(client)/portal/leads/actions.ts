@@ -9,6 +9,7 @@ import {
   updateContact,
   DuplicateError,
 } from '@/lib/db/mutations';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 import type { ActionState } from '@/lib/actions/types';
 
 /**
@@ -100,7 +101,7 @@ export async function createCallerAction(
       phoneNumber: v.phoneNumber || null,
       email: v.email || null,
       preferredLanguage: v.preferredLanguage,
-      preferredChannel: v.phoneNumber ? 'phone' : 'email',
+      preferredChannel: v.phoneNumber ? 'voice_instant_webrtc' : 'web_chat',
       pipelineStage: v.pipelineStage,
       leadScore: v.leadScore,
       estimatedValueDkk: v.estimatedValueDkk,
@@ -109,17 +110,26 @@ export async function createCallerAction(
     id = created.id;
   } catch (e) {
     if (e instanceof DuplicateError) {
+      const uiField = e.field === 'phone_number' ? 'phoneNumber' : e.field;
       return {
         ok: false,
-        field: e.field,
+        field: uiField,
         error:
-          e.field === 'phone_number'
+          uiField === 'phoneNumber'
             ? 'A caller with that phone number already exists in this workspace.'
             : 'A caller with that email already exists in this workspace.',
       };
     }
     return { ok: false, error: 'Could not create the caller. Please try again.' };
   }
+
+  void dispatchWebhookEvent(tenantId, 'lead.created', {
+    contactId: id,
+    fullName: v.fullName,
+    phoneNumber: v.phoneNumber || null,
+    email: v.email || null,
+    pipelineStage: v.pipelineStage,
+  });
 
   revalidatePath('/portal');
   revalidatePath('/portal/leads');
@@ -131,14 +141,14 @@ export async function updateCallerAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  const { session } = await clientScope();
+  const { session, tenantId } = await clientScope();
   const contactId = String(formData.get('contactId') ?? '');
   if (!contactId) return { ok: false, error: 'Missing caller.' };
 
   const stage = formData.get('pipelineStage');
   const score = formData.get('leadScore');
   const value = formData.get('estimatedValueDkk');
-  const autoReply = formData.get('aiAutoReplyEnabled');
+  const autoReplyValues = formData.getAll('aiAutoReplyEnabled').map(String);
   const summary = formData.get('summary');
 
   const patch: Parameters<typeof updateContact>[2] = {};
@@ -148,12 +158,19 @@ export async function updateCallerAction(
   if (typeof score === 'string' && score !== '') patch.leadScore = Number(score);
   if (typeof value === 'string' && value !== '') patch.estimatedValueDkk = Number(value);
   if (typeof summary === 'string') patch.sharedMemorySummary = summary;
-  if (autoReply === 'on' || autoReply === 'off') {
-    patch.aiAutoReplyEnabled = autoReply === 'on';
+  if (autoReplyValues.length > 0) {
+    patch.aiAutoReplyEnabled = autoReplyValues.includes('on') || autoReplyValues.includes('true');
   }
 
   const affected = await updateContact(session.userId, contactId, patch);
   if (affected === 0) return { ok: false, error: 'That caller could not be updated.' };
+
+  if (patch.pipelineStage) {
+    void dispatchWebhookEvent(tenantId, 'pipeline.stage_changed', {
+      contactId,
+      pipelineStage: patch.pipelineStage,
+    });
+  }
 
   revalidatePath(`/portal/leads/${contactId}`);
   revalidatePath('/portal/leads');
@@ -170,11 +187,16 @@ export async function updateCallerAction(
  * which `contacts_update` does permit — and only the agency can hard-delete.
  */
 export async function closeCallerAction(formData: FormData): Promise<void> {
-  const { session } = await clientScope();
+  const { session, tenantId } = await clientScope();
   const contactId = String(formData.get('contactId') ?? '');
   if (!contactId) return;
 
   await updateContact(session.userId, contactId, { pipelineStage: 'closed_lost' });
+
+  void dispatchWebhookEvent(tenantId, 'pipeline.stage_changed', {
+    contactId,
+    pipelineStage: 'closed_lost',
+  });
 
   revalidatePath(`/portal/leads/${contactId}`);
   revalidatePath('/portal/leads');

@@ -1,3 +1,4 @@
+import { hashPassword } from '@/lib/auth/password';
 import { withUser } from '@/lib/db/client';
 
 /**
@@ -22,7 +23,13 @@ export function rethrow(e: unknown): never {
   const err = e as { code?: string; constraint_name?: string };
   if (err?.code === '23505') {
     const c = err.constraint_name ?? '';
-    const field = c.includes('phone') ? 'phone_number' : c.includes('slug') ? 'slug' : 'value';
+    const field = c.includes('phone')
+      ? 'phone_number'
+      : c.includes('email')
+        ? 'email'
+        : c.includes('slug')
+          ? 'slug'
+          : 'value';
     throw new DuplicateError(field);
   }
   if (err?.code === '42501') {
@@ -126,6 +133,7 @@ export interface NewTenantInput {
   ownerName: string;
   ownerPhone: string;
   ownerEmail: string;
+  ownerPassword?: string;
   defaultLanguage: 'da-DK' | 'en-US';
 }
 
@@ -163,8 +171,8 @@ export async function createTenantWithAgent(
         : `Hi, you have reached ${input.name}. How can I help?`;
 
       const escalation = {
-        emergencies: danish
-          ? ['vandskade', 'sprunget rør', 'oversvømmelse', 'akutt']
+        emergency_keywords: danish
+          ? ['vandskade', 'sprunget rør', 'oversvømmelse', 'akut']
           : ['water damage', 'burst pipe', 'flooding', 'urgent'],
         always_escalate_on_human_request: true,
         escalate_outside_opening_hours: false,
@@ -194,6 +202,19 @@ export async function createTenantWithAgent(
         )
       `;
 
+      if (input.ownerPassword) {
+        const passwordHash = hashPassword(input.ownerPassword);
+        await tx`
+          select public.subaccount_create_user(
+            ${tenantId}::uuid,
+            ${input.ownerEmail},
+            ${input.ownerName},
+            ${passwordHash},
+            'owner'
+          )
+        `;
+      }
+
       return { id: tenantId, slug: tenants[0].slug as string };
     } catch (e) {
       rethrow(e);
@@ -210,7 +231,15 @@ export interface TenantFactsPatch {
   /** `null` clears the broadcast; `undefined` leaves it untouched. */
   activeBroadcastMessage?: string | null;
   businessHours?: Record<string, { open: string; close: string; closed: boolean }>;
-  pricingCatalog?: Array<{ id: string; service: string; price_dkk: number; unit: string }>;
+  pricingCatalog?: Array<{
+    id: string;
+    service: string;
+    price_dkk: number;
+    unit: string;
+    estimate_model?: string;
+    estimate_min_dkk?: number;
+    estimate_max_dkk?: number;
+  }>;
 }
 
 /**

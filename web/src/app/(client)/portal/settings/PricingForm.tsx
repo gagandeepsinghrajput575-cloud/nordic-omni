@@ -9,9 +9,13 @@ import { Input, FormAlert } from '@/components/ui/form';
 import { SubmitButton } from '@/components/ui/SubmitButton';
 
 export interface PriceRow {
+  id?: string;
   service: string;
   price_dkk: number;
   unit: string;
+  estimate_model?: string;
+  estimate_min_dkk?: number;
+  estimate_max_dkk?: number;
 }
 
 const UNITS = [
@@ -66,49 +70,65 @@ export function PricingForm({ isDanish, rows }: { isDanish: boolean; rows: Price
         ) : null}
 
         <div className="space-y-2 p-5">
-          {list.map((row, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                name={`service_${i}`}
-                value={row.service}
-                onChange={(e) => update(i, { service: e.target.value })}
-                placeholder={isDanish ? 'Fx: Udskiftning af blandingsbatteri' : 'e.g. Replace mixer tap'}
-                className="flex-1"
-                aria-label={`Service ${i + 1}`}
-              />
-              <Input
-                name={`price_${i}`}
-                type="number"
-                min={0}
-                step={50}
-                value={row.price_dkk}
-                onChange={(e) => update(i, { price_dkk: Number(e.target.value) })}
-                className="w-[110px] text-right font-mono"
-                aria-label={`Price ${i + 1}`}
-              />
-              <select
-                name={`unit_${i}`}
-                value={row.unit}
-                onChange={(e) => update(i, { unit: e.target.value })}
-                aria-label={`Unit ${i + 1}`}
-                className="w-[120px] rounded-[var(--r-sm)] border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-2 py-2 text-xs text-[var(--text-primary)]"
-              >
-                {UNITS.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setList((prev) => prev.filter((_, idx) => idx !== i))}
-                aria-label={isDanish ? 'Fjern linje' : 'Remove row'}
-                className="shrink-0 rounded-[var(--r-sm)] p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
+          {list.map((row, i) => {
+            const hasPresetUnit = UNITS.some(([value]) => value === row.unit);
+            return (
+              <div key={i} className="flex items-center gap-2">
+                {row.id ? <input type="hidden" name={`id_${i}`} value={row.id} /> : null}
+                {row.estimate_model ? (
+                  <input type="hidden" name={`estimate_model_${i}`} value={row.estimate_model} />
+                ) : null}
+                {row.estimate_min_dkk !== undefined ? (
+                  <input type="hidden" name={`estimate_min_dkk_${i}`} value={String(row.estimate_min_dkk)} />
+                ) : null}
+                {row.estimate_max_dkk !== undefined ? (
+                  <input type="hidden" name={`estimate_max_dkk_${i}`} value={String(row.estimate_max_dkk)} />
+                ) : null}
+                <Input
+                  name={`service_${i}`}
+                  value={row.service}
+                  onChange={(e) => update(i, { service: e.target.value })}
+                  placeholder={isDanish ? 'Fx: Udskiftning af blandingsbatteri' : 'e.g. Replace mixer tap'}
+                  className="flex-1"
+                  aria-label={`Service ${i + 1}`}
+                />
+                <Input
+                  name={`price_${i}`}
+                  type="number"
+                  min={0}
+                  step={50}
+                  value={row.price_dkk}
+                  onChange={(e) => update(i, { price_dkk: Number(e.target.value) })}
+                  className="w-[110px] text-right font-mono"
+                  aria-label={`Price ${i + 1}`}
+                />
+                <select
+                  name={`unit_${i}`}
+                  value={row.unit}
+                  onChange={(e) => update(i, { unit: e.target.value })}
+                  aria-label={`Unit ${i + 1}`}
+                  className="w-[160px] rounded-[var(--r-sm)] border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-2 py-2 text-xs text-[var(--text-primary)]"
+                >
+                  {!hasPresetUnit && row.unit ? (
+                    <option value={row.unit}>{row.unit}</option>
+                  ) : null}
+                  {UNITS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setList((prev) => prev.filter((_, idx) => idx !== i))}
+                  aria-label={isDanish ? 'Fjern linje' : 'Remove row'}
+                  className="shrink-0 rounded-[var(--r-sm)] p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div className="border-t border-[var(--border-subtle)] p-5">

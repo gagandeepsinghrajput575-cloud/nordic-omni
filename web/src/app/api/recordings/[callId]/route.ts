@@ -1,107 +1,101 @@
-import { createReadStream, statSync } from 'node:fs';
-import { Readable } from 'node:stream';
+import { constants, fstatSync, openSync } from 'node:fs';
 import { apiSession } from '@/lib/auth/guard';
 import { withUser } from '@/lib/db/client';
+import {
+  closeRecordingFd,
+  parseByteRange,
+  recordingFileResponse,
+  resolveRecordingFile,
+} from '@/lib/recordings';
 
-/**
- * Streams a call recording.
- *
- * Authorization is RLS, not a path check: the SELECT below runs with
- * `app.user_id` set, so a caller outside the tenant gets zero rows and receives
- * a 404. We deliberately return the same 404 for "not found" and "not yours",
- * so the endpoint cannot be used to probe whether a recording exists.
- *
- * The stored `recording_path` is never exposed — the URL is derived from the
- * call log id in SQL, so nobody can traverse into another tenant's folder.
- */
+const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store' };
+
+function notFound(): Response {
+  // Identical for anonymous, cross-tenant, malformed, unrecorded and missing.
+  return new Response('Not found', { status: 404, headers: PRIVATE_HEADERS });
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ callId: string }> }
 ) {
   const session = await apiSession();
-  if (!session) {
-    return new Response('Unauthorized', { status: 401 });
-  }
+  if (!session) return notFound();
 
   const { callId } = await params;
-
-  // A malformed id would reach Postgres as an invalid uuid cast and surface as a
-  // 500. Treat it as "not found" instead — same response as a recording that
-  // exists but is not yours, so nothing leaks either way.
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!UUID.test(callId)) {
-    return new Response('Not found', { status: 404 });
-  }
+  if (!UUID.test(callId)) return notFound();
 
   const rows = await withUser(session.userId, async (tx) => {
     return tx`
-      select recording_path, recording_status, recording_bytes
+      select recording_path, recording_status
       from call_logs
       where id = ${callId}
       limit 1
     `;
   });
-
   const row = rows[0] as
-    | { recording_path: string | null; recording_status: string | null; recording_bytes: number | null }
+    | { recording_path: string | null; recording_status: string | null }
     | undefined;
+  if (!row || row.recording_status !== 'ok' || !row.recording_path) return notFound();
 
-  // Same answer for missing / not-yours / failed. No existence leak.
-  if (!row || row.recording_status !== 'ok' || !row.recording_path) {
-    return new Response('Not found', { status: 404 });
-  }
+  const file = resolveRecordingFile(row.recording_path);
+  if (!file) return notFound();
 
+  let fd: number | null = null;
   let size: number;
   try {
-    size = statSync(row.recording_path).size;
+    // The canonical path is opened without following a replacement symlink;
+    // ranges are calculated from this exact descriptor, not a second stat.
+    fd = openSync(file.path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.size <= 0) {
+      closeRecordingFd(fd);
+      return notFound();
+    }
+    size = stat.size;
   } catch {
-    return new Response('Recording file is missing from disk', { status: 410 });
+    if (fd !== null) closeRecordingFd(fd);
+    return notFound();
   }
+  if (fd === null) return notFound();
 
   const baseHeaders = {
+    ...PRIVATE_HEADERS,
     'Content-Type': 'audio/ogg',
     'Accept-Ranges': 'bytes',
     'Content-Disposition': `inline; filename="samtale-${callId}.ogg"`,
-    // Private: a recording is customer data, never cacheable by a shared proxy.
-    'Cache-Control': 'private, no-store',
   };
-
-  // Native audio controls request byte ranges when the user seeks. Returning the
-  // whole file with 200 works but makes scrubbing unreliable on large recordings.
-  const range = request.headers.get('range');
-  if (range) {
-    const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
-    if (match) {
-      const suffixLength = !match[1] && match[2] ? Number(match[2]) : null;
-      const start = suffixLength !== null ? Math.max(0, size - suffixLength) : match[1] ? Number(match[1]) : 0;
-      const requestedEnd = match[2] && suffixLength === null ? Number(match[2]) : size - 1;
-      const end = Math.min(requestedEnd, size - 1);
-      if (Number.isSafeInteger(start) && Number.isSafeInteger(end) && start <= end && start < size) {
-        const stream = createReadStream(row.recording_path, { start, end });
-        return new Response(Readable.toWeb(stream) as unknown as ReadableStream, {
-          status: 206,
-          headers: {
-            ...baseHeaders,
-            'Content-Length': String(end - start + 1),
-            'Content-Range': `bytes ${start}-${end}/${size}`,
-          },
-        });
-      }
+  const rangeHeader = request.headers.get('range');
+  if (rangeHeader) {
+    const range = parseByteRange(rangeHeader, size);
+    if (!range) {
+      closeRecordingFd(fd);
+      return new Response(null, {
+        status: 416,
+        headers: { ...baseHeaders, 'Content-Range': `bytes */${size}` },
+      });
     }
-    return new Response(null, {
-      status: 416,
-      headers: { 'Content-Range': `bytes */${size}`, ...baseHeaders },
+    return recordingFileResponse({
+      request,
+      path: file.path,
+      fd,
+      status: 206,
+      start: range.start,
+      end: range.end,
+      headers: {
+        ...baseHeaders,
+        'Content-Length': String(range.end - range.start + 1),
+        'Content-Range': `bytes ${range.start}-${range.end}/${size}`,
+      },
     });
   }
 
-  const nodeStream = createReadStream(row.recording_path);
-  const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
-
-  return new Response(webStream, {
+  return recordingFileResponse({
+    request,
+    path: file.path,
+    fd,
     status: 200,
-    headers: {
-      ...baseHeaders,
-      'Content-Length': String(size),
-    },
+    headers: { ...baseHeaders, 'Content-Length': String(size) },
   });
 }

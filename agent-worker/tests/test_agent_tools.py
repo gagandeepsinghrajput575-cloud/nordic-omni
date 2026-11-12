@@ -5,6 +5,7 @@ from __future__ import annotations
 import pathlib
 import sys
 import unittest
+from unittest.mock import AsyncMock, patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -36,10 +37,12 @@ class FakeDB:
         self.inspection = None
         self.events = []
         self.stage_updates = []
+        self.call_log_claims = []
         self.escalation = None
         self.notification = None
 
     async def ensure_call_log(self, **kwargs):
+        self.call_log_claims.append(kwargs)
         return "99999999-9999-4999-8999-999999999999"
 
     async def record_project_estimate(self, **kwargs):
@@ -88,7 +91,7 @@ class CustomerToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.db.estimate["estimated_min_dkk"], 95000)
         self.assertEqual(self.db.estimate["estimated_max_dkk"], 165000)
         self.assertEqual(self.db.estimate["estimated_value_dkk"], 130000)
-        self.assertEqual(self.db.estimate["square_meters"], 8)
+        self.assertIsNone(self.db.estimate["square_meters"])
         self.assertIn("ikke et bindende tilbud", result)
 
     async def test_inspection_is_a_request_not_a_fake_booking(self):
@@ -119,6 +122,33 @@ class CustomerToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("ikke etableret", result.lower())
         self.assertIn("registreret", result.lower())
         self.assertNotIn("live forbindelse er oprettet", result.lower())
+
+    async def test_sip_channel_is_preserved_and_escalation_delivery_is_recorded(self):
+        sip_agent = CustomerAgent(
+            tenant=TENANT,
+            contact=CONTACT,
+            db=self.db,
+            room_name="sip-dansk-byg_call_contact_attempt",
+            knowledge="",
+            channel="voice_inbound",
+        )
+        with patch("agents.customer_agent.notify_owner_escalation", new=AsyncMock(return_value=(True, None))):
+            result = await sip_agent.trigger_dire_escalation(
+                None,
+                "human_requested",
+                "Kunden bad om at tale med ejeren.",
+                60000,
+            )
+        self.assertEqual(self.db.call_log_claims[-1]["channel"], "voice_inbound")
+        self.assertEqual(self.db.escalation["reason"], "human_requested")
+        self.assertEqual(self.db.stage_updates[-1]["dire_reason"], "ai_unanswered_question")
+        self.assertEqual(self.db.notification, {
+            "id": "77777777-7777-4777-8777-777777777777",
+            "tenant_id": TENANT["id"],
+            "delivered": True,
+            "error": None,
+        })
+        self.assertIn("kontorets arbejdsgang", result.lower())
 
 
 if __name__ == "__main__":

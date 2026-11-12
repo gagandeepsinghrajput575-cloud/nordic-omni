@@ -199,8 +199,17 @@ export async function approveBrainDraft(
            set escalation_policy = jsonb_set(
                  escalation_policy,
                  '{emergency_keywords}',
-                 coalesce(escalation_policy->'emergency_keywords', '[]'::jsonb)
-                   || to_jsonb(${payload.escalation_triggers}::text[]),
+                 coalesce((
+                   select jsonb_agg(distinct val order by val)
+                   from (
+                     select jsonb_array_elements_text(
+                       coalesce(escalation_policy->'emergency_keywords', '[]'::jsonb)
+                     ) as val
+                     union
+                     select unnest(${payload.escalation_triggers}::text[]) as val
+                   ) merged
+                   where nullif(trim(val), '') is not null
+                 ), '[]'::jsonb),
                  true
                ),
                updated_by = ${userId}

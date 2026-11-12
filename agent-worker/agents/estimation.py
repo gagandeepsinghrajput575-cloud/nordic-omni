@@ -1,4 +1,8 @@
-"""Catalog-grounded estimate calculations, kept outside the LLM."""
+"""Catalog-grounded estimate calculations, kept outside the LLM.
+
+This is the Python counterpart of web/src/lib/estimation.ts. Structured values
+are deliberately strict: JSON strings and booleans are not numeric prices.
+"""
 
 from __future__ import annotations
 
@@ -22,50 +26,102 @@ class Estimate:
     square_meters: float | None
 
 
-def _number(value: Any) -> float | None:
+def _number(value: Any, *, allow_zero: bool = False) -> float | None:
+    """Mirror Zod's finite number checks without JavaScript-like coercion."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
     try:
         result = float(value)
-    except (TypeError, ValueError):
+    except OverflowError:
         return None
-    return result if math.isfinite(result) and result > 0 else None
+    if not math.isfinite(result) or result < 0 or (result == 0 and not allow_zero):
+        return None
+    return result
+
+
+def _legacy_number(token: str) -> float | None:
+    """Parse a Danish display number such as 18.000,50 or 95000."""
+    try:
+        value = float(token.replace(".", "").replace(",", "."))
+    except ValueError:
+        return None
+    return value if math.isfinite(value) and value > 0 else None
+
+
+_LEGACY_NUMBER = r"(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?"
 
 
 def _legacy_bracket(unit: str) -> tuple[float, float] | None:
     match = re.search(
-        r"typisk\s+([\d.]+)(?:,\d+)?\s*-\s*([\d.]+)(?:,\d+)?",
+        rf"typisk\s+({_LEGACY_NUMBER})\s*-\s*({_LEGACY_NUMBER})",
         unit,
         flags=re.IGNORECASE,
     )
     if not match:
         return None
-    low = _number(match.group(1).replace(".", ""))
-    high = _number(match.group(2).replace(".", ""))
-    if low is None or high is None:
+    low = _legacy_number(match.group(1))
+    high = _legacy_number(match.group(2))
+    if low is None or high is None or low > high:
         return None
     return low, high
+
+
+def _catalog_item(entry: Any, catalog_item_id: str) -> dict[str, Any]:
+    """Apply PricingItemSchema's runtime rules before using a catalog entry."""
+    if not isinstance(entry, dict) or entry.get("id") != catalog_item_id:
+        raise EstimateError("This project type is not configured for an estimate.")
+    if not isinstance(catalog_item_id, str) or not catalog_item_id:
+        raise EstimateError("This project type is not configured for an estimate.")
+    service = entry.get("service")
+    unit = entry.get("unit")
+    if (
+        not isinstance(service, str)
+        or len(service) < 2
+        or not isinstance(unit, str)
+        or not 1 <= len(unit.strip()) <= 240
+        or _number(entry.get("price_dkk"), allow_zero=True) is None
+    ):
+        raise EstimateError("The catalog item is invalid.")
+
+    model = entry.get("estimate_model")
+    if model is not None and model not in ("fixed", "per_square_meter"):
+        raise EstimateError("The catalog has an unsupported estimation model.")
+    low = _number(entry.get("estimate_min_dkk"))
+    high = _number(entry.get("estimate_max_dkk"))
+    if model is not None and (low is None or high is None):
+        raise EstimateError("No valid estimate bracket is configured for this project.")
+    if low is not None and high is not None and low > high:
+        raise EstimateError("No valid estimate bracket is configured for this project.")
+    return entry
 
 
 def calculate_estimate(
     catalog: list[dict[str, Any]],
     catalog_item_id: str,
-    square_meters: float | None,
+    square_meters: Any,
 ) -> Estimate:
-    item = next((entry for entry in catalog if entry.get("id") == catalog_item_id), None)
-    if not item:
-        raise EstimateError("This project type is not configured for an estimate.")
+    item = next(
+        (
+            entry
+            for entry in catalog
+            if isinstance(entry, dict) and entry.get("id") == catalog_item_id
+        ),
+        None,
+    )
+    item = _catalog_item(item, catalog_item_id)
 
-    unit = str(item.get("unit") or "")
+    unit = item["unit"].strip()
     low = _number(item.get("estimate_min_dkk"))
     high = _number(item.get("estimate_max_dkk"))
     if low is None or high is None:
         legacy = _legacy_bracket(unit)
-        if legacy:
+        if legacy is not None:
             low, high = legacy
-    if low is None or high is None or low > high:
+    if low is None or high is None:
         raise EstimateError("No valid estimate bracket is configured for this project.")
 
-    model = str(item.get("estimate_model") or "").strip()
-    if not model:
+    model = item.get("estimate_model")
+    if model is None:
         per_square_meter = "kvadratmeter" in unit.lower() or "m²" in unit.lower()
         model = "per_square_meter" if per_square_meter else "fixed"
 
@@ -80,14 +136,18 @@ def calculate_estimate(
             raise EstimateError("Square meters are required for this estimate.")
         low *= scope
         high *= scope
-    elif model != "fixed":
-        raise EstimateError("The catalog has an unsupported estimation model.")
+        if not math.isfinite(low) or not math.isfinite(high):
+            raise EstimateError("The estimate exceeds the supported numeric range.")
+    else:
+        # Scope can be useful dialogue context, but is not part of a fixed price.
+        scope = None
 
     return Estimate(
         catalog_item_id=catalog_item_id,
-        service=str(item.get("service") or catalog_item_id),
+        service=item["service"],
         minimum=low,
         maximum=high,
-        midpoint=round((low + high) / 2),
+        # All brackets are positive: floor(x + .5) is JS Math.round at midpoints.
+        midpoint=math.floor((low + high) / 2 + 0.5),
         square_meters=scope,
     )

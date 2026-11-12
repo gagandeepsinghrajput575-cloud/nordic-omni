@@ -95,9 +95,38 @@ export async function saveHoursAction(
   return { ok: true, message: 'Opening hours saved.' };
 }
 
+type PricingRowInput = {
+  id: string;
+  service: string;
+  price_dkk: number;
+  unit: string;
+  estimate_model?: string;
+  estimate_min_dkk?: number;
+  estimate_max_dkk?: number;
+};
+
+function slugServiceId(service: string, usedIds: Set<string>, index: number): string {
+  const base =
+    service
+      .toLowerCase()
+      .replace(/æ/g, 'ae')
+      .replace(/ø/g, 'oe')
+      .replace(/å/g, 'aa')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || `service-${index + 1}`;
+  let candidate = base;
+  let suffix = 2;
+  while (usedIds.has(candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+}
+
 /**
- * Price list. Inputs arrive as `service_<n>`, `price_<n>`, `unit_<n>`; blank
- * rows are skipped, so the client can clear a row by emptying it.
+ * Price list. Inputs arrive as `service_<n>`, `price_<n>`, `unit_<n>` plus optional
+ * preserved estimation metadata (`id_<n>`, `estimate_model_<n>`, `estimate_min_dkk_<n>`,
+ * `estimate_max_dkk_<n>`); blank rows are skipped.
  */
 export async function savePricingAction(
   _prev: ActionState,
@@ -105,11 +134,16 @@ export async function savePricingAction(
 ): Promise<ActionState> {
   const { session, tenantId } = await clientScope();
 
-  const catalog: Array<{ id: string; service: string; price_dkk: number; unit: string }> = [];
+  const catalog: PricingRowInput[] = [];
+  const usedIds = new Set<string>();
 
   for (let i = 0; i < 40; i += 1) {
     const service = String(formData.get(`service_${i}`) ?? '').trim();
     if (!service) continue;
+
+    const existingId = String(formData.get(`id_${i}`) ?? '').trim();
+    const id = existingId && !usedIds.has(existingId) ? existingId : slugServiceId(service, usedIds, i);
+    usedIds.add(id);
 
     const priceRaw = String(formData.get(`price_${i}`) ?? '').trim();
     const unit = String(formData.get(`unit_${i}`) ?? '').trim() || 'fixed';
@@ -123,12 +157,27 @@ export async function savePricingAction(
       };
     }
 
-    catalog.push({
-      id: service.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+    const row: PricingRowInput = {
+      id,
       service,
       price_dkk: price,
       unit,
-    });
+    };
+
+    const modelRaw = String(formData.get(`estimate_model_${i}`) ?? '').trim();
+    const minRaw = String(formData.get(`estimate_min_dkk_${i}`) ?? '').trim();
+    const maxRaw = String(formData.get(`estimate_max_dkk_${i}`) ?? '').trim();
+    if (modelRaw === 'fixed' || modelRaw === 'per_square_meter') {
+      row.estimate_model = modelRaw;
+    }
+    if (minRaw !== '' && Number.isFinite(Number(minRaw)) && Number(minRaw) > 0) {
+      row.estimate_min_dkk = Number(minRaw);
+    }
+    if (maxRaw !== '' && Number.isFinite(Number(maxRaw)) && Number(maxRaw) > 0) {
+      row.estimate_max_dkk = Number(maxRaw);
+    }
+
+    catalog.push(row);
   }
 
   if (catalog.length === 0) {

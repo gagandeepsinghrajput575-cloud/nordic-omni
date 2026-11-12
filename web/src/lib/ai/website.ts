@@ -13,7 +13,30 @@ export interface FetchedSource {
   rawText: string;
 }
 
-function isPrivateAddress(address: string): boolean {
+function extractMappedIpv4(normalized: string): string | null {
+  if (!normalized.startsWith('::ffff:')) return null;
+  const tail = normalized.slice('::ffff:'.length);
+  if (isIP(tail) === 4) return tail;
+  const parts = tail.split(':');
+  if (parts.length !== 2) return null;
+  const hi = Number.parseInt(parts[0], 16);
+  const lo = Number.parseInt(parts[1], 16);
+  if (
+    !Number.isInteger(hi) ||
+    !Number.isInteger(lo) ||
+    hi < 0 ||
+    hi > 0xffff ||
+    lo < 0 ||
+    lo > 0xffff ||
+    !/^[0-9a-f]{1,4}$/.test(parts[0]) ||
+    !/^[0-9a-f]{1,4}$/.test(parts[1])
+  ) {
+    return null;
+  }
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
+export function isPrivateAddress(address: string): boolean {
   const version = isIP(address);
   if (version === 4) {
     const parts = address.split('.').map(Number);
@@ -28,6 +51,9 @@ function isPrivateAddress(address: string): boolean {
   }
   if (version === 6) {
     const normalized = address.toLowerCase();
+    const mappedV4 = extractMappedIpv4(normalized);
+    if (mappedV4) return isPrivateAddress(mappedV4);
+    if (normalized.startsWith('::ffff:')) return true;
     return (
       normalized === '::' ||
       normalized === '::1' ||
@@ -36,10 +62,7 @@ function isPrivateAddress(address: string): boolean {
       normalized.startsWith('fe8') ||
       normalized.startsWith('fe9') ||
       normalized.startsWith('fea') ||
-      normalized.startsWith('feb') ||
-      normalized.startsWith('::ffff:127.') ||
-      normalized.startsWith('::ffff:10.') ||
-      normalized.startsWith('::ffff:192.168.')
+      normalized.startsWith('feb')
     );
   }
   return true;
@@ -108,14 +131,21 @@ async function readLimited(response: Response): Promise<string> {
   return new TextDecoder().decode(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))));
 }
 
+function safeCodePoint(cp: number, fallback: string): string {
+  if (!Number.isInteger(cp) || cp < 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) {
+    return fallback;
+  }
+  return String.fromCodePoint(cp);
+}
+
 function decodeEntities(value: string): string {
   const named: Record<string, string> = {
     amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
     aelig: 'æ', oslash: 'ø', aring: 'å', AElig: 'Æ', Oslash: 'Ø', Aring: 'Å',
   };
   return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-f]+);/gi, (entity, hex: string) => safeCodePoint(parseInt(hex, 16), entity))
+    .replace(/&#(\d+);/g, (entity, dec: string) => safeCodePoint(Number(dec), entity))
     .replace(/&([a-z]+);/gi, (entity, name: string) => named[name] ?? entity);
 }
 

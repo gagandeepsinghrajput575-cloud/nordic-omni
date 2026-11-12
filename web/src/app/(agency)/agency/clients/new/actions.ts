@@ -29,6 +29,7 @@ const schema = z.object({
   ownerName: z.string().trim().min(2, 'Enter the owner’s name.').max(120),
   ownerPhone: z.string().trim().min(6, 'Enter a phone number the agent can escalate to.').max(40),
   ownerEmail: z.string().trim().email('Enter a valid email address.'),
+  ownerPassword: z.string().min(8, 'Enter an initial portal password (at least 8 characters).').max(200),
   defaultLanguage: z.enum(['da-DK', 'en-US']).default('da-DK'),
 });
 
@@ -48,6 +49,7 @@ export async function createWorkspaceAction(
     ownerName: formData.get('ownerName'),
     ownerPhone: formData.get('ownerPhone'),
     ownerEmail: formData.get('ownerEmail'),
+    ownerPassword: String(formData.get('ownerPassword') ?? ''),
     defaultLanguage: formData.get('defaultLanguage') ?? 'da-DK',
   });
 
@@ -61,6 +63,13 @@ export async function createWorkspaceAction(
     created = await createTenantWithAgent(session.userId, parsed.data);
   } catch (e) {
     if (e instanceof DuplicateError) {
+      if (e.field === 'email') {
+        return {
+          ok: false,
+          field: 'ownerEmail',
+          error: 'An account with that email already exists.',
+        };
+      }
       return {
         ok: false,
         field: 'slug',

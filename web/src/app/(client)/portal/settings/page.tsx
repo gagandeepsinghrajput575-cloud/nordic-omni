@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/guard';
 import { getAgentConfig, getTenantFacts } from '@/lib/db/queries';
+import { listWebhookDeliveries, listWebhooks } from '@/lib/webhooks';
+import { WebhookManager } from '@/components/webhooks/WebhookManager';
 import { Badge, Card, CardHeader } from '@/components/ui/core';
 import { PageHeader } from '@/components/ui/feedback';
 import { BusinessDetailsForm } from './BusinessDetailsForm';
@@ -14,9 +16,11 @@ export default async function SettingsPage() {
   const tenantId = session.tenantIds[0];
   if (!tenantId) redirect('/no-access');
 
-  const [tenant, config] = await Promise.all([
+  const [tenant, config, webhooks, deliveries] = await Promise.all([
     getTenantFacts(session.userId, tenantId),
     getAgentConfig(session.userId, tenantId),
+    listWebhooks(session.userId, tenantId),
+    listWebhookDeliveries(session.userId, tenantId),
   ]);
 
   if (!tenant) redirect('/no-access');
@@ -60,6 +64,8 @@ export default async function SettingsPage() {
       <HoursForm isDanish={isDanish} hours={hours} />
 
       <PricingForm isDanish={isDanish} rows={prices} />
+
+      <WebhookManager tenantId={tenantId} webhooks={webhooks} deliveries={deliveries} isDanish={isDanish} />
 
       <Card>
         <CardHeader

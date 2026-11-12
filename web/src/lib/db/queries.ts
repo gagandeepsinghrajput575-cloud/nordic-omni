@@ -1,4 +1,4 @@
-import { adminSql, withUser } from '@/lib/db/client';
+import { withPublicContact, withUser } from '@/lib/db/client';
 
 /**
  * Read queries. Every one runs inside withUser(), which sets `app.user_id` so
@@ -48,17 +48,28 @@ export interface TenantFacts {
   owner_phone: string;
   owner_email: string;
   default_language: string;
+  telephony_mode: 'zero_cost_webrtc' | 'paid_sip_trunk';
+  status: 'active' | 'paused' | 'archived';
   flynumber_did: string | null;
   active_broadcast_message: string | null;
   business_hours: Record<string, { open: string; close: string; closed: boolean }>;
-  pricing_catalog: Array<{ id: string; service: string; price_dkk: number; unit: string }>;
+  pricing_catalog: Array<{
+    id: string;
+    service: string;
+    price_dkk: number;
+    unit: string;
+    estimate_model?: string;
+    estimate_min_dkk?: number;
+    estimate_max_dkk?: number;
+  }>;
 }
 
 export async function getTenantFacts(userId: string, tenantId: string): Promise<TenantFacts | null> {
   return withUser(userId, async (tx) => {
     const rows = await tx`
       select id, name, slug, owner_name, owner_phone, owner_email,
-             default_language::text as default_language, flynumber_did,
+             default_language::text as default_language,
+             telephony_mode::text as telephony_mode, status, flynumber_did,
              active_broadcast_message, business_hours, pricing_catalog
       from tenants where id = ${tenantId} limit 1
     `;
@@ -262,11 +273,15 @@ export async function listMessages(
 ): Promise<MessageRow[]> {
   return withUser(userId, async (tx) => {
     const rows = await tx`
-      select id, direction::text as direction, sender::text as sender, content, created_at
-      from messages
-      where contact_id = ${contactId}
+      select id, direction, sender, content, created_at
+      from (
+        select id, direction::text as direction, sender::text as sender, content, created_at
+        from messages
+        where contact_id = ${contactId}
+        order by created_at desc
+        limit ${limit}
+      ) recent
       order by created_at asc
-      limit ${limit}
     `;
     return rows as unknown as MessageRow[];
   });
@@ -353,39 +368,44 @@ export interface PublicCallContext {
 /**
  * Public, unauthenticated lookup for a customer who opened a call link.
  *
- * Uses adminSql because there is no signed-in user — the caller IS the customer.
- * It deliberately returns the minimum needed to render the call UI: never
- * prompts, never pricing, never other contacts.
+ * Uses the same single-contact RLS capability as public chat. It deliberately
+ * returns the minimum needed to render the call UI: never prompts, never
+ * pricing, never other contacts.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getPublicCallContext(contactId: string): Promise<PublicCallContext | null> {
-  const rows = await adminSql`
-    select c.id, c.tenant_id, c.full_name, c.phone_number,
-           c.preferred_language, c.ai_auto_reply_enabled,
-           t.name, t.slug, t.default_language::text as default_language
-    from contacts c
-    join tenants t on t.id = c.tenant_id
-    where c.id = ${contactId}
-    limit 1
-  `;
+  if (!UUID_RE.test(contactId)) return null;
+  return withPublicContact(contactId, async (tx) => {
+    const rows = await tx`
+      select c.id, c.tenant_id, c.full_name, c.phone_number,
+             c.preferred_language, c.ai_auto_reply_enabled,
+             t.name, t.slug, t.default_language::text as default_language
+      from contacts c
+      join tenants t on t.id = c.tenant_id
+      where c.id = ${contactId} and c.tenant_id = t.id and t.status = 'active'
+      limit 1
+    `;
 
-  const row = rows[0];
-  if (!row) return null;
+    const row = rows[0];
+    if (!row) return null;
 
-  return {
-    contact: {
-      id: row.id as string,
-      tenant_id: row.tenant_id as string,
-      full_name: (row.full_name as string | null) ?? null,
-      phone_number: (row.phone_number as string | null) ?? null,
-      preferred_language: (row.preferred_language as string) ?? 'da',
-    },
-    tenant: {
-      id: row.tenant_id as string,
-      name: row.name as string,
-      slug: row.slug as string,
-      default_language: row.default_language as string,
-    },
-  };
+    return {
+      contact: {
+        id: row.id as string,
+        tenant_id: row.tenant_id as string,
+        full_name: (row.full_name as string | null) ?? null,
+        phone_number: (row.phone_number as string | null) ?? null,
+        preferred_language: (row.preferred_language as string) ?? 'da',
+      },
+      tenant: {
+        id: row.tenant_id as string,
+        name: row.name as string,
+        slug: row.slug as string,
+        default_language: row.default_language as string,
+      },
+    };
+  });
 }
 
 export async function listConfigHistory(

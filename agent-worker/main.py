@@ -38,6 +38,7 @@ from agents.customer_agent import CustomerAgent, greeting_for
 from agents.azure_tts import SafeAzureTTS
 from agents.owner_copilot_agent import OwnerCopilotAgent
 from config import Config, load as load_config
+from services.call_slots import CallSlotRegistry
 from services.db import Database
 from services.recordings import duration_seconds, history_to_turns, preserve
 
@@ -48,31 +49,33 @@ logger = logging.getLogger("omni-worker")
 VAD_KEY = "vad"
 AGENT_NAME = os.getenv("LIVEKIT_AGENT_NAME", "nordic-omni").strip() or "nordic-omni"
 
-# The thread executor shares this counter across jobs. CPU-based load thresholds
-# are unreliable on an 8 GB developer machine with editors and a Next.js server
-# running, so capacity is enforced by the number of accepted calls instead.
-_active_calls = 0
-MAX_CONCURRENT_CALLS = max(10, int(os.getenv("MAX_CONCURRENT_CALLS", "10")))
+# Request acceptance runs on the worker loop while THREAD job shutdown runs on
+# per-job loops. A job-ID registry makes check+increment atomic across threads
+# and makes duplicate shutdown callbacks harmless.
+MAX_CONCURRENT_CALLS = max(1, int(os.getenv("MAX_CONCURRENT_CALLS", "10")))
+_call_slots = CallSlotRegistry(MAX_CONCURRENT_CALLS)
 
 
-async def release_call_slot(*_: Any) -> None:
-    global _active_calls
-    _active_calls = max(0, _active_calls - 1)
+async def release_call_slot(job_id: str) -> None:
+    if _call_slots.release(job_id):
+        logger.info("Released call slot for %s (%d active)", job_id, _call_slots.active_count)
 
 
 async def request_job(request: JobRequest) -> None:
-    global _active_calls
-    if _active_calls >= MAX_CONCURRENT_CALLS:
-        logger.warning("Rejecting call: worker already serving %d call(s)", _active_calls)
+    if not _call_slots.acquire(request.id):
+        logger.warning(
+            "Rejecting call: worker already serving %d call(s)",
+            _call_slots.active_count,
+        )
         await request.reject()
         return
-    _active_calls += 1
-    logger.info("Accepting call request %s (%d active)", request.id, _active_calls)
+    logger.info("Accepting call request %s (%d active)", request.id, _call_slots.active_count)
     try:
         await request.accept()
         logger.info("Call request %s assigned", request.id)
-    except Exception:
-        _active_calls = max(0, _active_calls - 1)
+    except BaseException:
+        # Cancellation is included: an interrupted accept must not strand a slot.
+        await release_call_slot(request.id)
         logger.exception("Could not accept call request %s", request.id)
         raise
 
@@ -209,6 +212,11 @@ async def read_metadata(ctx: JobContext) -> dict[str, Any]:
 
     attributes = getattr(participant, "attributes", {}) or {}
     raw = getattr(participant, "metadata", "") or ""
+    # Transport evidence comes only from LiveKit's carrier attributes. JSON
+    # metadata is caller-controlled input and can never manufacture SIP trust.
+    sip_transport = bool(
+        attributes.get("sip.callID") or attributes.get("sip.trunkPhoneNumber")
+    )
 
     try:
         parsed = json.loads(raw) if raw else {}
@@ -218,33 +226,59 @@ async def read_metadata(ctx: JobContext) -> dict[str, Any]:
     if not isinstance(parsed, dict):
         parsed = {}
 
-    # Merge SIP attributes so PSTN callers still resolve a phone number.
-    sip_phone = attributes.get("sip.phoneNumber")
-    if sip_phone:
-        parsed.setdefault("phone_number", sip_phone)
-    parsed.setdefault("sip_call_id", attributes.get("sip.callID"))
-    parsed.setdefault("called_number", attributes.get("sip.trunkPhoneNumber"))
-    parsed.setdefault("sip_display_name", attributes.get("sip.displayName"))
-
-    # A dispatch rule may carry the tenant in job/room metadata while the SIP
-    # participant itself carries only carrier attributes.
-    for source in (
-        getattr(getattr(ctx, "job", None), "metadata", ""),
-        getattr(getattr(ctx, "room", None), "metadata", ""),
-    ):
-        if not source:
-            continue
-        try:
-            job_meta = json.loads(source)
-        except Exception:
-            continue
-        if isinstance(job_meta, dict):
-            for key in ("tenant_id", "tenantId", "contact_id", "contactId", "role"):
-                if job_meta.get(key) is not None:
-                    parsed.setdefault(key, job_meta[key])
+    parsed["_sip_transport"] = sip_transport
+    if sip_transport:
+        # Carrier attributes override every colliding metadata field. Tenant,
+        # contact, role and browser attempt IDs are deliberately discarded;
+        # entrypoint derives them from the DID/E.164 caller or refuses the job.
+        parsed["sip_call_id"] = attributes.get("sip.callID")
+        parsed["called_number"] = attributes.get("sip.trunkPhoneNumber")
+        parsed["phone_number"] = attributes.get("sip.phoneNumber")
+        parsed["sip_display_name"] = attributes.get("sip.displayName")
+        parsed["role"] = "customer"
+        for key in (
+            "tenant_id",
+            "tenantId",
+            "contact_id",
+            "contactId",
+            "call_id",
+        ):
+            parsed.pop(key, None)
+    else:
+        # Dispatch/job metadata is only a fallback for signed web sessions. It
+        # is never consulted for tenant or role selection on a PSTN transport.
+        for source in (
+            getattr(getattr(ctx, "job", None), "metadata", ""),
+            getattr(getattr(ctx, "room", None), "metadata", ""),
+        ):
+            if not source:
+                continue
+            try:
+                job_meta = json.loads(source)
+            except Exception:
+                continue
+            if isinstance(job_meta, dict):
+                for key in ("tenant_id", "tenantId", "contact_id", "contactId", "role"):
+                    if job_meta.get(key) is not None:
+                        parsed.setdefault(key, job_meta[key])
 
     parsed.setdefault("participant_identity", getattr(participant, "identity", "") or "")
     return parsed
+
+
+async def close_agent_session(session: AgentSession) -> None:
+    """Stop activities/streams before closing the per-call TTS HTTP session.
+
+    AgentSession owns barge-in cancellation. Its close is idempotent and waits
+    for interrupted speech handles; closing TTS afterwards prevents late audio
+    writes and releases Azure sockets even if activity teardown itself fails.
+    """
+    try:
+        await asyncio.wait_for(session.aclose(), timeout=5.0)
+    finally:
+        tts_instance = session.tts
+        if tts_instance is not None:
+            await asyncio.wait_for(tts_instance.aclose(), timeout=3.0)
 
 
 async def finalise_call(
@@ -312,14 +346,63 @@ async def finalise_call(
         logger.exception("Recording persistence crashed for %s", room)
         try:
             await db.set_recording(
-                room_name=room, tenant_id=tenant_id, status="failed", error=str(exc)
+                room_name=room,
+                tenant_id=tenant_id,
+                status="failed",
+                error=str(exc) or type(exc).__name__,
             )
         except Exception:
             logger.exception("Could not even record the recording failure")
 
 
 async def entrypoint(ctx: JobContext) -> None:
-    ctx.add_shutdown_callback(release_call_slot)
+    job_id = ctx.job.id
+    session: Optional[AgentSession] = None
+    db: Optional[Database] = None
+    tenant: Optional[dict[str, Any]] = None
+    started_at = time.time()
+    should_record = False
+    call_log_ready = False
+    shutdown_lock = asyncio.Lock()
+    shutdown_complete = False
+
+    async def on_shutdown() -> None:
+        """One ordered, idempotent cleanup owner for every exit path."""
+        nonlocal shutdown_complete
+        async with shutdown_lock:
+            if shutdown_complete:
+                return
+            shutdown_complete = True
+            try:
+                if session is not None:
+                    try:
+                        await close_agent_session(session)
+                    except Exception:
+                        logger.exception("Could not close voice session for %s", ctx.room.name)
+
+                if call_log_ready and db is not None and tenant is not None:
+                    try:
+                        await finalise_call(
+                            ctx=ctx,
+                            db=db,
+                            tenant=tenant,
+                            session=session,
+                            started_at=started_at,
+                            should_record=should_record,
+                        )
+                    except Exception:
+                        logger.exception("Call cleanup failed for %s", ctx.room.name)
+            finally:
+                try:
+                    if db is not None:
+                        await close_db()
+                finally:
+                    # The slot is held until streams and DB sockets are closed.
+                    await release_call_slot(job_id)
+
+    # Register before configuration, connect or database work: every later
+    # exception and abrupt participant disconnect now has exactly one cleanup.
+    ctx.add_shutdown_callback(on_shutdown)
     cfg = load_config()
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
@@ -328,21 +411,25 @@ async def entrypoint(ctx: JobContext) -> None:
     contact_id = meta.get("contact_id") or meta.get("contactId")
     role = meta.get("role", "customer")
     called_number = meta.get("called_number")
-    # `sip.callID` is the canonical marker, but some carriers omit it. A dialled
-    # trunk number is equally proof that this is an inbound PSTN call.
-    sip_call = bool(meta.get("sip_call_id") or called_number)
+    # Only carrier attributes establish PSTN transport. A dialled trunk number
+    # is the sole tenant selector for SIP; injected tenant metadata is ignored.
+    sip_call = bool(
+        meta.get("_sip_transport") and (meta.get("sip_call_id") or called_number)
+    )
 
     db = await get_db(cfg.database_url)
 
-    # Web tokens carry a signed tenant_id. Inbound SIP carries the dialled DID
-    # instead, so resolve that exact number from the tenant table. If neither
-    # identifies a tenant, refuse the call; never select the first tenant.
-    tenant = await db.get_tenant(str(tenant_id)) if tenant_id else None
-    if not tenant and called_number:
-        tenant = await db.get_tenant_by_did(str(called_number))
+    if sip_call:
+        tenant = await db.get_tenant_by_did(str(called_number)) if called_number else None
+        tenant_id = tenant["id"] if tenant else None
+        contact_id = None
+        role = "customer"
         if tenant:
-            tenant_id = tenant["id"]
             logger.info("Resolved inbound DID %s to tenant %s", called_number, tenant["slug"])
+    else:
+        tenant = await db.get_tenant(str(tenant_id)) if tenant_id else None
+
+    # Never select a default tenant. Unknown DIDs and inactive tenants stop here.
     if not tenant_id or not tenant:
         raise RuntimeError(
             "No signed tenant_id or configured inbound DID. Refusing to route the call, "
@@ -351,6 +438,9 @@ async def entrypoint(ctx: JobContext) -> None:
     if str(tenant.get("status") or "active") != "active":
         raise RuntimeError(f"Tenant {tenant_id} is not accepting calls")
 
+    # Browser tokens pre-create this row. From this point onward every setup
+    # failure (including contact resolution) must settle it as missed.
+    call_log_ready = bool(meta.get("call_id"))
     language = "da" if str(tenant.get("stt_language") or tenant.get("default_language") or "da-DK").lower().startswith("da") else "en"
 
     # Only the signed token's exact role is trusted, and never from a SIP header.
@@ -361,11 +451,6 @@ async def entrypoint(ctx: JobContext) -> None:
         @session.on("close")
         def _on_owner_session_close(*_: Any) -> None:
             ctx.shutdown("owner session closed")
-
-        async def _close_owner_db() -> None:
-            await close_db()
-
-        ctx.add_shutdown_callback(_close_owner_db)
 
         await session.start(OwnerCopilotAgent(tenant=tenant, db=db), room=ctx.room)
         await session.generate_reply(
@@ -403,32 +488,13 @@ async def entrypoint(ctx: JobContext) -> None:
         room_name=ctx.room.name,
         channel=channel,
     )
-
-    started_at = time.time()
+    call_log_ready = True
     should_record = bool(tenant.get("record_calls", True))
     record_opts = (
         {"audio": True, "traces": False, "logs": False, "transcript": False}
         if should_record
         else False
     )
-    session: Optional[AgentSession] = None
-
-    async def on_shutdown() -> None:
-        try:
-            await finalise_call(
-                ctx=ctx,
-                db=db,
-                tenant=tenant,
-                session=session,
-                started_at=started_at,
-                should_record=should_record,
-            )
-        finally:
-            await close_db()
-
-    # Registered before session startup so failures after call-log creation still
-    # receive a terminal status.
-    ctx.add_shutdown_callback(on_shutdown)
 
     logger.info(
         "Customer session for tenant=%s contact=%s room=%s",

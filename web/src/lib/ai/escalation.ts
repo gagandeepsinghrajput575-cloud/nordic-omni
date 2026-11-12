@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
-import { adminSql } from '@/lib/db/client';
+import { withPublicContact } from '@/lib/db/client';
 import { env } from '@/lib/env';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 
 export type EscalationReason =
   | 'angry_customer'
@@ -72,20 +73,40 @@ export async function recordEscalation({
   };
   const body = JSON.stringify(payload);
 
-  const rows = await adminSql`
-    insert into conversation_escalations (
-      tenant_id, contact_id, channel, reason, urgency, briefing, payload
-    ) values (
-      ${tenant.id}, ${contact.id}, ${channel}, ${reason},
-      ${payload.urgency}, ${payload.briefing}, ${body}::jsonb
-    )
-    returning id
-  `;
-  const id = rows[0].id as string;
+  const id = await withPublicContact(contact.id, async (tx) => {
+    const rows = await tx`
+      insert into conversation_escalations (
+        tenant_id, contact_id, channel, reason, urgency, briefing, payload
+      ) values (
+        ${tenant.id}, ${contact.id}, ${channel}, ${reason},
+        ${payload.urgency}, ${payload.briefing}, ${body}::jsonb
+      )
+      returning id
+    `;
+    if (!rows[0]) throw new Error('Escalation contact is outside the tenant');
+    return rows[0].id as string;
+  });
 
   if (!env.N8N_ESCALATION_WEBHOOK_URL) {
+    void dispatchWebhookEvent(tenant.id, 'owner.escalation', {
+      escalationId: id,
+      contact: payload.contact,
+      channel,
+      reason,
+      urgency: payload.urgency,
+      briefing: payload.briefing,
+    });
     return { id, delivered: false, status: 'not_configured' };
   }
+
+  void dispatchWebhookEvent(tenant.id, 'owner.escalation', {
+    escalationId: id,
+    contact: payload.contact,
+    channel,
+    reason,
+    urgency: payload.urgency,
+    briefing: payload.briefing,
+  });
 
   try {
     const signatureValue = signature(body);
@@ -101,19 +122,23 @@ export async function recordEscalation({
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    await adminSql`
-      update conversation_escalations
-         set status = 'notified', n8n_status = 'delivered', n8n_error = null
-       where id = ${id}
-    `;
+    await withPublicContact(contact.id, async (tx) => {
+      await tx`
+        update conversation_escalations
+           set status = 'notified', n8n_status = 'delivered', n8n_error = null
+         where id = ${id} and tenant_id = ${tenant.id} and contact_id = ${contact.id}
+      `;
+    });
     return { id, delivered: true, status: 'delivered' };
   } catch (error) {
-    await adminSql`
-      update conversation_escalations
-         set n8n_status = 'failed',
-             n8n_error = ${error instanceof Error ? error.message.slice(0, 500) : 'Webhook failed'}
-       where id = ${id}
-    `;
+    await withPublicContact(contact.id, async (tx) => {
+      await tx`
+        update conversation_escalations
+           set n8n_status = 'failed',
+               n8n_error = ${error instanceof Error ? error.message.slice(0, 500) : 'Webhook failed'}
+         where id = ${id} and tenant_id = ${tenant.id} and contact_id = ${contact.id}
+      `;
+    });
     return { id, delivered: false, status: 'failed' };
   }
 }

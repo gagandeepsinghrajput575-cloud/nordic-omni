@@ -98,6 +98,7 @@ export function LeadDetailForm({
           </Field>
 
           <label className="flex cursor-pointer items-start gap-3 rounded-[var(--r-sm)] border border-[var(--border-subtle)] bg-[var(--bg-ground)] p-3">
+            <input type="hidden" name="aiAutoReplyEnabled" value="off" />
             <input
               type="checkbox"
               name="aiAutoReplyEnabled"

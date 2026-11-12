@@ -99,7 +99,6 @@ export function CreateWorkspaceForm() {
             label="Owner email"
             required
             error={err('ownerEmail')}
-            className="sm:col-span-2"
           >
             <Input
               id="ownerEmail"
@@ -107,6 +106,23 @@ export function CreateWorkspaceForm() {
               type="email"
               placeholder="jens@kbhvvs.dk"
               invalid={Boolean(err('ownerEmail'))}
+              required
+            />
+          </Field>
+          <Field
+            htmlFor="ownerPassword"
+            label="Initial portal password"
+            hint="Min. 8 chars — client signs into /portal only"
+            required
+            error={err('ownerPassword')}
+          >
+            <Input
+              id="ownerPassword"
+              name="ownerPassword"
+              type="password"
+              minLength={8}
+              placeholder="••••••••"
+              invalid={Boolean(err('ownerPassword'))}
               required
             />
           </Field>

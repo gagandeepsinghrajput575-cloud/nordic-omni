@@ -1,0 +1,1155 @@
+{
+ "url": "http://localhost:3000/call/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+ "at": "2026-11-10T21:52:06.250Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.15
+   ],
+   "motion": {
+    "elements": 1,
+    "css": 1,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 900,
+     "screens": 1,
+     "words": 25,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 4,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "chars": 26,
+     "lines": 1,
+     "size": 16,
+     "vw": 1.1,
+     "font": "Inter",
+     "weight": 700,
+     "tracking": -0.02,
+     "leading": 1.5,
+     "top": 325,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "lines": 1,
+     "size": 16,
+     "font": "Inter"
+    },
+    "headings": [],
+    "headingSummary": {
+     "count": 0,
+     "maxLines": 0,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.93,
+       "mono": false
+      },
+      {
+       "family": "IBM Plex Mono",
+       "share": 0.07,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      12,
+      14,
+      16,
+      18
+     ],
+     "sizeCount": 4,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 18,
+      "vw": 1.3,
+      "font": "Inter",
+      "text": "D"
+     },
+     "monoShare": 0.07,
+     "monoProseShare": 0.07,
+     "monoFamilies": [
+      "IBM Plex Mono"
+     ],
+     "monoSamples": [
+      "Nordic Noir"
+     ],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 1,
+     "smallText": 2
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#080a12",
+     "bodyBgHsl": {
+      "h": 228,
+      "s": 0.38,
+      "l": 0.05
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#080a12",
+       "top": 0,
+       "hsl": {
+        "h": 228,
+        "s": 0.38,
+        "l": 0.05
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#8d95ab",
+       "share": 0.27
+      },
+      {
+       "color": "#eceef7",
+       "share": 0.24
+      },
+      {
+       "color": "#718096",
+       "share": 0.21
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.14
+      },
+      {
+       "color": "#000000",
+       "share": 0.14
+      }
+     ],
+     "button": {
+      "bg": "#0c0f1e",
+      "hsl": {
+       "h": 230,
+       "s": 0.43,
+       "l": 0.08
+      },
+      "fg": "#eceef7"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 2,
+     "inHero": 2,
+     "radius": 12,
+     "height": 30,
+     "withShadow": 0,
+     "withGradient": 1,
+     "mono": 1,
+     "upper": 0,
+     "heroLabels": [
+      "Nordic Noir",
+      "Start Gratis Opkald Nu"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 4,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.w-full.max-w-sm → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "button.flex.items-center → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.w-14.h-14 → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "button.w-full.py-3.5 → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 245,"
+     ],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 1,
+     "hairlineSamples": [
+      "div.w-full.pt-4 334px"
+     ],
+     "outlinedBoxes": 1,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 1,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": null,
+    "fontsLoaded": [
+     "ibm plex mono",
+     "inter"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 900,
+    "margins": {
+     "left": 553,
+     "right": 553
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Dansk Byg & Renovering ApS",
+      "size": 16,
+      "top": 325,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [],
+    "leftBlocks": 0,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.33,
+    "voidBox": {
+     "x": 0,
+     "y": 120,
+     "w": 540,
+     "h": 780
+    }
+   },
+   "app": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "dark": true,
+    "ground": "#080a12",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 553,
+     "right": 553
+    },
+    "hero": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "chars": 26,
+     "lines": 1,
+     "size": 16,
+     "vw": 1.1,
+     "font": "Inter",
+     "weight": 700,
+     "tracking": -0.02,
+     "leading": 1.5,
+     "top": 325,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": [
+      {
+       "gap": 41,
+       "at": 370,
+       "panel": "Dansk Byg & Renovering ApS"
+      }
+     ]
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 1,
+     "radii": [
+      [
+       24,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#ffffff on #0c0f1e (19.04:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 1,
+     "shadowSamples": [],
+     "glass": 1
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.54,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      12,
+      14,
+      16
+     ]
+    },
+    "title": {
+     "text": "Dansk Byg & Renovering ApS",
+     "size": 16,
+     "top": 325
+    },
+    "colourShare": 0.013
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.23
+   ],
+   "motion": {
+    "elements": 1,
+    "css": 1,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 1024,
+     "screens": 1,
+     "words": 25,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 4,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "chars": 26,
+     "lines": 1,
+     "size": 16,
+     "vw": 2.1,
+     "font": "Inter",
+     "weight": 700,
+     "tracking": -0.02,
+     "leading": 1.5,
+     "top": 387,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "lines": 1,
+     "size": 16,
+     "font": "Inter"
+    },
+    "headings": [],
+    "headingSummary": {
+     "count": 0,
+     "maxLines": 0,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.93,
+       "mono": false
+      },
+      {
+       "family": "IBM Plex Mono",
+       "share": 0.07,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      12,
+      14,
+      16,
+      18
+     ],
+     "sizeCount": 4,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 18,
+      "vw": 2.3,
+      "font": "Inter",
+      "text": "D"
+     },
+     "monoShare": 0.07,
+     "monoProseShare": 0.07,
+     "monoFamilies": [
+      "IBM Plex Mono"
+     ],
+     "monoSamples": [
+      "Nordic Noir"
+     ],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 1,
+     "smallText": 2
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#080a12",
+     "bodyBgHsl": {
+      "h": 228,
+      "s": 0.38,
+      "l": 0.05
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#080a12",
+       "top": 0,
+       "hsl": {
+        "h": 228,
+        "s": 0.38,
+        "l": 0.05
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#8d95ab",
+       "share": 0.27
+      },
+      {
+       "color": "#eceef7",
+       "share": 0.24
+      },
+      {
+       "color": "#718096",
+       "share": 0.21
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.14
+      },
+      {
+       "color": "#000000",
+       "share": 0.14
+      }
+     ],
+     "button": {
+      "bg": "#0c0f1e",
+      "hsl": {
+       "h": 230,
+       "s": 0.43,
+       "l": 0.08
+      },
+      "fg": "#eceef7"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 2,
+     "inHero": 2,
+     "radius": 12,
+     "height": 30,
+     "withShadow": 0,
+     "withGradient": 1,
+     "mono": 1,
+     "upper": 0,
+     "heroLabels": [
+      "Nordic Noir",
+      "Start Gratis Opkald Nu"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 4,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.w-full.max-w-sm → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "button.flex.items-center → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.w-14.h-14 → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "button.w-full.py-3.5 → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 245,"
+     ],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "button.w-full.py-3.5 → linear-gradient(to right, rgb(0, 245, 212), rgb(0, 210, 182))"
+     ],
+     "gradientText": 0,
+     "hairlines": 1,
+     "hairlineSamples": [
+      "div.w-full.pt-4 334px"
+     ],
+     "outlinedBoxes": 1,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 1,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": null,
+    "fontsLoaded": [
+     "ibm plex mono",
+     "inter"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 1024,
+    "margins": {
+     "left": 217,
+     "right": 217
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Dansk Byg & Renovering ApS",
+      "size": 16,
+      "top": 387,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [],
+    "leftBlocks": 0,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "dark": true,
+    "ground": "#080a12",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 217,
+     "right": 217
+    },
+    "hero": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "chars": 26,
+     "lines": 1,
+     "size": 16,
+     "vw": 2.1,
+     "font": "Inter",
+     "weight": 700,
+     "tracking": -0.02,
+     "leading": 1.5,
+     "top": 387,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": [
+      {
+       "gap": 41,
+       "at": 432,
+       "panel": "Dansk Byg & Renovering ApS"
+      }
+     ]
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 1,
+     "radii": [
+      [
+       24,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#ffffff on #0c0f1e (19.04:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 1,
+     "shadowSamples": [],
+     "glass": 1
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.54,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      12,
+      14,
+      16
+     ]
+    },
+    "title": {
+     "text": "Dansk Byg & Renovering ApS",
+     "size": 16,
+     "top": 387
+    },
+    "colourShare": 0.022
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.54
+   ],
+   "motion": {
+    "elements": 1,
+    "css": 1,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 844,
+     "screens": 1,
+     "words": 25,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 4,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "chars": 26,
+     "lines": 1,
+     "size": 16,
+     "vw": 4.1,
+     "font": "Inter",
+     "weight": 700,
+     "tracking": -0.02,
+     "leading": 1.5,
+     "top": 297,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "h1": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "lines": 1,
+     "size": 16,
+     "font": "Inter"
+    },
+    "headings": [],
+    "headingSummary": {
+     "count": 0,
+     "maxLines": 0,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.93,
+       "mono": false
+      },
+      {
+       "family": "IBM Plex Mono",
+       "share": 0.07,
+       "mono": true
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      12,
+      14,
+      16,
+      18
+     ],
+     "sizeCount": 4,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 18,
+      "vw": 4.6,
+      "font": "Inter",
+      "text": "D"
+     },
+     "monoShare": 0.07,
+     "monoProseShare": 0.07,
+     "monoFamilies": [
+      "IBM Plex Mono"
+     ],
+     "monoSamples": [
+      "Nordic Noir"
+     ],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 1,
+     "smallText": 2
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#080a12",
+     "bodyBgHsl": {
+      "h": 228,
+      "s": 0.38,
+      "l": 0.05
+     },
+     "dark": true,
+     "sectionBgs": [
+      {
+       "color": "#080a12",
+       "top": 0,
+       "hsl": {
+        "h": 228,
+        "s": 0.38,
+        "l": 0.05
+       }
+      },
+      {
+       "color": "#0c0f1e",
+       "top": 172,
+       "hsl": {
+        "h": 230,
+        "s": 0.43,
+        "l": 0.08
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#8d95ab",
+       "share": 0.27
+      },
+      {
+       "color": "#eceef7",
+       "share": 0.24
+      },
+      {
+       "color": "#718096",
+       "share": 0.21
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.14
+      },
+      {
+       "color": "#000000",
+       "share": 0.14
+      }
+     ],
+     "button": {
+      "bg": "#0c0f1e",
+      "hsl": {
+       "h": 230,
+       "s": 0.43,
+       "l": 0.08
+      },
+      "fg": "#eceef7"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 2,
+     "inHero": 2,
+     "radius": 12,
+     "height": 30,
+     "withShadow": 0,
+     "withGradient": 1,
+     "mono": 1,
+     "upper": 0,
+     "heroLabels": [
+      "Nordic Noir",
+      "Start Gratis Opkald Nu"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 4,
+     "shadowOverlay": 0,
+     "shadowSamples": [
+      "div.w-full.max-w-sm → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "button.flex.items-center → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "div.w-14.h-14 → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0",
+      "button.w-full.py-3.5 → rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 245,"
+     ],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "button.w-full.py-3.5 → linear-gradient(to right, rgb(0, 245, 212), rgb(0, 210, 182))"
+     ],
+     "gradientText": 0,
+     "hairlines": 1,
+     "hairlineSamples": [
+      "div.w-full.pt-4 308px"
+     ],
+     "outlinedBoxes": 1,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 1,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": null,
+    "fontsLoaded": [
+     "ibm plex mono",
+     "inter"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 844,
+    "margins": {
+     "left": 41,
+     "right": 41
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Dansk Byg & Renovering ApS",
+      "size": 16,
+      "top": 297,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [],
+    "leftBlocks": 0,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "dark": true,
+    "ground": "#080a12",
+    "sidebar": null,
+    "topbar": null,
+    "canvas": {
+     "left": 41,
+     "right": 41
+    },
+    "hero": {
+     "text": "Dansk Byg & Renovering ApS",
+     "words": 5,
+     "chars": 26,
+     "lines": 1,
+     "size": 16,
+     "vw": 4.1,
+     "font": "Inter",
+     "weight": 700,
+     "tracking": -0.02,
+     "leading": 1.5,
+     "top": 297,
+     "tag": "h1",
+     "kind": "heading",
+     "align": "left",
+     "position": "left"
+    },
+    "charts": 0,
+    "layout": {
+     "panels": 1,
+     "firstScreen": 1,
+     "ragged": [],
+     "voids": [
+      {
+       "gap": 41,
+       "at": 342,
+       "panel": "Dansk Byg & Renovering ApS"
+      }
+     ]
+    },
+    "tiles": 0,
+    "panels": {
+     "count": 1,
+     "radii": [
+      [
+       24,
+       1
+      ]
+     ],
+     "heavyBorders": 1,
+     "borderSamples": [
+      "#ffffff on #0c0f1e (19.04:1)"
+     ],
+     "heavyShadows": 0,
+     "softShadows": 1,
+     "shadowSamples": [],
+     "glass": 1
+    },
+    "chips": {
+     "count": 0,
+     "hues": 0,
+     "samples": []
+    },
+    "numbers": {
+     "cells": 0,
+     "leftAligned": 0,
+     "figures": 0,
+     "tabularShare": null,
+     "kpiMax": null
+    },
+    "rows": null,
+    "chartHues": 0,
+    "placeholders": [],
+    "type": {
+     "under13": 0.54,
+     "tiny": 0,
+     "tinySamples": [],
+     "sizes": [
+      12,
+      14,
+      16
+     ]
+    },
+    "title": {
+     "text": "Dansk Byg & Renovering ApS",
+     "size": 16,
+     "top": 297
+    },
+    "colourShare": 0.047
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "button-fx",
+   "width": 1440,
+   "message": "Buttons with gradient fill.",
+   "fix": "Flat fill, one colour.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "hero-void",
+   "width": 1440,
+   "message": "33% of the first screen is one empty block (540×780px at 0,120).",
+   "fix": "Place the void on purpose or fill it: move the picture, the film or one fact into it, grow the headline to meet it, or shrink the screen to its content. A void reads as placed only when something closes it on the far side and it is the screen's one rest."
+  },
+  {
+   "level": "WARN",
+   "id": "tiny-text",
+   "width": 1440,
+   "message": "54% of the text is under 13px.",
+   "fix": "Data and labels read at 13–14px; keep 11–12px for sublines and axis ticks.",
+   "alsoAt": [
+    768,
+    390
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "panel-void",
+   "width": 1440,
+   "message": "1 card(s) hold a blank band inside: 41px in \"Dansk Byg & Renovering ApS\".",
+   "fix": "A card stretches to its neighbour only when it has content to fill. Keep a legend or a note directly under its chart (only an action or a total may sit at a stretched card's foot), let a short card keep its own height (align-items: start), and let a filtered block shrink to its rows."
+  },
+  {
+   "level": "FAIL",
+   "id": "gradient",
+   "width": 768,
+   "message": "1 gradient fill(s): button.w-full.py-3.5 → linear-gradient(to right, rgb(0, 245, 212), rgb(0, 210, 182))",
+   "fix": "Use a flat colour or a real image. The only gradient allowed by default is a neutral scrim over a photo for legibility.",
+   "alsoAt": [
+    390
+   ]
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "/Users/gaganrajput11/the final form/.taste-skill/before-call/desktop-fold.jpg",
+   "pages": [
+    "/Users/gaganrajput11/the final form/.taste-skill/before-call/desktop-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "/Users/gaganrajput11/the final form/.taste-skill/before-call/tablet-fold.jpg",
+   "pages": [
+    "/Users/gaganrajput11/the final form/.taste-skill/before-call/tablet-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "/Users/gaganrajput11/the final form/.taste-skill/before-call/mobile-fold.jpg",
+   "pages": [
+    "/Users/gaganrajput11/the final form/.taste-skill/before-call/mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

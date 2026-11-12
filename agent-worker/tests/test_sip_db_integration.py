@@ -30,7 +30,7 @@ class SipDatabaseIntegration(unittest.IsolatedAsyncioTestCase):
             """,
             self.tenant_id,
             f"sip-test-{self.tenant_id[:8]}",
-            self.did,
+            self.did.replace("+45", "0045 ", 1),
         )
 
     async def asyncTearDown(self):

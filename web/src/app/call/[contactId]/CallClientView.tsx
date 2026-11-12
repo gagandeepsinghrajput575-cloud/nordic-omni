@@ -7,6 +7,8 @@ import { Phone, PhoneOff, Mic, MicOff, Volume2, CheckCircle, AlertTriangle, Mess
 import { Room, RoomEvent, Track, RemoteTrack } from 'livekit-client';
 import { OrbVisualizer } from '@/components/audio/OrbVisualizer';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+// Failed pre-agent attempts recover through /api/livekit/abandon.
+import { abandonCallAttempt, combineAudioTracks, disposeAudioElement } from '@/lib/livekit/attempt';
 
 interface CallClientViewProps {
   contact: {
@@ -47,9 +49,16 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
   const [starting, setStarting] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const roomRef = useRef<Room | null>(null);
-  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
+  const audioTracksRef = useRef(new Map<RemoteTrack, HTMLAudioElement>());
   const intentionalDisconnectRef = useRef(false);
   const attemptIdRef = useRef<string | null>(null);
+  const startInFlightRef = useRef<number | null>(null);
+  const reachedAgentRef = useRef(false);
+  const disposedRef = useRef(false);
+  const runRef = useRef(0);
+  const agentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cancelAgentWaitRef = useRef<(() => void) | null>(null);
+  const muteInFlightRef = useRef(false);
 
   const isDanish = contact.preferred_language
     ? contact.preferred_language === 'da'
@@ -66,24 +75,70 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
   }, [stage]);
 
   const cleanupCall = useCallback(() => {
+    // Invalidate every continuation belonging to the previous attempt.
+    runRef.current += 1;
     intentionalDisconnectRef.current = true;
-    roomRef.current?.disconnect();
+    reachedAgentRef.current = false;
+    attemptIdRef.current = null;
+    cancelAgentWaitRef.current?.();
+    cancelAgentWaitRef.current = null;
+    if (agentTimeoutRef.current) clearTimeout(agentTimeoutRef.current);
+    agentTimeoutRef.current = null;
+
+    const room = roomRef.current;
     roomRef.current = null;
-    audioElementsRef.current.forEach((el) => el.remove());
-    audioElementsRef.current = [];
+    if (room) {
+      room.removeAllListeners();
+      void room.disconnect().catch(() => undefined);
+    }
+    audioTracksRef.current.forEach(disposeAudioElement);
+    audioTracksRef.current.clear();
     setAgentStream(null);
     setIsMuted(false);
   }, []);
 
-  useEffect(() => () => cleanupCall(), [cleanupCall]);
+  const recoverCurrentAttempt = useCallback(() => {
+    const attemptId = attemptIdRef.current;
+    attemptIdRef.current = null;
+    abandonCallAttempt(attemptId, reachedAgentRef.current);
+  }, []);
+
+  useEffect(() => {
+    disposedRef.current = false;
+    const onPageHide = () => {
+      disposedRef.current = true;
+      recoverCurrentAttempt();
+      cleanupCall();
+    };
+    const onPageShow = () => {
+      disposedRef.current = false;
+    };
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+      onPageHide();
+    };
+  }, [cleanupCall, recoverCurrentAttempt]);
 
   const handleStartCall = async () => {
-    if (starting || stage === 'connecting' || stage === 'waiting_for_agent') return;
+    if (
+      startInFlightRef.current !== null ||
+      starting ||
+      stage === 'connecting' ||
+      stage === 'waiting_for_agent'
+    ) return;
+
+    const runId = ++runRef.current;
+    startInFlightRef.current = runId;
     setStarting(true);
     setErrorMessage('');
     setDuration(0);
     intentionalDisconnectRef.current = false;
+    reachedAgentRef.current = false;
     attemptIdRef.current = null;
+    const isCurrent = () => !disposedRef.current && runRef.current === runId;
 
     try {
       setStage('connecting');
@@ -105,72 +160,119 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
       }
 
       attemptIdRef.current = tokenData.attemptId ?? null;
+      if (!isCurrent()) {
+        recoverCurrentAttempt();
+        return;
+      }
+
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
-      let resolveAgentAudio: ((element: HTMLAudioElement | null) => void) | null = null;
-      const agentAudio = new Promise<HTMLAudioElement | null>((resolve) => {
-        resolveAgentAudio = resolve;
+      let signalAgentAudio: () => void = () => undefined;
+      const agentAudio = new Promise<void>((resolve) => {
+        signalAgentAudio = resolve;
       });
+      const cancelled = new Promise<null>((resolve) => {
+        cancelAgentWaitRef.current = () => resolve(null);
+      });
+
+      const updateAgentStream = () => {
+        if (!isCurrent()) return;
+        const mediaTracks: MediaStreamTrack[] = [];
+        audioTracksRef.current.forEach((_element, track) => {
+          if (track.mediaStreamTrack) mediaTracks.push(track.mediaStreamTrack);
+        });
+        setAgentStream(combineAudioTracks(mediaTracks));
+      };
 
       room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
         if (track.kind !== Track.Kind.Audio) return;
+        if (!isCurrent()) {
+          track.detach().forEach(disposeAudioElement);
+          return;
+        }
+        const previous = audioTracksRef.current.get(track);
+        if (previous) disposeAudioElement(previous);
         const audioElement = track.attach();
         audioElement.autoplay = true;
         audioElement.style.display = 'none';
         document.body.appendChild(audioElement);
-        audioElementsRef.current.push(audioElement);
-        const media = track.mediaStreamTrack;
-        if (media) setAgentStream(new MediaStream([media]));
-        resolveAgentAudio?.(audioElement);
+        audioTracksRef.current.set(track, audioElement);
+        updateAgentStream();
+        signalAgentAudio();
       });
 
       room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
-        track.detach().forEach((el) => {
-          el.remove();
-          audioElementsRef.current = audioElementsRef.current.filter((audio) => audio !== el);
-        });
+        track.detach().forEach(disposeAudioElement);
+        if (!isCurrent()) return;
+        const attached = audioTracksRef.current.get(track);
+        if (attached) disposeAudioElement(attached);
+        audioTracksRef.current.delete(track);
+        // Another remote audio track may still be live.
+        updateAgentStream();
       });
 
       room.on(RoomEvent.Disconnected, () => {
-        if (intentionalDisconnectRef.current) return;
+        if (!isCurrent() || intentionalDisconnectRef.current) return;
+        recoverCurrentAttempt();
         cleanupCall();
         setStage('ended');
       });
 
       await room.connect(tokenData.serverUrl, tokenData.token);
+      if (!isCurrent()) throw new Error('Call attempt superseded');
       await room.startAudio();
+      if (!isCurrent()) throw new Error('Call attempt superseded');
       await room.localParticipant.setMicrophoneEnabled(true, {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       });
-      if (!agentStream) setStage('waiting_for_agent');
+      if (!isCurrent()) throw new Error('Call attempt superseded');
 
-      let timeoutId: NodeJS.Timeout | null = null;
+      // Do not read agentStream from this async closure. TrackSubscribed may
+      // already have fired while browser audio/microphone unlock was pending.
+      setStage('waiting_for_agent');
       const timeout = new Promise<null>((resolve) => {
-        timeoutId = setTimeout(() => resolve(null), AGENT_TIMEOUT_MS);
+        agentTimeoutRef.current = setTimeout(() => resolve(null), AGENT_TIMEOUT_MS);
       });
-      const audioElement = await Promise.race([agentAudio, timeout]);
-      if (timeoutId) clearTimeout(timeoutId);
-      if (!audioElement || !roomRef.current) {
+      const ready = await Promise.race([
+        agentAudio.then(() => true),
+        timeout,
+        cancelled,
+      ]);
+      if (agentTimeoutRef.current) clearTimeout(agentTimeoutRef.current);
+      agentTimeoutRef.current = null;
+      cancelAgentWaitRef.current = null;
+      if (!isCurrent()) throw new Error('Call attempt superseded');
+      if (!ready) {
         throw new Error(
           isDanish
             ? 'Receptionisten svarede ikke. Prøv igen om et øjeblik.'
             : 'The receptionist did not answer. Please try again shortly.',
         );
       }
-      // Play only after startAudio() has unlocked the browser's audio context.
-      await audioElement.play();
+
+      const audioElements = Array.from(audioTracksRef.current.values());
+      if (audioElements.length === 0) throw new Error('Agent audio is no longer available');
+      await Promise.all(audioElements.map(async (audioElement) => {
+        try {
+          await audioElement.play();
+        } catch (error) {
+          // An unsubscribed element can reject after disposal; a still-attached
+          // element rejecting playback is a real autoplay failure.
+          if (Array.from(audioTracksRef.current.values()).includes(audioElement)) {
+            throw error;
+          }
+        }
+      }));
+      if (!isCurrent()) throw new Error('Call attempt superseded');
+      if (audioTracksRef.current.size === 0) throw new Error('Agent audio is no longer available');
+      reachedAgentRef.current = true;
       setStage('active');
     } catch (error) {
-      if (attemptIdRef.current) {
-        void fetch('/api/livekit/abandon', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ attemptId: attemptIdRef.current }),
-          keepalive: true,
-        }).catch(() => undefined);
-      }
+      // A late failure from an old room must never clean up a newer attempt.
+      if (!isCurrent()) return;
+      recoverCurrentAttempt();
       cleanupCall();
       setErrorMessage(
         error instanceof Error
@@ -181,21 +283,40 @@ export function CallClientView({ contact, tenant }: CallClientViewProps) {
       );
       setStage('error');
     } finally {
-      setStarting(false);
+      if (startInFlightRef.current === runId) {
+        startInFlightRef.current = null;
+        setStarting(false);
+      }
     }
   };
 
   const handleEndCall = () => {
+    // cleanup clears the ID, so pagehide/unmount cannot abandon an active call.
     cleanupCall();
     setStage('ended');
   };
 
   const toggleMute = async () => {
     const room = roomRef.current;
-    if (!room) return;
-    const nextMuted = !isMuted;
-    await room.localParticipant.setMicrophoneEnabled(!nextMuted);
-    setIsMuted(nextMuted);
+    if (!room || muteInFlightRef.current) return;
+    muteInFlightRef.current = true;
+    const participant = room.localParticipant;
+    try {
+      await participant.setMicrophoneEnabled(!participant.isMicrophoneEnabled);
+    } catch {
+      if (roomRef.current === room) {
+        setErrorMessage(
+          isDanish
+            ? 'Mikrofonen kunne ikke ændres. Kontrollér browserens adgang.'
+            : 'The microphone could not be changed. Check browser permission.',
+        );
+      }
+    } finally {
+      if (roomRef.current === room) {
+        setIsMuted(!participant.isMicrophoneEnabled);
+      }
+      muteInFlightRef.current = false;
+    }
   };
 
   const formatTimer = (seconds: number) => {

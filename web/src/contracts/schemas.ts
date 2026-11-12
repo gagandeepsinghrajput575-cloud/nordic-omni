@@ -24,6 +24,7 @@ export const ChannelSchema = z.enum([
   'voice_inbound',
   'voice_instant_webrtc',
   'owner_whisper',
+  'web_chat',
 ]);
 
 export const CallStatusSchema = z.enum([
@@ -51,6 +52,8 @@ export const UICommandTypeSchema = z.enum([
   'HIGHLIGHT_PRICING',
   'TRIGGER_DIRE_MODAL',
   'PULSE_METRIC',
+  'PROJECT_ESTIMATE_RECORDED',
+  'INSPECTION_REQUESTED',
 ]);
 
 // ==============================================================================
@@ -72,12 +75,41 @@ export const BusinessHoursSchema = z.object({
   sun: BusinessDayHoursSchema,
 });
 
-export const PricingItemSchema = z.object({
-  id: z.string(),
-  service: z.string().min(2),
-  price_dkk: z.number().nonnegative(),
-  unit: z.enum(['hour', 'call-out', 'package', 'fixed']),
-});
+export const EstimateModelSchema = z.enum(['fixed', 'per_square_meter']);
+
+export const PricingItemSchema = z
+  .object({
+    id: z.string().min(1),
+    service: z.string().min(2),
+    price_dkk: z.number().finite().nonnegative(),
+    // Danish catalog units are human-facing text, not an English enum.
+    unit: z.string().trim().min(1).max(240),
+    estimate_model: EstimateModelSchema.optional(),
+    estimate_min_dkk: z.number().finite().positive().optional(),
+    estimate_max_dkk: z.number().finite().positive().optional(),
+  })
+  .superRefine((item, ctx) => {
+    if (item.estimate_model) {
+      if (item.estimate_min_dkk === undefined || item.estimate_max_dkk === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Estimate brackets require both minimum and maximum DKK values',
+          path: ['estimate_min_dkk'],
+        });
+      }
+    }
+    if (
+      item.estimate_min_dkk !== undefined &&
+      item.estimate_max_dkk !== undefined &&
+      item.estimate_min_dkk > item.estimate_max_dkk
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Estimate minimum cannot exceed its maximum',
+        path: ['estimate_max_dkk'],
+      });
+    }
+  });
 
 // ==============================================================================
 // 3. RELATIONAL ENTITY SCHEMAS
@@ -126,6 +158,54 @@ export const ContactSchema = z.object({
   updated_at: z.string(),
 });
 
+export const ProjectEstimateSchema = z
+  .object({
+    id: z.string().uuid(),
+    tenant_id: z.string().uuid(),
+    contact_id: z.string().uuid(),
+    call_log_id: z.string().uuid().nullable(),
+    project_type: z.string().min(1),
+    scope_details: z.string().min(1),
+    square_meters: z.number().finite().positive().max(100_000).nullable(),
+    estimated_min_dkk: z.number().finite().nonnegative(),
+    estimated_max_dkk: z.number().finite().nonnegative(),
+    estimated_value_dkk: z.number().finite().nonnegative(),
+    followup_notes: z.string().default(''),
+    created_at: z.string(),
+  })
+  .refine((estimate) => estimate.estimated_max_dkk >= estimate.estimated_min_dkk, {
+    message: 'Estimated maximum must be greater than or equal to the minimum',
+    path: ['estimated_max_dkk'],
+  });
+
+export const InspectionStatusSchema = z.enum([
+  'requested',
+  'confirmed',
+  'completed',
+  'cancelled',
+]);
+
+export const InspectionRequestSchema = z.object({
+  id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  contact_id: z.string().uuid(),
+  call_log_id: z.string().uuid().nullable(),
+  requested_time_text: z.string().min(1),
+  address: z.string().default(''),
+  notes: z.string().default(''),
+  status: InspectionStatusSchema.default('requested'),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const RecordProjectEstimateInputSchema = z.object({
+  catalog_item_id: z.string().min(1),
+  project_type: z.string().min(1),
+  scope_details: z.string().min(1),
+  square_meters: z.number().finite().positive().max(100_000).nullable(),
+  followup_notes: z.string().default(''),
+});
+
 export const OmnichannelMessageSchema = z.object({
   id: z.string().uuid(),
   tenant_id: z.string().uuid(),
@@ -138,13 +218,23 @@ export const OmnichannelMessageSchema = z.object({
   created_at: z.string(),
 });
 
-export const TranscriptTurnSchema = z.object({
-  speaker: z.enum(['caller', 'agent', 'owner', 'ai']),
-  text: z.string(),
+const TranscriptTimingSchema = z.object({
   timestamp_ms: z.number().optional(),
   start: z.number().optional(),
   end: z.number().optional(),
 });
+
+// The worker persists role/content; legacy owner transcripts use speaker/text.
+export const TranscriptTurnSchema = z.union([
+  TranscriptTimingSchema.extend({
+    role: z.enum(['assistant', 'user']),
+    content: z.string(),
+  }),
+  TranscriptTimingSchema.extend({
+    speaker: z.enum(['caller', 'agent', 'owner', 'ai']),
+    text: z.string(),
+  }),
+]);
 
 export const CallLogSchema = z.object({
   id: z.string().uuid(),
@@ -308,10 +398,15 @@ export type UICommandType = z.infer<typeof UICommandTypeSchema>;
 
 export type BusinessDayHours = z.infer<typeof BusinessDayHoursSchema>;
 export type BusinessHours = z.infer<typeof BusinessHoursSchema>;
+export type EstimateModel = z.infer<typeof EstimateModelSchema>;
 export type PricingItem = z.infer<typeof PricingItemSchema>;
 
 export type Tenant = z.infer<typeof TenantSchema>;
 export type Contact = z.infer<typeof ContactSchema>;
+export type ProjectEstimate = z.infer<typeof ProjectEstimateSchema>;
+export type InspectionStatus = z.infer<typeof InspectionStatusSchema>;
+export type InspectionRequest = z.infer<typeof InspectionRequestSchema>;
+export type RecordProjectEstimateInput = z.infer<typeof RecordProjectEstimateInputSchema>;
 export type OmnichannelMessage = z.infer<typeof OmnichannelMessageSchema>;
 export type TranscriptTurn = z.infer<typeof TranscriptTurnSchema>;
 export type CallLog = z.infer<typeof CallLogSchema>;

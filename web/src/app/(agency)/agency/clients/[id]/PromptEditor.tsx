@@ -23,6 +23,13 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+const GEN_TONES = ['professional', 'warm', 'urgent_dispatcher'] as const;
+type GenTone = (typeof GEN_TONES)[number];
+
+function isGenTone(value: string): value is GenTone {
+  return GEN_TONES.some((tone) => tone === value);
+}
+
 interface PromptEditorProps {
   tenantId: string;
   tenantSlug?: string;
@@ -128,7 +135,7 @@ export function PromptEditor({
   const [genIndustry, setGenIndustry] = useState(
     defaultLanguage.startsWith('da') ? 'VVS og Varmepumper' : 'Emergency Plumbing & HVAC'
   );
-  const [genTone, setGenTone] = useState<'professional' | 'warm' | 'urgent_dispatcher'>('professional');
+  const [genTone, setGenTone] = useState<GenTone>('professional');
   const [genServices, setGenServices] = useState(
     defaultLanguage.startsWith('da')
       ? 'Døgnvagt udrykning, sprængte rør, serviceeftersyn og tilbud på badeværelser'
@@ -594,7 +601,9 @@ export function PromptEditor({
                 </label>
                 <select
                   value={genTone}
-                  onChange={(e) => setGenTone(e.target.value as any)}
+                  onChange={(e) => {
+                    if (isGenTone(e.target.value)) setGenTone(e.target.value);
+                  }}
                   className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-primary)]"
                 >
                   <option value="professional">Professional & Polite (Corporate & Standard)</option>

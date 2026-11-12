@@ -106,7 +106,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, token, attemptId, roomName, participantIdentity, serverUrl: env.NEXT_PUBLIC_LIVEKIT_URL, role: access.role });
   } catch (error) {
     if (access.role === 'customer') {
-      await adminSql`update call_logs set status = 'missed', updated_at = now() where id = ${attemptId}`;
+      await adminSql`
+        update call_logs set status = 'missed', updated_at = now()
+        where id = ${attemptId} and status not in ('completed', 'missed')
+      `;
     }
     throw error;
   }

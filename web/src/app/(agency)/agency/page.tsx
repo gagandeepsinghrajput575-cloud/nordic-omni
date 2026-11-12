@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { AlertTriangle, Building2, Plus, TrendingUp } from 'lucide-react';
 import { requireAgency } from '@/lib/auth/guard';
 import { listTenants } from '@/lib/db/queries';
+import { listWebhookDeliveries, listWebhooks } from '@/lib/webhooks';
+import { WebhookManager } from '@/components/webhooks/WebhookManager';
 import { Badge, Card, Stat } from '@/components/ui/core';
 import { EmptyState, PageHeader, SectionTitle } from '@/components/ui/feedback';
 import { buttonClass } from '@/components/ui/form';
@@ -12,7 +14,11 @@ const dkk = (n: number) => n.toLocaleString('da-DK', { maximumFractionDigits: 0 
 
 export default async function AgencyPortfolioPage() {
   const session = await requireAgency();
-  const tenants = await listTenants(session.userId);
+  const [tenants, agencyWebhooks, agencyDeliveries] = await Promise.all([
+    listTenants(session.userId),
+    listWebhooks(session.userId, null),
+    listWebhookDeliveries(session.userId, null),
+  ]);
 
   const totalPipeline = tenants.reduce((sum, t) => sum + t.pipeline_dkk, 0);
   const totalContacts = tenants.reduce((sum, t) => sum + t.contact_count, 0);
@@ -137,6 +143,14 @@ export default async function AgencyPortfolioPage() {
           </div>
         )}
       </section>
+
+      <WebhookManager
+        tenantId={null}
+        webhooks={agencyWebhooks}
+        deliveries={agencyDeliveries}
+        title="Agency-Global Webhooks"
+        hint="Receives matching events across all client workspaces. Strictly invisible to client sub-accounts."
+      />
     </div>
   );
 }

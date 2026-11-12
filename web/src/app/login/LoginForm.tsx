@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Lock, Mail, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export function LoginForm() {
   const router = useRouter();
@@ -39,12 +39,6 @@ export function LoginForm() {
       setError('Network error. Is the server running?');
       setIsBusy(false);
     }
-  }
-
-  function fillDemo(demoEmail: string) {
-    setEmail(demoEmail);
-    setPassword('demo1234');
-    setError(null);
   }
 
   return (
@@ -106,46 +100,6 @@ export function LoginForm() {
           <ArrowRight className="h-4 w-4" />
         </button>
       </form>
-
-      {/* 1-click Demo Accounts in Pulse Card style */}
-      <div className="border-t border-[var(--line)] pt-4">
-        <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
-          <Sparkles size={13} className="text-[#a78bfa]" />
-          <span>Demo credentials (password: demo1234)</span>
-        </div>
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => fillDemo('agency@nordic-omni.local')}
-            className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2 text-left text-xs transition hover:bg-white/[0.12] hover:-translate-y-0.5"
-          >
-            <span className="font-mono text-xs text-[var(--text)]">agency@nordic-omni.local</span>
-            <span className="rounded-full bg-[rgba(139,92,246,0.2)] px-2 py-0.5 font-mono text-[10px] font-bold text-[#c4b5fd]">
-              Agency Admin
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemo('jens@kbhvvs.dk')}
-            className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2 text-left text-xs transition hover:bg-white/[0.12] hover:-translate-y-0.5"
-          >
-            <span className="font-mono text-xs text-[var(--text)]">jens@kbhvvs.dk</span>
-            <span className="rounded-full bg-[rgba(34,211,238,0.18)] px-2 py-0.5 font-mono text-[10px] font-bold text-[#a5f3fc]">
-              Client: VVS
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemo('mette@nordicdental.dk')}
-            className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2 text-left text-xs transition hover:bg-white/[0.12] hover:-translate-y-0.5"
-          >
-            <span className="font-mono text-xs text-[var(--text)]">mette@nordicdental.dk</span>
-            <span className="rounded-full bg-[rgba(52,211,153,0.18)] px-2 py-0.5 font-mono text-[10px] font-bold text-[#a7f3d0]">
-              Client: Dental
-            </span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

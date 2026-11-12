@@ -1,5 +1,60 @@
 [
   {
+    "id": "eval-1794434946874-1",
+    "timestamp": "2026-11-11T22:09:06.875Z",
+    "model": "gemini-4-argon-high",
+    "category": "batch-2-portal-ssrf-and-worker-parity",
+    "benchmarkScore": 9.6,
+    "verdict": "PASS: Merged 9 confirmed Batch-2 fixes on top of Prompts 1-3 (portal lead enum crash, checkbox off-state, catalog metadata preservation, SSRF ::ffff: IPv6 bypass + codepoint guards, stage non-regression, email unique constraint mapping, emergency keyword dedup, message pagination, active-tenant call check, SIP channel attribution, escalation delivery flag, and 0014 call_logs.recording_path trigger).",
+    "codeExperience": "Session 01a1cc3b audited Nordic-Omni across web, agent-worker, and PostgreSQL. Nine unpatched Batch-2 fixes cleanly merged without overwriting 0012/0013 RLS, estimation parity, recordings containment, or CallClientView hardening.",
+    "diffOrSnippet": "CREATE TRIGGER trg_guard_call_recording_path BEFORE UPDATE ON call_logs FOR EACH ROW EXECUTE FUNCTION guard_call_recording_path();",
+    "source": "LM Arena Agentic Mode"
+  },
+  {
+    "id": "eval-1794424512536",
+    "timestamp": "2026-11-11T19:15:12.537Z",
+    "model": "Arena.ai Agent Mode (01a1cb85)",
+    "category": "webrtc-ui-visualizer-and-cockpit-bridge",
+    "benchmarkScore": 9.8,
+    "verdict": "PASS: WebRTC attempt races, audio and RAF teardown, mute recovery, idempotent abandonment, and Cockpit HTTP security hardening verified.",
+    "codeExperience": "Modified cockpit/server.js, web/src/app/call/[contactId]/CallClientView.tsx, web/src/components/audio/OrbVisualizer.tsx, and web/src/lib/livekit/attempt.ts. Added web/src/lib/audio/visualizer-runtime.ts, test/cockpit_server.test.ts, web/test/attempt-lifecycle.test.ts, and web/test/visualizer-runtime.test.ts. Arena checks: tsc 0 errors, npm test 46/46, unittest 64 (59 passed / 5 skipped).",
+    "diffOrSnippet": "const isCurrent = () => !disposedRef.current && runRef.current === runId;",
+    "source": "LM Arena Agentic Mode"
+  },
+  {
+    "id": "eval-1794422863186",
+    "timestamp": "2026-11-11T18:47:43.187Z",
+    "model": "Arena.ai Agent Mode (01a1cb85)",
+    "category": "estimation-parity-and-rls-audit",
+    "benchmarkScore": 9.7,
+    "verdict": "PASS: estimation parity and tenant/RLS boundaries hardened with full regression verification.",
+    "codeExperience": "Aligned strict Python, TypeScript, and Zod catalog validation; rejected booleans, strings, non-finite numbers, invalid scopes, and malformed brackets; preserved Danish decimal parsing; normalized fixed-model scope to null; and implemented half-up midpoint parity. Added 0013_public_contact_rls_and_tenant_integrity.sql, transaction-local public-contact RLS, immutable tenant triggers, scoped worker transcript/escalation writes, trusted-records.ts, and strict owner-pool allowlist. Arena checks: tsc 0 errors, npm test 34/34, unittest 64 (5 skipped), pytest 59 passed / 5 skipped.",
+    "diffOrSnippet": "midpoint = math.floor((low + high) / 2 + 0.5)  # Python parity with Math.round for positive brackets",
+    "source": "LM Arena Agentic Mode"
+  },
+  {
+    "id": "eval-1794421018159",
+    "timestamp": "2026-11-11T18:16:58.160Z",
+    "model": "Arena.ai Agent Mode (01a1cb85)",
+    "category": "sip-routing-and-recording-hardening",
+    "benchmarkScore": 9.5,
+    "verdict": "PASS — closed SIP metadata tenant/role spoofing and 00-prefix normalization gaps, added stale trunk/dispatch reconciliation, made recording persistence quiescent and atomic, and hardened playback against path escapes, range errors, information disclosure, and abort-related descriptor leaks.",
+    "codeExperience": "Modified agent-worker/main.py, agent-worker/scripts/setup_livekit_sip.py, agent-worker/services/db.py, agent-worker/services/recordings.py, 0008/0009 migrations, added 0012_phone_normalization_parity.sql, reworked web/src/app/api/recordings/[callId]/route.ts and added web/src/lib/recordings.ts + regression tests. Arena sandbox checks: tsc 0 errors, npm test 27/27, unittest/pytest 49 passed / 5 skipped.",
+    "diffOrSnippet": "os.replace(temporary, dest); os.fsync(directory_fd) + canonical realpathSync/O_NOFOLLOW Range handler",
+    "source": "LM Arena Agentic Mode"
+  },
+  {
+    "id": "eval-1794417612720",
+    "timestamp": "2026-11-11T17:20:12.721Z",
+    "model": "Arena.ai Agent Mode",
+    "category": "nordic-omni-concurrency-and-voice-audit",
+    "benchmarkScore": 8.9,
+    "verdict": "Hardened worker slot accounting, barge-in/resource teardown, browser abandonment, and PostgreSQL terminal-state transitions; schema parity and all requested static/unit suites now pass, but live 50-call audio quality still requires a credentialed deployment soak test.",
+    "codeExperience": "Audited main HEAD 1b2dafa. Replaced racy _active_calls with atomic CallSlotRegistry; consolidated shutdown into asyncio.Lock closing AgentSession before SafeAzureTTS, persisting call, closing asyncpg pool, and releasing slot last. Bounded SafeAzureTTS connectors to 4 sockets with ChunkedStream tracking. Added monotonic PostgreSQL call status transitions. Fixed browser double-start and audio detach leaks. Verification: pytest 35 passed (5 skipped), npm test 22 passed, tsc --noEmit passed.",
+    "diffOrSnippet": "async def close_agent_session(session: AgentSession) -> None:\n    try:\n        await asyncio.wait_for(session.aclose(), timeout=5.0)\n    finally:\n        tts_instance = session.tts\n        if tts_instance is not None:\n            await asyncio.wait_for(tts_instance.aclose(), timeout=3.0)",
+    "source": "LM Arena Agentic Mode"
+  },
+  {
     "id": "eval-1794415795877",
     "timestamp": "2026-11-11T16:49:55.877Z",
     "model": "gemini-4-argon-high",

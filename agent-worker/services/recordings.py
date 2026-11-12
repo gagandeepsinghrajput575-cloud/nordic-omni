@@ -24,6 +24,8 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -42,21 +44,29 @@ WAIT_SECONDS = 0.5
 
 
 def recordings_root() -> Path:
-    """Where recordings live permanently. Local disk, by design."""
+    """Canonical permanent recording root; created only inside the configured base."""
     root = os.environ.get("RECORDINGS_DIR")
     base = Path(root) if root else Path.home() / "nordic-omni-recordings"
+    base = base.expanduser().resolve()
     base.mkdir(parents=True, exist_ok=True)
     return base
 
 
 def _wait_for(path: Path) -> bool:
-    import time
-
-    for _ in range(WAIT_ATTEMPTS):
-        if path.exists() and path.stat().st_size > 0:
-            return True
-        time.sleep(WAIT_SECONDS)
-    return path.exists()
+    """Wait for two identical size/mtime samples, not merely a non-empty file."""
+    previous: tuple[int, int] | None = None
+    for attempt in range(WAIT_ATTEMPTS):
+        try:
+            stat = path.stat()
+            current = (stat.st_size, stat.st_mtime_ns)
+            if stat.st_size > 0 and current == previous:
+                return True
+            previous = current
+        except OSError:
+            previous = None
+        if attempt + 1 < WAIT_ATTEMPTS:
+            time.sleep(WAIT_SECONDS)
+    return False
 
 
 def _safe_component(value: str) -> str:
@@ -78,14 +88,28 @@ def preserve(
     src = Path(source_dir) / "audio.ogg"
 
     if not _wait_for(src):
-        logger.error("Recording file never appeared: %s", src)
+        try:
+            size = src.stat().st_size
+        except OSError:
+            logger.error("Recording file never appeared: %s", src)
+            return {
+                "status": "failed",
+                "error": f"audio.ogg not found in session directory ({src})",
+            }
+        if size < MIN_VALID_BYTES:
+            return {
+                "status": "failed",
+                "error": f"file is only {size} bytes, below the {MIN_VALID_BYTES}-byte floor",
+            }
         return {
             "status": "failed",
-            "error": f"audio.ogg not found in session directory ({src})",
+            "error": "audio.ogg did not reach a stable size and modification time",
         }
 
     try:
-        size = src.stat().st_size
+        source_stat = src.stat()
+        expected = (source_stat.st_size, source_stat.st_mtime_ns)
+        size = source_stat.st_size
     except OSError as exc:  # pragma: no cover - filesystem race
         return {"status": "failed", "error": f"could not stat recording: {exc}"}
 
@@ -96,23 +120,54 @@ def preserve(
             "error": f"file is only {size} bytes, below the {MIN_VALID_BYTES}-byte floor",
         }
 
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    dest_dir = recordings_root() / _safe_component(tenant_slug) / day
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / f"{_safe_component(room_name)}.ogg"
-
+    temporary: Path | None = None
     try:
-        shutil.copy2(src, dest)
-    except OSError as exc:
-        logger.exception("Could not copy recording to %s", dest)
-        return {"status": "failed", "error": f"copy failed: {exc}"}
+        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        root = recordings_root()
+        dest_dir = (root / _safe_component(tenant_slug) / day).resolve()
+        try:
+            dest_dir.relative_to(root)
+        except ValueError:
+            return {"status": "failed", "error": "recording destination escapes its root"}
+        dest_dir.mkdir(parents=True, exist_ok=True)
 
-    copied = dest.stat().st_size
-    if copied != size:
-        return {
-            "status": "failed",
-            "error": f"size mismatch after copy: {size} -> {copied} bytes",
-        }
+        dest = dest_dir / f"{_safe_component(room_name)}.ogg"
+        temporary = dest_dir / f".{dest.name}.{uuid.uuid4().hex}.tmp"
+        with src.open("rb") as source, temporary.open("xb") as output:
+            shutil.copyfileobj(source, output, length=1024 * 1024)
+            output.flush()
+            os.fsync(output.fileno())
+
+        # A growing recorder invalidates the snapshot even if the copy itself
+        # succeeded. Never publish that partial file or report it as durable.
+        after = src.stat()
+        if (after.st_size, after.st_mtime_ns) != expected:
+            return {"status": "failed", "error": "source recording changed during copy"}
+        copied = temporary.stat().st_size
+        if copied != size:
+            return {
+                "status": "failed",
+                "error": f"size mismatch after copy: {size} -> {copied} bytes",
+            }
+
+        os.replace(temporary, dest)
+        temporary = None
+        # Persist the rename as well as the file contents where the filesystem
+        # supports directory fsync. Failure remains visible in call_logs.
+        directory_fd = os.open(dest_dir, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except OSError as exc:
+        logger.exception("Could not durably preserve recording %s", src)
+        return {"status": "failed", "error": f"atomic copy failed: {exc}"}
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove temporary recording %s", temporary)
 
     logger.info("Recording saved: %s (%s bytes)", dest, copied)
     return {

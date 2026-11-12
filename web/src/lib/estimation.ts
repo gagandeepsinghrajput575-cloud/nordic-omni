@@ -1,14 +1,8 @@
-/** Catalog-grounded estimates. The model may choose the item, never the amount. */
+import type { z } from 'zod';
+import { PricingItemSchema } from '@/contracts/schemas';
 
-export interface CatalogItem {
-  id: string;
-  service: string;
-  price_dkk?: number;
-  unit?: string;
-  estimate_model?: 'fixed' | 'per_square_meter' | string;
-  estimate_min_dkk?: number;
-  estimate_max_dkk?: number;
-}
+/** Catalog-grounded estimates. The model may choose the item, never the amount. */
+export type CatalogItem = z.infer<typeof PricingItemSchema>;
 
 export interface Estimate {
   catalogItemId: string;
@@ -22,44 +16,55 @@ export interface Estimate {
 export class EstimateError extends Error {}
 
 function positiveNumber(value: unknown): number | null {
-  const result = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(result) && result > 0 ? result : null;
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 }
 
+function legacyNumber(token: string): number | null {
+  const value = Number(token.replaceAll('.', '').replace(',', '.'));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+const LEGACY_NUMBER = String.raw`(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?`;
+const LEGACY_BRACKET = new RegExp(
+  String.raw`typisk\s+(${LEGACY_NUMBER})\s*-\s*(${LEGACY_NUMBER})`,
+  'i',
+);
+
 function legacyBracket(unit: string): [number, number] | null {
-  const match = /typisk\s+([\d.]+)(?:,\d+)?\s*-\s*([\d.]+)(?:,\d+)?/i.exec(unit);
+  const match = LEGACY_BRACKET.exec(unit);
   if (!match) return null;
-  const low = positiveNumber(match[1].replaceAll('.', ''));
-  const high = positiveNumber(match[2].replaceAll('.', ''));
-  return low !== null && high !== null ? [low, high] : null;
+  const low = legacyNumber(match[1]);
+  const high = legacyNumber(match[2]);
+  return low !== null && high !== null && low <= high ? [low, high] : null;
 }
 
 export function calculateEstimate(
-  catalog: CatalogItem[],
+  catalog: readonly CatalogItem[],
   catalogItemId: string,
-  squareMeters: number | null,
+  squareMeters: unknown,
 ): Estimate {
-  const item = catalog.find((entry) => entry.id === catalogItemId);
-  if (!item) throw new EstimateError('This project type is not configured for an estimate.');
+  const candidate = catalog.find((entry) => entry?.id === catalogItemId);
+  const parsed = PricingItemSchema.safeParse(candidate);
+  if (!parsed.success) {
+    throw new EstimateError('This project type is not configured for a valid estimate.');
+  }
+  const item = parsed.data;
 
-  const unit = String(item.unit || '');
   let low = positiveNumber(item.estimate_min_dkk);
   let high = positiveNumber(item.estimate_max_dkk);
   if (low === null || high === null) {
-    const legacy = legacyBracket(unit);
+    const legacy = legacyBracket(item.unit);
     if (legacy) [low, high] = legacy;
   }
-  if (low === null || high === null || low > high) {
+  if (low === null || high === null) {
     throw new EstimateError('No valid estimate bracket is configured for this project.');
   }
 
-  let model = String(item.estimate_model || '').trim();
-  if (!model) {
-    model = /kvadratmeter|m²/i.test(unit) ? 'per_square_meter' : 'fixed';
-  }
+  const model = item.estimate_model ??
+    (/kvadratmeter|m²/i.test(item.unit) ? 'per_square_meter' : 'fixed');
 
   let scope: number | null = null;
-  if (squareMeters !== null) {
+  if (squareMeters !== null && squareMeters !== undefined) {
     scope = positiveNumber(squareMeters);
     if (scope === null || scope > 100_000) {
       throw new EstimateError('Square meters must be a positive, realistic number.');
@@ -70,13 +75,17 @@ export function calculateEstimate(
     if (scope === null) throw new EstimateError('Square meters are required for this estimate.');
     low *= scope;
     high *= scope;
-  } else if (model !== 'fixed') {
-    throw new EstimateError('The catalog has an unsupported estimation model.');
+    if (!Number.isFinite(low) || !Number.isFinite(high)) {
+      throw new EstimateError('The estimate exceeds the supported numeric range.');
+    }
+  } else {
+    // Scope can be useful dialogue context, but is not part of a fixed price.
+    scope = null;
   }
 
   return {
     catalogItemId,
-    service: item.service || catalogItemId,
+    service: item.service,
     minimum: low,
     maximum: high,
     midpoint: Math.round((low + high) / 2),

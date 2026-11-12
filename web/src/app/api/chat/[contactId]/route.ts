@@ -5,10 +5,10 @@ import {
   loadChatContext,
   loadChatMessages,
   mergeContactMemory,
-  recordChatEstimate,
-  requestChatInspection,
   updateChatContactState,
 } from '@/lib/db/chat';
+import { recordChatEstimate, requestChatInspection } from '@/lib/db/trusted-records';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { generateChatTurn } from '@/lib/ai/customer-chat';
 import { recordEscalation, type EscalationReason } from '@/lib/ai/escalation';
 import { calculateEstimate } from '@/lib/estimation';
@@ -171,6 +171,30 @@ export async function POST(
 
   await mergeContactMemory(context.tenant.id, contactId, result.memory_update);
   await updateChatContactState(context.tenant.id, contactId, result.stage, result.lead_score);
+
+  if (estimateId && estimateView) {
+    void dispatchWebhookEvent(context.tenant.id, 'estimate.recorded', {
+      estimateId,
+      contactId,
+      minimum: estimateView.minimum,
+      maximum: estimateView.maximum,
+      midpoint: estimateView.midpoint,
+      service: estimateView.service,
+    });
+  }
+  if (inspectionId) {
+    void dispatchWebhookEvent(context.tenant.id, 'inspection.requested', {
+      inspectionId,
+      contactId,
+      requestedTimeText: result.inspection_request?.requested_time_text ?? '',
+    });
+  }
+  if (result.stage && result.stage !== context.contact.pipeline_stage) {
+    void dispatchWebhookEvent(context.tenant.id, 'pipeline.stage_changed', {
+      contactId,
+      pipelineStage: result.stage,
+    });
+  }
 
   const forced = deterministicEscalation(text, context.agent.escalation_policy);
   const escalationWanted = forced ?? (result.escalation?.needed ? result.escalation : null);

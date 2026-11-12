@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { Phone, PhoneOff, Mic, MicOff, Sparkles, Volume2, Radio } from 'lucide-react';
 import { useAudioBands, peakOf } from '@/lib/audio/useAudioBands';
+// Failed pre-agent attempts recover through /api/livekit/abandon.
+import { abandonCallAttempt, disposeAudioElement } from '@/lib/livekit/attempt';
 
 type Stage = 'idle' | 'requesting' | 'connecting' | 'waiting_for_agent' | 'live' | 'ended' | 'error';
 const AGENT_TIMEOUT_MS = 30_000;
@@ -33,22 +35,42 @@ export function CallPanel({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intentionalDisconnectRef = useRef(false);
   const attemptIdRef = useRef<string | null>(null);
+  const startInFlightRef = useRef(false);
+  const reachedAgentRef = useRef(false);
+  const disposedRef = useRef(false);
 
   const bands = useAudioBands(agentStream, 24);
   const peak = peakOf(bands);
 
   const cleanupCall = useCallback(() => {
     intentionalDisconnectRef.current = true;
-    roomRef.current?.disconnect();
+    reachedAgentRef.current = false;
+    const room = roomRef.current;
     roomRef.current = null;
-    audioRef.current?.remove();
+    if (room) {
+      room.removeAllListeners();
+      void room.disconnect().catch(() => undefined);
+    }
+    if (audioRef.current) disposeAudioElement(audioRef.current);
     audioRef.current = null;
     setAgentStream(null);
     setAgentSpeaking(false);
     setMuted(false);
   }, []);
 
-  useEffect(() => () => cleanupCall(), [cleanupCall]);
+  useEffect(() => {
+    disposedRef.current = false;
+    const onPageHide = () => {
+      disposedRef.current = true;
+      if (!reachedAgentRef.current) abandonCallAttempt(attemptIdRef.current);
+      cleanupCall();
+    };
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      onPageHide();
+    };
+  }, [cleanupCall]);
 
   useEffect(() => {
     if (stage !== 'live') return;
@@ -62,10 +84,13 @@ export function CallPanel({
   }, [cleanupCall]);
 
   async function startCall() {
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
     setError(null);
     setStage('requesting');
     setSeconds(0);
     intentionalDisconnectRef.current = false;
+    reachedAgentRef.current = false;
     attemptIdRef.current = null;
 
     try {
@@ -81,6 +106,10 @@ export function CallPanel({
       }
 
       attemptIdRef.current = data.attemptId ?? null;
+      if (disposedRef.current) {
+        abandonCallAttempt(attemptIdRef.current);
+        return;
+      }
       setStage('connecting');
       const room = new Room({ adaptiveStream: true, dynacast: true });
       roomRef.current = room;
@@ -102,8 +131,9 @@ export function CallPanel({
       });
 
       room.on(RoomEvent.TrackUnsubscribed, (track) => {
-        track.detach().forEach((el) => el.remove());
+        track.detach().forEach(disposeAudioElement);
         if (audioRef.current && !audioRef.current.isConnected) audioRef.current = null;
+        setAgentStream(null);
       });
 
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
@@ -112,11 +142,13 @@ export function CallPanel({
 
       room.on(RoomEvent.Disconnected, () => {
         if (intentionalDisconnectRef.current) return;
+        if (!reachedAgentRef.current) abandonCallAttempt(attemptIdRef.current);
         cleanupCall();
         setStage('ended');
       });
 
       await room.connect(data.serverUrl, data.token);
+      if (disposedRef.current) return;
       await room.startAudio();
       await room.localParticipant.setMicrophoneEnabled(true, {
         echoCancellation: true,
@@ -139,19 +171,15 @@ export function CallPanel({
         );
       }
       await audioElement.play();
+      reachedAgentRef.current = true;
       setStage('live');
     } catch (err) {
-      if (attemptIdRef.current) {
-        void fetch('/api/livekit/abandon', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ attemptId: attemptIdRef.current }),
-          keepalive: true,
-        }).catch(() => undefined);
-      }
+      abandonCallAttempt(attemptIdRef.current);
       cleanupCall();
       setStage('error');
       setError(err instanceof Error ? err.message : 'Call failed');
+    } finally {
+      startInFlightRef.current = false;
     }
   }
 

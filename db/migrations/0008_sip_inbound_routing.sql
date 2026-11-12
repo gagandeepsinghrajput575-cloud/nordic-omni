@@ -3,11 +3,15 @@ BEGIN;
 
 -- The assigned DID is the only allowed tenant selector for PSTN calls.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_flynumber_did_normalized
-    ON tenants ((regexp_replace(flynumber_did, '[^0-9+]', '', 'g')))
+    ON tenants (((CASE WHEN regexp_replace(flynumber_did, '[^0-9]', '', 'g') LIKE '00%'
+        THEN '+' || substr(regexp_replace(flynumber_did, '[^0-9]', '', 'g'), 3)
+        ELSE '+' || regexp_replace(flynumber_did, '[^0-9]', '', 'g') END)))
     WHERE flynumber_did IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_contacts_tenant_phone_normalized
-    ON contacts (tenant_id, (regexp_replace(phone_number, '[^0-9+]', '', 'g')))
+    ON contacts (tenant_id, ((CASE WHEN regexp_replace(phone_number, '[^0-9]', '', 'g') LIKE '00%'
+        THEN '+' || substr(regexp_replace(phone_number, '[^0-9]', '', 'g'), 3)
+        ELSE '+' || regexp_replace(phone_number, '[^0-9]', '', 'g') END)))
     WHERE phone_number IS NOT NULL;
 
 -- Client #1 was re-seeded from a VVS pilot. Its old demo DID is not a live
