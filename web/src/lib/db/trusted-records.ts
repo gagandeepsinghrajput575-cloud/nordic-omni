@@ -217,3 +217,26 @@ export async function getTenantKnowledgeRecord(workspaceId: string): Promise<{
     pricing_catalog: (rows[0]?.pricing_catalog as Array<{ id: string; name: string; unit_dkk: number; description?: string }>) ?? null,
   };
 }
+
+export async function getTenantByIdRecord(id: string): Promise<Record<string, unknown> | null> {
+  const rows = await adminSql`
+    select id, name, slug, owner_name, owner_phone, owner_email,
+           default_language::text as default_language, status
+    from tenants
+    where id = ${id}::uuid
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function listAllTenantsRecord(): Promise<Array<Record<string, unknown>>> {
+  const rows = await adminSql`
+    select id, name, slug, owner_name, owner_phone, owner_email,
+           default_language::text as default_language, status
+    from tenants
+    where status = 'active'
+    order by name asc
+  `;
+  return rows as unknown as Array<Record<string, unknown>>;
+}
+

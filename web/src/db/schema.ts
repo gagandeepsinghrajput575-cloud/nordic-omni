@@ -119,3 +119,55 @@ export interface Showcase {
   leadCount: number;
   createdAt: Date;
 }
+
+export interface TelephonyNumber {
+  id: string;
+  agencyId: string;
+  workspaceId?: string | null;
+  e164: string;
+  country: string;
+  label: string;
+  provider: string;
+  carrier: string;
+  sipTrunkHost: string;
+  sipUsername: string;
+  sipPassword?: string;
+  dispatchRuleId?: string | null;
+  mode: "webrtc" | "sip";
+  ringBehavior: "immediate" | "one-ring" | "two-rings";
+  codec: "PCMA" | "PCMU" | "OPUS" | "AMR-WB";
+  sampleRate: number;
+  status: string;
+  healthScore: number;
+  jitterMs: number;
+  packetLoss: number;
+  monthlyCostDkk: number;
+  lastCallAt?: Date | null;
+  createdAt: Date;
+}
+
+export interface SipSession {
+  id: string;
+  agencyId: string;
+  workspaceId?: string | null;
+  numberId?: string | null;
+  roomName: string;
+  callId?: string | null;
+  direction: "inbound" | "outbound";
+  callerNumber?: string | null;
+  dialedNumber?: string | null;
+  state: "ringing" | "connected" | "completed" | "failed" | "missed";
+  codec: string;
+  ringDelayMs: number;
+  sttLatencyMs: number;
+  llmFirstTokenMs: number;
+  ttsFirstByteMs: number;
+  roundTripMs: number;
+  jitterMs: number;
+  packetLossPct: number;
+  mos: number;
+  transcriptPreview?: string | null;
+  startedAt: Date;
+  endedAt?: Date | null;
+}
+
