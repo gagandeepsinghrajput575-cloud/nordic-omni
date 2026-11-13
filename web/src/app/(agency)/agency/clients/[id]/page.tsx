@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, History, Phone, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, History, Phone, ShieldCheck, Sparkles } from 'lucide-react';
 import { requireAgency } from '@/lib/auth/guard';
 import { getTenantFacts, getTenantOverview, getAgentConfig, listKnowledge, listConfigHistory, listContacts } from '@/lib/db/queries';
 import { listWebhooks, listWorkspaceMembers } from '@/lib/db/agency';
@@ -41,7 +41,7 @@ export default async function AgencyClientDetailPage({ params }: { params: Promi
   </Card>;
 
   return <div className="space-y-7">
-    <PageHeader eyebrow="Client workspace" title={tenant.name} description={`/${tenant.slug} · ${isDanish ? 'Danish' : 'English'} reception · Full agency control`} actions={<><Badge tone={tenant.status === 'active' ? 'success' : 'warning'} dot>{tenant.status}</Badge><Link href="/agency/clients" className={buttonClass('ghost', 'sm')}><ArrowLeft size={13} />All clients</Link></>} />
+    <PageHeader eyebrow="Client workspace" title={tenant.name} description={`/${tenant.slug} · ${isDanish ? 'Danish' : 'English'} reception · Full agency control`} actions={<><Link href={`/showcase/${tenant.slug}`} target="_blank" className="pill pill-accent flex items-center gap-1.5 text-[12px] font-medium"><Sparkles size={13} />Web Voice Showcase</Link><Badge tone={tenant.status === 'active' ? 'success' : 'warning'} dot>{tenant.status}</Badge><Link href="/agency/clients" className={buttonClass('ghost', 'sm')}><ArrowLeft size={13} />All clients</Link></>} />
     <StatGroup><Stat label="Callers" value={overview.contacts} hint="In this workspace" /><Stat label="Pipeline" value={dkk(overview.pipeline_dkk)} unit="DKK" hint="Estimated caller value" /><Stat label="Calls" value={overview.calls} hint="Recorded sessions" /><Stat label="Urgent escalations" value={overview.dire} tone={overview.dire > 0 ? 'danger' : 'default'} hint="Open emergency cases" /></StatGroup>
     <WorkspaceStudio panels={{
       overview: <div className="space-y-5"><WorkspaceControls tenantId={id} status={tenant.status} receptionMode={tenant.reception_mode} did={tenant.flynumber_did} /><Card><CardHeader title="Business identity" hint="Contact facts are shared with the client portal." /><dl className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-4">{[['Owner', tenant.owner_name], ['Owner phone', tenant.owner_phone], ['Owner email', tenant.owner_email], ['Assigned DID', tenant.flynumber_did ?? 'Browser calls only']].map(([label,value]) => <div key={label} className="min-w-0"><dt className="text-[12px] text-[var(--muted)]">{label}</dt><dd className="mt-1 break-words text-[13px] font-medium">{value || '—'}</dd></div>)}</dl><div className="border-t border-[var(--line)] p-5"><h3 className="mb-2 text-[13px] font-medium">Operational notice</h3><p className="text-[13px] text-[var(--text-secondary)]">{tenant.active_broadcast_message || 'No active notice.'}</p></div></Card><div className="notice notice-info"><Phone size={17} className="shrink-0" /><p className="text-[12px]">Carrier setup remains external: point the DID at your LiveKit SIP trunk and run the SIP provisioning script. Saving controls here does not purchase a number or claim a carrier connection.</p></div></div>,

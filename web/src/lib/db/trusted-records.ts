@@ -163,3 +163,57 @@ export async function recordWebhookDeliverySystem({
     )
   `;
 }
+
+export async function getAgencyTenantRecord(): Promise<Record<string, unknown> | null> {
+  const rows = await adminSql`
+    select id, name, slug, owner_name, owner_phone, owner_email,
+           default_language::text as default_language, status
+    from tenants
+    order by created_at asc
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function getTenantBySlugRecord(slug: string): Promise<Record<string, unknown> | null> {
+  const rows = await adminSql`
+    select id, name, slug, owner_name, owner_phone, owner_email,
+           default_language::text as default_language, status
+    from tenants
+    where slug = ${slug} and status <> 'archived'
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function getActivePortalTenantRecord(): Promise<Record<string, unknown> | null> {
+  const rows = await adminSql`
+    select id, name, slug, owner_name, owner_phone, owner_email,
+           default_language::text as default_language, status
+    from tenants
+    where status = 'active'
+    order by name asc
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function getTenantHoursRecord(workspaceId: string): Promise<Record<string, { open: string; close: string; closed: boolean }> | null> {
+  const rows = await adminSql`
+    select business_hours from tenants where id = ${workspaceId}::uuid limit 1
+  `;
+  return (rows[0]?.business_hours as Record<string, { open: string; close: string; closed: boolean }>) ?? null;
+}
+
+export async function getTenantKnowledgeRecord(workspaceId: string): Promise<{
+  active_broadcast_message: string | null;
+  pricing_catalog: Array<{ id: string; name: string; unit_dkk: number; description?: string }> | null;
+}> {
+  const rows = await adminSql`
+    select pricing_catalog, active_broadcast_message from tenants where id = ${workspaceId}::uuid limit 1
+  `;
+  return {
+    active_broadcast_message: (rows[0]?.active_broadcast_message as string) ?? null,
+    pricing_catalog: (rows[0]?.pricing_catalog as Array<{ id: string; name: string; unit_dkk: number; description?: string }>) ?? null,
+  };
+}
