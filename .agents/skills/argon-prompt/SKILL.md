@@ -3,8 +3,8 @@ name: argon-prompt
 description: >-
   Architects surgical, high-density, turn-sliced prompts for Argon and 64k context models in LM Arena Agentic mode.
   Extracts minimal Type Spines, Design System tokens, and API contracts without dumping raw codebase files.
-  Enforces a strict < 3,500 input token budget, single-block copyable output, and anti-steerability rules.
-  Includes step-by-step LM Arena navigation guide (Single Model -> Coding Mode -> Argon High).
+  Enforces a strict < 3,500 input token budget, single-block copyable output, anti-steerability rules,
+  and zero-input autonomous browser execution (auto-navigating LM Arena, selecting Argon High, auto-refreshing on stalls, and harvesting outputs).
   Trigger whenever the user asks for an Argon prompt, tags Argon (@argon), mentions 64k model limits, or exports tasks to LM Arena.
 ---
 
@@ -21,9 +21,46 @@ This skill solves that by running a **4-Phase Surgical Extraction** that keeps p
 
 ---
 
-## LM Arena Operating Guide: Navigating to Argon High
+## Zero-Input Autonomous Browser Execution Protocol
 
-Follow this exact step-by-step workflow whenever running a task in LM Arena:
+When the user asks for zero-input execution (or tells the agent to run automatically without manual copy-pasting), Antigravity **directly drives the browser subagent**:
+
+```text
+Autonomous Flow (Zero Human Input):
+┌────────────────────────────────────────────────────────┐
+│ 1. Antigravity extracts Type Spine (< 3,500 tokens)   │
+└──────────────────────────┬─────────────────────────────┘
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 2. Delegate to `browser` subagent                      │
+│    - Navigate to https://arena.ai                      │
+│    - Switch to "Direct Chat" / "Single Model" mode     │
+│    - Switch to "Coding" / "Agentic" workspace mode     │
+│    - Select "Argon High" from model dropdown           │
+│    - Type/paste prompt and click Submit                │
+└──────────────────────────┬─────────────────────────────┘
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 3. Automated Resiliency & Anti-Freeze Sentinel         │
+│    - Monitor response streaming and DOM indicators     │
+│    - If WebSocket drops or generation freezes > 30s:   │
+│      Reload page -> recover session -> resume polling  │
+└──────────────────────────┬─────────────────────────────┘
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 4. Code Harvest & Verification                         │
+│    - Scrape all code blocks and diffs from response    │
+│    - Antigravity writes files to repo                  │
+│    - Run `(cd web && npx tsc --noEmit)` & `npm test`   │
+│    - Commit and push directly to git `main`            │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Manual LM Arena Operating Guide: Navigating to Argon High
+
+If the user prefers to operate the browser manually, provide this guide along with the copyable prompt block:
 
 ```text
 Step 1: Open LM Arena
@@ -88,16 +125,9 @@ Evaluate the extracted token budget reported by `argon_extractor.py`:
   - **Turn 1 (Contract & Backend)**: Database schema migration + API route handlers + test assertions.
   - **Turn 2 (UI & Telemetry)**: Frontend component + state machine + Arena telemetry webhook.
 
-### Phase 4: Prompt Synthesis (Single Copyable Block)
-Output the generated prompt enclosed in a single markdown code block (` ````markdown ```` `) so the user can copy-paste it directly into Arena with one click.
-
-Ensure the prompt contains:
-1. **Mission Objective**: 1 paragraph stating what the feature is and how it behaves.
-2. **Strict Invariants**: Next.js 15 App Router, TypeScript strict (zero `any`), RLS database boundaries, and exact import aliases (`@/...`).
-3. **Design Tokens**: The exact palette variables and available UI primitives (`Pill`, `Equalizer`, `LiveStatus`, etc.).
-4. **The Type Spine**: The minimal, pristine type contracts extracted in Phase 2.
-5. **Exact Deliverable Files**: List of specific file paths to create or update.
-6. **Local Verification Commands**: The exact terminal commands the model should optimize to pass (`(cd web && npx tsc --noEmit)`, `npm test`, `pytest`).
+### Phase 4: Autonomous Execution or Prompt Synthesis
+- **Autonomous Mode (Zero Input)**: Send the synthesized prompt directly to the `browser` subagent to execute on Arena, monitor for stalls, and scrape the code.
+- **Manual Mode**: Output the generated prompt enclosed in a single markdown code block (` ````markdown ```` `) for the user.
 
 ---
 
