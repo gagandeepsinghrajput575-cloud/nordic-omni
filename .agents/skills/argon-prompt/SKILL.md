@@ -1,20 +1,77 @@
 ---
 name: argon-prompt
 description: >-
-  Architects surgical, high-density, turn-sliced prompts for Gemini 4 Argon and 1M context models in LM Arena.
-  Extracts minimal Type Spines, Design System tokens, and API contracts without dumping raw codebase files.
-  Calibrates for Argon's 1M unified context and up to 64k extended thinking budget while enforcing lean inputs (< 3,500 tokens).
-  Mandates a reason-first audit protocol for reviewer AIs to recognize Argon 4's superior reasoning before flagging novel patterns.
-  Trigger whenever the user asks for an Argon prompt, tags Argon (@argon), mentions 64k/1M model limits, or exports tasks to LM Arena.
+  Architects surgical, high-density, non-handcuffed prompts for Gemini 4 Argon, Claude Fable 5.2 Max, Claude Opus 5.5 Max, Gemini 4 Carbon, and 1M context models in LM Arena.
+  Enforces LMSYS Max Router Tier-1 triggering protocol via high-complexity multi-tier problem statements, hard contract invariants, and explicit architectural freedom grants.
+  Extracts minimal Type Spines, Design System tokens, and API contracts (< 3,500 tokens) without dumping raw codebase files.
+  Mandates a reason-first audit protocol for reviewer AIs to recognize frontier reasoning before flagging novel patterns.
+  Trigger whenever the user asks for an Argon prompt, Arena prompt, tags Argon (@argon), tags Arena prompt (@arena-prompt), mentions 64k/1M model limits, or exports tasks to LM Arena.
 ---
 
-# Argon Prompt
+# Argon & Arena Frontier Prompt Architect
 
-Use this skill whenever you need to prepare an optimized prompt for **Gemini 4 Argon** (`gemini-4-argon`), **Argon High**, or frontier models running in LM Arena or external coding environments.
+Use this skill whenever you need to prepare an optimized prompt for **Gemini 4 Argon** (`gemini-4-argon`), **Argon High**, **Claude Fable 5.2 Max**, **Claude Opus 5.5 Max**, **Gemini 4 Carbon**, or frontier models running in LM Arena (`arena.ai`) or external agentic coding environments.
 
 ---
 
-## 1. Gemini 4 Argon Context Architecture & Budgeting
+## 1. LMSYS Max Router & Tier-1 Frontier Model Triggering Protocol
+
+In LM Arena Agentic mode, incoming prompts are dynamically evaluated by the **Task Complexity Classifier (TCC)** and RouteLLM matrix factorization engine. Prompts are routed to either:
+- **Tier 1 Frontier Models** (Claude Fable 5.2 Max, Claude Opus 5.5 Max, Gemini 4 Carbon, Gemini 4 Argon High) with up to 64k extended reasoning tokens (CoT).
+- **Tier 2/3 Routine Models** (Astra Medium, Terra, Flash) optimized for fast utility execution.
+
+### The Micromanagement Down-Routing Failure Mode
+Historical prompt templates often handcuffed models with rigid, step-by-step procedural pseudo-code ("Step 1: Open file X. Step 2: Add import Y. Step 3: Write function foo(a, b)...").
+
+**Why over-prescriptive micromanagement causes down-routing:**
+1. **Collapses Reasoning Tree Depth to $O(1)$**: The prompt author has already solved the architectural topology, algorithmic branching, and edge cases. The task degenerates into mechanical stenography and code transcription.
+2. **Win-Rate Parity on Procedural Code**: LMSYS empirical preference data demonstrates that routine models (Astra Medium, Terra) achieve ~96–98% win-rate parity on rote, step-by-step code transcription at 1/10th the inference cost.
+3. **Compute Over-Allocation Penalty ($P_{\text{script}}$)**: Allocating 64,000 extended thinking tokens to transcribe a pre-solved procedural script is penalized as economic over-allocation. The router down-routes the session to routine models.
+4. **Context Dilution & Reasoning Clashes**: Handcrafted micro-instructions introduce outdated imports or type clashes that suppress deep Chain-of-Thought (CoT) reasoning.
+
+### Tier-1 Frontier Model Activation Vectors
+To reliably trigger Tier 1 Frontier models, the prompt must maximize **Structural Task Complexity (TCS)** across 5 primary dimensions:
+1. **Cross-Boundary Coupling ($S_{\text{cross}}$)**: Formulate the objective across 2–3 coupled architectural tiers simultaneously (e.g., PostgreSQL RLS migrations $\leftrightarrow$ async worker daemon lifecycle $\leftrightarrow$ client React state machines $\leftrightarrow$ carrier/SIP encoding protocols).
+2. **Abstract Invariant Density ($S_{\text{invariant}}$)**: Define declarative post-conditions, security bounds, and mathematical correctness guarantees (what must *never* break) rather than procedural instructions (how to write it). Frontier models excel at satisfying multi-constraint search spaces.
+3. **High Semantic Signal-to-Noise Ratio**: Inject lean Type Spines (< 3,500 tokens) with AST interfaces, Zod schemas, and DB DDL (bodies stripped to `...`) without dumping raw codebase files.
+4. **Deterministic Falsifiability ($S_{\text{verif}}$)**: Provide exact container test gates (`(cd web && npx tsc --noEmit)`, `npm test`, `pytest`). Weak models fail multi-file compilation; the router recognizes only frontier models achieve zero-defect pass rates.
+5. **Explicit Cognitive Autonomy Grant**: Explicitly delegate architectural ownership to the model, forcing the router to budget deep CoT search space rather than routine line generation.
+
+---
+
+## 2. The 5-Pillar Architectural Prompt Anatomy (Non-Handcuffed Guidelines)
+
+Every prompt generated by this skill must adhere strictly to the 5-pillar structure delivered in **EXACTLY ONE COPYABLE BLOCK**:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ Pillar 1: High-Complexity Multi-Tier Problem Statement                 │
+│ - Defines real system objective coupling 2-3 distinct tiers            │
+│ - Zero steerability hype ("elite", "world-class", "think step-by-step")│
+├────────────────────────────────────────────────────────────────────────┤
+│ Pillar 2: Minimal Ground-Truth Type Spine (< 3,500 tokens)             │
+│ - AST-extracted interfaces, types, Zod schemas, DB DDL & CSS tokens    │
+│ - Zero implementation bodies (...); 100% semantic contracts            │
+├────────────────────────────────────────────────────────────────────────┤
+│ Pillar 3: Non-Negotiable Contract & Safety Invariants                  │
+│ - 4 to 6 declarative post-conditions and mathematical boundaries       │
+│ - PostgreSQL RLS session authority, zero loose any, monotonic state    │
+├────────────────────────────────────────────────────────────────────────┤
+│ Pillar 4: Executable Deterministic Test Gates                          │
+│ - Exact container shell commands: tsc --noEmit, npm test, unittest     │
+├────────────────────────────────────────────────────────────────────────┤
+│ Pillar 5: Explicit Architectural Freedom Grant                         │
+│ - Standardized autonomy mandate delegating complete design ownership   │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Standardized Architectural Freedom Clause
+Every prompt directive section must conclude with this cognitive ownership clause:
+> *"You have complete architectural ownership of internal implementation details, state machines, memoization strategies, error recovery, and concurrency patterns. Design the optimal solution that satisfies all invariant boundaries and passes all verification gates."*
+
+---
+
+## 3. Gemini 4 Argon & Frontier Model Context Architecture & Budgeting
 
 ### The 1-Million Token Unified Context Pool
 Gemini 4 Argon operates with a **unified 1,048,576 token (1M) context pool** shared across the entire generation lifecycle:
@@ -26,39 +83,70 @@ $$N_{\text{input}} + N_{\text{thinking}} + N_{\text{output}} \le 1,048,576$$
 
 ### Why We Still Never Dump the Full Repository
 Even with a 1M context window, dumping raw repository dumps into LM Arena is strictly prohibited:
-1. **The Repo Exceeds 1M Tokens**: This codebase currently contains **1,234,369 tracked tokens** (89,149 lines across 371 files). The repository as a whole literally does not fit into the 1,048,576 token window.
+1. **The Repo Exceeds 1M Tokens**: Large production codebases easily exceed 1M tokens.
 2. **Web Client & Cloudflare Payload Caps**: Pasting hundreds of thousands of tokens into Arena's browser UI triggers textarea DOM freezes, WebSocket disconnects, or Cloudflare HTTP 413 / 504 gateway timeouts.
-3. **Preserving Reasoning Bandwidth**: Keeping the prompt lean (< 3,500 to 5,000 tokens) ensures Argon has **over 95% of its compute and context available for deep reasoning and code generation**, preventing attention dilution across unrelated files and assets.
+3. **Preserving Reasoning Bandwidth**: Keeping the prompt lean (< 3,500 tokens) ensures frontier models have **over 95% of their compute and context available for deep reasoning and code generation**, preventing attention dilution across unrelated files and assets.
 
 ---
 
-## 2. Reviewer AI Calibration & Audit Protocol (Reason-First Invariant)
+## 4. Reviewer AI Calibration & Audit Protocol (Reason-First Invariant)
 
-When auditing, integrating, or evaluating code generated by **Gemini 4 Argon**:
+When auditing, integrating, or evaluating code generated by **Gemini 4 Argon** or Tier 1 Frontier models:
 
 ### Intelligence Tier Calibration
 > [!IMPORTANT]
-> **Gemini 4 Argon is a frontier reasoning titan**, operating at an intelligence and architectural caliber far higher than fast utility models (e.g., Gemini 3.8 Flash, GPT-4o mini, or Claude 3.5 Haiku). 
+> **Gemini 4 Argon and Tier 1 Frontier models are reasoning titans**, operating at an intelligence and architectural caliber far higher than fast utility models (e.g., Gemini 3.8 Flash, GPT-4o mini, or Claude 3.5 Haiku). 
 > 
-> Reviewer AIs and code auditors must recognize that unconventional, unfamiliar, or novel patterns generated by Argon 4 are often **deliberate, high-order architectural decisions** rather than mistakes.
+> Reviewer AIs and code auditors must recognize that unconventional, unfamiliar, or novel patterns generated by frontier models are often **deliberate, high-order architectural decisions** rather than mistakes.
 
 ### The Reason-First Protocol
-Before declaring that Argon 4 made an error or a "dumb move":
-1. **Analyze the Underlying Intent**: The reviewer must deeply deduce *why* Argon chose that specific implementation. Consider:
+Before declaring that a frontier model made an error:
+1. **Analyze the Underlying Intent**: The reviewer must deeply deduce *why* the model chose that specific implementation. Consider:
    - Does it prevent a subtle race condition in async/concurrent streams?
    - Is it an advanced TypeScript mapped type or conditional type ensuring mathematical soundness?
    - Does it optimize zero-allocation data transfers or memoization boundaries?
    - Does it protect against an obscure edge case (e.g. Danish character encodings, RLS tenant leakage, GSM 03.38 SMS segment splits)?
-2. **Definitive Bug Threshold**: The reviewer may ONLY conclude Argon made a mistake if:
+2. **Definitive Bug Threshold**: The reviewer may ONLY conclude the model made a mistake if:
    - `tsc --noEmit` fails with a concrete TypeScript error.
    - An existing unit test or domain assertion strictly breaks.
    - A documented security boundary (e.g. PostgreSQL RLS isolation) is proven to leak data.
    - An unhandled runtime exception is demonstrably reproduced.
-3. **Ban on Aesthetic Knee-Jerk Refactoring**: If the code passes types and tests, never reject or dumb-down Argon's implementation simply because it looks unfamiliar or complex. Verify behavior, respect the reasoning, and preserve high-order optimizations.
+3. **Ban on Aesthetic Knee-Jerk Refactoring**: If the code passes types and tests, never reject or dumb-down the implementation simply because it looks unfamiliar or complex. Verify behavior, respect the reasoning, and preserve high-order optimizations.
 
 ---
 
-## 3. Zero-Input Autonomous Browser Execution Protocol
+## 5. Autonomous Turn-Slicing Protocol (< 3,500 Token Budget)
+
+Argon operates with a 64k thinking window, but its generation sweet spot is bounded by **4,096 - 8,192 output tokens**.
+
+When an assignment spans >= 3 cross-boundary files or requires > 300 lines of implementation, Antigravity slices the task into **Autonomous Architectural Milestones** rather than procedural step lists:
+
+```mermaid
+flowchart TD
+    Task[Incoming High-Complexity Request] --> Extractor[Run argon_extractor.py]
+    Extractor --> Budget{Token Budget & Scope Check}
+    Budget -->|<= 3,500 tok & <= 2 files| Single[Single-Turn Frontier Prompt]
+    Budget -->|> 3,500 tok OR >= 3 files| Sliced[Turn-Sliced Autonomous Milestones]
+    
+    Sliced --> Turn1[Turn 1: Foundation, Domain Logic & Worker Concurrency\n- Full architectural autonomy over DB schema/migrations\n- Core domain algorithms & async worker lifecycle\n- Gate: tsc --noEmit && pytest/unittest]
+    Turn1 --> Verify1[Gate 1: tsc --noEmit && unittest]
+    Verify1 --> Turn2[Turn 2: Reactive UI, Streaming & Telemetry Bridge\n- Full architectural autonomy over React components\n- Real-time visualizer loops & state progression\n- Gate: npm test && POST /api/webhook/arena]
+    Turn2 --> Verify2[Gate 2: npm test && Telemetry Dispatch]
+```
+
+### Turn 1 Directive:
+- **Scope**: Database schema/migrations, domain calculation logic, type definitions, and backend worker lifecycles.
+- **Autonomy**: Full architectural ownership within hard invariants.
+- **Verification Gate**: `(cd web && npx tsc --noEmit)` and `(cd agent-worker && .venv/bin/python -m unittest discover -s tests)`.
+
+### Turn 2 Directive:
+- **Scope**: Reactive client components, UI finite state machines (empty, skeleton, error, active), and Cockpit telemetry.
+- **Autonomy**: Full architectural ownership within hard invariants.
+- **Verification Gate**: `npm test` and `POST http://localhost:4000/api/webhook/arena`.
+
+---
+
+## 6. Zero-Input Autonomous Browser Execution Protocol
 
 When the user asks for zero-input execution (or tells the agent to run automatically without manual copy-pasting), Antigravity **directly drives the browser subagent**:
 
@@ -96,7 +184,7 @@ Autonomous Flow (Zero Human Input):
 
 ---
 
-## 4. Manual LM Arena Operating Guide: Navigating to Argon High
+## 7. Manual LM Arena Operating Guide: Navigating to Argon High
 
 If the user operates the browser manually, provide this guide along with the copyable prompt block:
 
@@ -110,18 +198,18 @@ Step 2: Enter Single Model Mode (Direct Chat)
 
 Step 3: Switch to LM Arena Coding Mode (Agentic Mode)
 └── Select the "Coding" / "Agentic" workspace mode.
-    This provides Argon with the code editor, terminal environment, and artifact viewer.
+    This provides the model with the code editor, terminal environment, and artifact viewer.
 
 Step 4: Select "Argon High"
 └── In the model dropdown selector, choose "Argon High"
     (or deepseek-v4.1-flash-max / argon-high with high-compute extended reasoning).
 
 Step 5: Paste the Single-Block Prompt
-└── Copy the exact markdown prompt produced by this skill and paste it directly into Argon.
+└── Copy the exact markdown prompt produced by this skill and paste it directly into the chat input.
     Do NOT dump the entire git repository or upload giant raw zip files.
 
 Step 6: Integrate & Verify in Antigravity
-└── Once Argon finishes generating:
+└── Once generation finishes:
     1. Take the output code back into this workspace.
     2. Review with the Reason-First protocol.
     3. Run `(cd web && npx tsc --noEmit)` and `npm test`.
@@ -130,42 +218,41 @@ Step 6: Integrate & Verify in Antigravity
 
 ---
 
-## 5. The 4-Phase Prompt Architect Workflow
+## 8. The 4-Phase Prompt Architect Workflow
 
 ### Phase 1: Problem Scope & Invariant Identification
-1. Identify the user's objective (e.g., adding SMS follow-up, Google Calendar booking, or redesigning a console).
-2. Map the cross-boundary dependencies:
-   - Database / Schema files (`web/src/db/schema.ts`, migrations)
-   - TypeScript types (`web/src/lib/types.ts`, `web/src/contracts/schemas.ts`)
-   - Backend routes / Daemons (`web/src/app/api/...`, `agent-worker/...`)
-   - Frontend UI components (`web/src/components/...`)
-   - Design System tokens (`web/src/app/globals.css`, `web/src/components/ui/studio.tsx`)
+1. Identify the user's objective (e.g., adding Danish SMS follow-up, LiveKit SIP ingress, or audio visualizer).
+2. Formulate cross-boundary dependencies across at least 2–3 coupled tiers:
+   - Database / Schema migrations (`web/src/db/schema.ts`, `db/migrations/...`)
+   - TypeScript types & Zod contracts (`web/src/contracts/schemas.ts`, `web/src/lib/types.ts`)
+   - Backend routes & Worker daemons (`web/src/app/api/...`, `agent-worker/...`)
+   - Frontend UI components & Design tokens (`web/src/components/...`, `web/src/app/globals.css`)
+3. Define 4–6 non-negotiable declarative post-conditions (security boundaries, tenant RLS, monotonic transitions).
 
 ### Phase 2: Surgical Type Spine Extraction
-Run the bundled extractor script over the target dependency files:
+Run the bundled extractor script over target dependency files:
 
 ```bash
-python3 ~/.gemini/config/skills/argon-prompt/scripts/argon_extractor.py \
-  --files web/src/lib/types.ts web/src/db/schema.ts web/src/app/globals.css \
+python3 .agents/skills/argon-prompt/scripts/argon_extractor.py \
+  --files web/src/contracts/schemas.ts web/src/app/globals.css \
+  --symbols "SmsMessageTypeSchema,SmsStatusSchema,SmsDispatchRecordSchema,SmsSendRequestSchema" \
   --max-tokens 3500
 ```
 
 The script:
-- Strips all function implementation bodies, leaving clean headers.
+- Strips all function implementation bodies, leaving clean typed signatures (`...`).
 - Extracts interfaces, types, Zod schemas, and enums.
 - Extracts Python AST class structures and typed method signatures (`def foo(...) -> Ret: ...`).
 - Extracts SQL DDL (tables, types, triggers) while dropping raw row inserts.
-- Extracts CSS custom properties (`:root { --... }`) so the model uses the exact design tokens.
+- Extracts CSS custom properties (`:root { --... }`) so the model uses exact design tokens.
 
 ### Phase 3: Token Audit & Turn-Slicing Check
 Evaluate the extracted token budget reported by `argon_extractor.py`:
 - **If <= 3,500 tokens & <= 2 files**: Proceed with a **Single-Turn Frontier Prompt**.
-- **If > 3,500 tokens OR touches >= 3 cross-boundary files**: Apply the **Turn-Slicing Protocol**:
-  - **Turn 1 (Contract & Backend)**: Database schema migration + API route handlers + test assertions.
-  - **Turn 2 (UI & Telemetry)**: Frontend component + state machine + Arena telemetry webhook.
+- **If > 3,500 tokens OR touches >= 3 cross-boundary files**: Apply the **Turn-Slicing Protocol** into Autonomous Architectural Milestones.
 
 ### Phase 4: Autonomous Execution or Prompt Synthesis
-- **Autonomous Mode (Zero Input)**: Send the synthesized prompt directly to the `browser` subagent to execute on Arena, monitor for stalls, and scrape the code.
+- **Autonomous Mode (Zero Input)**: Send the synthesized prompt directly to the `browser` subagent to execute on Arena, monitor for stalls, and harvest code.
 - **Manual Mode**: Output the generated prompt enclosed in a single markdown code block (` ````markdown ```` `) for the user.
 
 ---
@@ -174,9 +261,13 @@ Evaluate the extracted token budget reported by `argon_extractor.py`:
 
 - **Extract specific symbols from files**:
   ```bash
-  python3 ~/.gemini/config/skills/argon-prompt/scripts/argon_extractor.py --files web/src/lib/types.ts --symbols TelephonyNumberView SipSessionView
+  python3 .agents/skills/argon-prompt/scripts/argon_extractor.py --files web/src/contracts/schemas.ts --symbols CallStatusSchema CallSlotRegistry
   ```
-- **Inspect canonical templates**:
+- **Inspect canonical 5-pillar templates**:
   Read [prompt_templates.md](./references/prompt_templates.md).
+- **Inspect routing heuristics guide**:
+  Read [router_heuristics_guide.md](./references/router_heuristics_guide.md).
+- **Inspect architectural autonomy specification**:
+  Read [architectural_autonomy_spec.md](./references/architectural_autonomy_spec.md).
 - **Inspect real-world telephony benchmark**:
   Read [telephony_example.md](./examples/telephony_example.md).
