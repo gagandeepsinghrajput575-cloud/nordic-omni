@@ -345,8 +345,8 @@ def main():
         help="Extraction mode."
     )
     parser.add_argument(
-        "--symbols", "-s", type=str, default="",
-        help="Comma-separated list of symbols (interfaces, schemas, functions, tables) to filter for."
+        "--symbols", "-s", nargs="*", default=[],
+        help="List of symbols (or comma-separated) to filter for."
     )
     parser.add_argument(
         "--max-tokens", "-t", type=int, default=3500,
@@ -358,7 +358,10 @@ def main():
     )
 
     args = parser.parse_args()
-    symbol_set = {s.strip() for s in args.symbols.split(",") if s.strip()} if args.symbols else None
+    raw_symbols = []
+    for item in args.symbols:
+        raw_symbols.extend(item.split(","))
+    symbol_set = {s.strip() for s in raw_symbols if s.strip()} if raw_symbols else None
 
     results = []
     total_orig_chars = 0

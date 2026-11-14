@@ -69,7 +69,7 @@ Step 6: Integrate & Verify in Antigravity
 Run the bundled extractor script over the target dependency files:
 
 ```bash
-python3 .agents/skills/argon-prompt/scripts/argon_extractor.py \
+python3 ~/.gemini/config/skills/argon-prompt/scripts/argon_extractor.py \
   --files web/src/lib/types.ts web/src/db/schema.ts web/src/app/globals.css \
   --max-tokens 3500
 ```
@@ -105,7 +105,7 @@ Ensure the prompt contains:
 
 - **Extract specific symbols from files**:
   ```bash
-  python3 .agents/skills/argon-prompt/scripts/argon_extractor.py --files web/src/lib/types.ts --symbols TelephonyNumberView SipSessionView
+  python3 ~/.gemini/config/skills/argon-prompt/scripts/argon_extractor.py --files web/src/lib/types.ts --symbols TelephonyNumberView SipSessionView
   ```
 - **Inspect canonical templates**:
   Read [prompt_templates.md](./references/prompt_templates.md).
