@@ -1,13 +1,14 @@
 ---
-name: argon-prompt-architect
+name: argon-prompt
 description: >-
   Architects surgical, high-density, turn-sliced prompts for Argon and 64k context models in LM Arena Agentic mode.
   Extracts minimal Type Spines, Design System tokens, and API contracts without dumping raw codebase files.
   Enforces a strict < 3,500 input token budget, single-block copyable output, and anti-steerability rules.
-  Trigger whenever the user asks for an Argon prompt, tags Argon, mentions 64k model limits, or exports tasks to LM Arena.
+  Includes step-by-step LM Arena navigation guide (Single Model -> Coding Mode -> Argon High).
+  Trigger whenever the user asks for an Argon prompt, tags Argon (@argon), mentions 64k model limits, or exports tasks to LM Arena.
 ---
 
-# Argon Prompt Architect
+# Argon Prompt
 
 Use this skill whenever you need to prepare an optimized prompt for **Argon**, **DeepSeek v4.1**, **Claude**, or any **64k context window model** running in LM Arena or an external sandbox.
 
@@ -20,7 +21,40 @@ This skill solves that by running a **4-Phase Surgical Extraction** that keeps p
 
 ---
 
-## The 4-Phase Workflow
+## LM Arena Operating Guide: Navigating to Argon High
+
+Follow this exact step-by-step workflow whenever running a task in LM Arena:
+
+```text
+Step 1: Open LM Arena
+└── Go to https://arena.ai (or LMSYS Arena)
+
+Step 2: Enter Single Model Mode (Direct Chat)
+└── Click "Direct Chat" / "Single Model" tab in the top navigation.
+    Do NOT use "Side-by-Side Arena" (blind battle mode cannot pin Argon).
+
+Step 3: Switch to LM Arena Coding Mode (Agentic Mode)
+└── Select the "Coding" / "Agentic" workspace mode.
+    This provides Argon with the code editor, terminal environment, and artifact viewer.
+
+Step 4: Select "Argon High"
+└── In the model dropdown selector, choose "Argon High"
+    (or deepseek-v4.1-flash-max / argon-high with high-compute extended reasoning).
+
+Step 5: Paste the Single-Block Prompt
+└── Copy the exact markdown prompt produced by this skill and paste it directly into Argon.
+    Do NOT dump the entire git repository or upload giant raw zip files.
+
+Step 6: Integrate & Verify in Antigravity
+└── Once Argon finishes generating:
+    1. Take the output code back into this workspace.
+    2. Run `(cd web && npx tsc --noEmit)` and `npm test`.
+    3. Fix any minor edge cases and commit directly to main.
+```
+
+---
+
+## The 4-Phase Prompt Architect Workflow
 
 ### Phase 1: Problem Scope & Invariant Identification
 1. Identify the user's objective (e.g., adding SMS follow-up, Google Calendar booking, or redesigning a console).
@@ -35,7 +69,7 @@ This skill solves that by running a **4-Phase Surgical Extraction** that keeps p
 Run the bundled extractor script over the target dependency files:
 
 ```bash
-python3 .agents/skills/argon-prompt-architect/scripts/argon_extractor.py \
+python3 .agents/skills/argon-prompt/scripts/argon_extractor.py \
   --files web/src/lib/types.ts web/src/db/schema.ts web/src/app/globals.css \
   --max-tokens 3500
 ```
@@ -71,7 +105,7 @@ Ensure the prompt contains:
 
 - **Extract specific symbols from files**:
   ```bash
-  python3 .agents/skills/argon-prompt-architect/scripts/argon_extractor.py --files web/src/lib/types.ts --symbols TelephonyNumberView SipSessionView
+  python3 .agents/skills/argon-prompt/scripts/argon_extractor.py --files web/src/lib/types.ts --symbols TelephonyNumberView SipSessionView
   ```
 - **Inspect canonical templates**:
   Read [prompt_templates.md](./references/prompt_templates.md).
