@@ -45,6 +45,7 @@
   --text-muted: var(--muted);
   --accent-primary: var(--a);
   --accent-secondary: var(--b);
+  --accent-strong: #4c1d95;
   --accent-contrast: #ffffff;
   --accent-indigo: var(--a);
   --accent-soft: #f0e8fc;
@@ -103,6 +104,7 @@
   --text-muted: var(--muted);
   --accent-primary: var(--a);
   --accent-secondary: var(--b);
+  --accent-strong: #e4d6ff;
   --accent-contrast: #1C1512;
   --accent-indigo: var(--a);
   --accent-soft: #3a2b4c;
@@ -408,4 +410,397 @@ textarea.input { min-height: 96px; }
 .card-interactive:hover { box-shadow: 0 8px 24px rgba(42,32,28,.055), inset 0 1px 0 rgba(255,255,255,.65); }
 @media (prefers-reduced-motion: reduce) {
   .btn:hover:not(:disabled), .btn:active:not(:disabled), .card-interactive:hover, .card-interactive:active { transform: none; }
+}
+
+/* ============================================================================
+   OBSIDIAN STUDIO LAYER
+   ----------------------------------------------------------------------------
+   The audio console (waveform, orb, latency telemetry, studio primitives) is a
+   deep black glass instrument panel in both themes: #08090C ground, iridescent
+   frequency ink, and sub-300ms telemetry. Deep black glass is a deliberate
+   contrast moment, exactly like the espresso auth panel above, so every studio
+   surface pins its own ink tokens instead of inheriting the warm shell.
+
+   Contrast contract (measured, WCAG 2.2 AA):
+     ink #F5F7FB / #08090C .............. 18.56:1
+     secondary #C9D0DC / #0E1116 ........ 12.19:1
+     muted #A6AEBE / #0E1116 ............  8.48:1
+     accent #CBB8FF / #0E1116 ........... 10.66:1
+     cyan #8FE7FF / #0E1116 ............. 13.55:1
+     danger #FF9B93 / #0E1116 ...........  9.33:1
+   Iridescent pigments are decorative (bars, orbs, glows) and are never used as
+   a text colour on glass.
+   ========================================================================== */
+:root {
+  /* Obsidian ground */
+  --studio-black: #08090c;
+  --studio-panel: #0e1116;
+  --studio-panel-2: #12151c;
+  --studio-line: rgba(255, 255, 255, 0.08);
+  --studio-line-strong: rgba(255, 255, 255, 0.16);
+
+  /* Ink */
+  --studio-ink: #f5f7fb;
+  --studio-ink-secondary: #c9d0dc;
+  --studio-ink-muted: #a6aebe;
+
+  /* Iridescent frequency pigments */
+  --studio-cyan: #5be3ff;
+  --studio-violet: #a98cff;
+  --studio-magenta: #ff86d3;
+  --studio-mint: #6be3a4;
+  --studio-amber: #ffc978;
+  --studio-rose: #ff9b93;
+  --studio-iri: linear-gradient(90deg, #5be3ff 0%, #a98cff 34%, #ff86d3 66%, #6be3a4 100%);
+  --studio-iri-soft: linear-gradient(
+    180deg,
+    rgba(143, 231, 255, 0.95),
+    rgba(169, 140, 255, 0.75) 46%,
+    rgba(255, 134, 211, 0.35)
+  );
+
+  /* Telemetry budget: anything past 300ms is outside the barge-in contract. */
+  --studio-budget: 300ms;
+  --studio-shadow: 0 24px 64px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --studio-glow: 0 0 0 1px rgba(169, 140, 255, 0.22), 0 12px 40px rgba(91, 227, 255, 0.1);
+}
+
+/* Studio ink pinned for the light shell: the obsidian panel keeps its own ground,
+   but pills that sit on warm paper must stay AA on paper. */
+.theme-light,
+:root[data-theme='light'] {
+  --pill-live-ink: #2c6647;
+  --pill-live-bg: var(--success-soft);
+  --pill-live-line: var(--success-line);
+  --pill-accent-ink: #4c1d95;
+  --pill-accent-bg: var(--accent-soft);
+  --pill-accent-line: var(--accent-line);
+  --pill-danger-ink: #a13a35;
+  --pill-danger-bg: var(--danger-soft);
+  --pill-danger-line: var(--danger-line);
+  --pill-warn-ink: #8a5a16;
+  --pill-warn-bg: var(--warning-soft);
+  --pill-warn-line: var(--warning-line);
+  --glass-soft: rgba(28, 21, 18, 0.04);
+  --border-warm: #d6c9bc;
+  --meter-track: rgba(28, 21, 18, 0.1);
+}
+:root[data-theme='dark'],
+.theme-dark {
+  --pill-live-ink: #91cea2;
+  --pill-live-bg: var(--success-soft);
+  --pill-live-line: var(--success-line);
+  --pill-accent-ink: #d9c4ff;
+  --pill-accent-bg: var(--accent-soft);
+  --pill-accent-line: var(--accent-line);
+  --pill-danger-ink: #eda29a;
+  --pill-danger-bg: var(--danger-soft);
+  --pill-danger-line: var(--danger-line);
+  --pill-warn-ink: #dec08a;
+  --pill-warn-bg: var(--warning-soft);
+  --pill-warn-line: var(--warning-line);
+  --glass-soft: rgba(255, 255, 255, 0.04);
+  --border-warm: #625044;
+  --meter-track: rgba(255, 255, 255, 0.1);
+}
+
+/* A studio surface re-declares the core aliases so nested components (inputs,
+   labels, borders) inherit obsidian ink without a second theme. */
+.studio-surface,
+.studio-panel {
+  --bg: var(--studio-black);
+  --panel: var(--studio-panel);
+  --panel-2: var(--studio-panel-2);
+  --bg-ground: var(--studio-black);
+  --bg-surface: var(--studio-panel);
+  --bg-raised: var(--studio-panel-2);
+  --line: var(--studio-line);
+  --border-subtle: var(--studio-line);
+  --border-strong: var(--studio-line-strong);
+  --text: var(--studio-ink);
+  --text-primary: var(--studio-ink);
+  --text-secondary: var(--studio-ink-secondary);
+  --text-muted: var(--studio-ink-muted);
+  --muted: var(--studio-ink-muted);
+  --accent-primary: #cbb8ff;
+  --accent-secondary: #8fe7ff;
+  --accent-contrast: var(--studio-black);
+  --accent-soft: rgba(169, 140, 255, 0.14);
+  --accent-line: rgba(169, 140, 255, 0.32);
+  --danger: var(--studio-rose);
+  --danger-soft: rgba(255, 155, 147, 0.12);
+  --danger-line: rgba(255, 155, 147, 0.32);
+  --warning: var(--studio-amber);
+  --warning-soft: rgba(255, 201, 120, 0.12);
+  --warning-line: rgba(255, 201, 120, 0.3);
+  --success: var(--studio-mint);
+  --success-soft: rgba(107, 227, 164, 0.12);
+  --success-line: rgba(107, 227, 164, 0.3);
+  --pill-live-ink: var(--studio-mint);
+  --pill-live-bg: rgba(107, 227, 164, 0.12);
+  --pill-live-line: rgba(107, 227, 164, 0.3);
+  --pill-accent-ink: #cbb8ff;
+  --pill-accent-bg: rgba(169, 140, 255, 0.14);
+  --pill-accent-line: rgba(169, 140, 255, 0.32);
+  --pill-danger-ink: var(--studio-rose);
+  --pill-danger-bg: rgba(255, 155, 147, 0.12);
+  --pill-danger-line: rgba(255, 155, 147, 0.32);
+  --pill-warn-ink: var(--studio-amber);
+  --pill-warn-bg: rgba(255, 201, 120, 0.12);
+  --pill-warn-line: rgba(255, 201, 120, 0.3);
+  --glass-soft: rgba(255, 255, 255, 0.04);
+  --border-warm: rgba(255, 255, 255, 0.16);
+  --meter-track: rgba(255, 255, 255, 0.1);
+  --ring: rgba(169, 140, 255, 0.3);
+  color-scheme: dark;
+  color: var(--studio-ink);
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--studio-line);
+  background:
+    radial-gradient(120% 90% at 50% -20%, rgba(169, 140, 255, 0.16), transparent 62%),
+    radial-gradient(80% 60% at 88% 110%, rgba(91, 227, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, #0b0d12 0%, var(--studio-black) 58%, #06070a 100%);
+  box-shadow: var(--studio-shadow);
+}
+/* A surface applied to an existing card gets the same obsidian ground. */
+.studio-surface {
+  border-radius: var(--r);
+  background:
+    radial-gradient(120% 90% at 50% -20%, rgba(169, 140, 255, 0.14), transparent 62%),
+    linear-gradient(180deg, #0b0d12 0%, var(--studio-black) 62%, #06070a 100%);
+}
+
+/* A hairline of iridescence along the top edge: the panel is an instrument. */
+.studio-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--studio-iri);
+  opacity: 0.45;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  pointer-events: none;
+}
+.studio-panel--flush { border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; }
+.studio-panel--flush::before { border-radius: 0; }
+
+/* Deterministic film grain: one static tile, zero per-frame work. */
+.studio-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.045;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Primitives ---------------------------------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--neutral-soft, rgba(127, 127, 127, 0.1));
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color var(--dur), border-color var(--dur), color var(--dur), transform var(--dur-fast);
+}
+.pill-accent { color: var(--pill-accent-ink); background: var(--pill-accent-bg); border-color: var(--pill-accent-line); }
+.pill-live { color: var(--pill-live-ink); background: var(--pill-live-bg); border-color: var(--pill-live-line); }
+.pill-danger { color: var(--pill-danger-ink); background: var(--pill-danger-bg); border-color: var(--pill-danger-line); }
+.pill-warn { color: var(--pill-warn-ink); background: var(--pill-warn-bg); border-color: var(--pill-warn-line); }
+button.pill { cursor: pointer; }
+button.pill:hover { border-color: var(--border-strong); color: var(--text); }
+button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-accent-ink); background: var(--pill-accent-bg); border-color: var(--pill-accent-line); }
+.pill .mono, .pill .font-mono { font-size: 10.5px; letter-spacing: 0.02em; }
+
+.label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.display { font-size: 24px; font-weight: 640; line-height: 1.15; letter-spacing: -0.04em; color: var(--text-primary); }
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+.card, .hairline-card {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+}
+.hairline-card { background: var(--bg-raised); border-radius: var(--r-sm); }
+.card { transition: border-color var(--dur), background-color var(--dur); }
+
+.meter { position: relative; height: 5px; width: 100%; overflow: hidden; border-radius: 999px; background: var(--meter-track); }
+.meter > span { display: block; height: 100%; border-radius: inherit; background: var(--grad); transition: width var(--dur-slow) var(--ease); }
+.studio-surface .meter, .studio-panel .meter { background: rgba(255, 255, 255, 0.1); }
+.studio-surface .meter > span, .studio-panel .meter > span { background: var(--studio-iri); }
+
+/* ---------- Telemetry dots ------------------------------------------------ */
+.dot-live, .dot-thinking, .dot-idle, .dot-danger {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+.dot-live { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); }
+.dot-thinking { background: var(--warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 20%, transparent); }
+.dot-idle { background: var(--text-muted); }
+.dot-danger { background: var(--danger); }
+.dot-live, .dot-thinking { animation: telemetry-pulse 2.4s var(--ease) infinite; }
+@keyframes telemetry-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); opacity: 0.78; }
+}
+
+/* ---------- Accent button on glass --------------------------------------- */
+.btn.btn-accent {
+  border-color: transparent;
+  background: linear-gradient(135deg, #7c3aed, #a855f7 52%, #5be3ff);
+  color: #08090c;
+  font-weight: 620;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 8px 24px rgba(124, 58, 237, 0.28);
+}
+.btn.btn-accent:hover:not(:disabled) {
+  color: #08090c;
+  border-color: transparent;
+  filter: brightness(1.07) saturate(1.05);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 12px 30px rgba(91, 227, 255, 0.24);
+}
+
+/* ---------- Waveform ----------------------------------------------------- */
+.wave-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.wave-shell .wave-bars {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+}
+.wave-bar {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 2px;
+  max-width: 5px;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--studio-iri-soft);
+  opacity: 0.92;
+  transform-origin: center;
+  transform: scaleY(1);
+  will-change: transform;
+}
+/* A tiny specular head: the bar is glass, not a rectangle. */
+.wave-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 26%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0.5;
+}
+.wave-bar.is-static { opacity: 0.4; }
+.wave-bar[data-tone='muted'] { background: linear-gradient(180deg, rgba(166, 174, 190, 0.75), rgba(166, 174, 190, 0.18)); }
+.wave-bar[data-tone='muted']::after { opacity: 0.18; }
+.wave-bar[data-tone='danger'] { background: linear-gradient(180deg, #ff9b93, rgba(255, 155, 147, 0.28)); }
+.wave-bar[data-tone='accent'] { background: var(--studio-iri-soft); }
+.wave-bar.is-live {
+  animation: wave-live 1.1s ease-in-out infinite alternate;
+}
+@keyframes wave-live {
+  from { transform: scaleY(0.72); opacity: 0.82; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+/* The analyser-driven path: heights come from real frequency data, and a soft
+   transition keeps 30fps React updates from looking like a stepped ladder. */
+.wave-shell.is-analysed .wave-bar { transition: transform 96ms linear, opacity var(--dur); }
+.wave-spark {
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 1px;
+  background: var(--studio-iri);
+  opacity: 0.28;
+  pointer-events: none;
+}
+.wave-idle-rule {
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, transparent, rgba(166, 174, 190, 0.5), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-bar.is-live, .dot-live, .dot-thinking { animation: none !important; }
+  .wave-bar { transition: none !important; }
+}
+
+/* ---------- Meter tones --------------------------------------------------- */
+.meter > span[data-tone='ok'] { background: linear-gradient(90deg, #5be3ff, #6be3a4); }
+.meter > span[data-tone='warn'] { background: linear-gradient(90deg, #ffc978, #ffa94d); }
+.meter > span[data-tone='danger'] { background: linear-gradient(90deg, #ffb3ab, #ff9b93); }
+.meter-wrap { min-width: 0; }
+/* Warm shells keep AA-safe tone ink; only the bar itself is iridescent. */
+.theme-light .meter > span[data-tone='ok'], :root[data-theme='light'] .meter > span[data-tone='ok'] { background: linear-gradient(90deg, #337451, #4b8f68); }
+.theme-light .meter > span[data-tone='warn'], :root[data-theme='light'] .meter > span[data-tone='warn'] { background: linear-gradient(90deg, #946322, #b67c2c); }
+.theme-light .meter > span[data-tone='danger'], :root[data-theme='light'] .meter > span[data-tone='danger'] { background: linear-gradient(90deg, #b4433e, #c25a54); }
+
+/* ---------- Latency budget spark ----------------------------------------- */
+.latency-budget {
+  position: relative;
+  display: inline-block;
+  width: 26px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 26%, transparent);
+}
+.latency-budget > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width 420ms var(--ease);
+}
+
+/* ---------- Stat card on obsidian ---------------------------------------- */
+.stat-card { transition: border-color var(--dur), background-color var(--dur); }
+.stat-card:hover { border-color: var(--border-strong); }
+
+/* ---------- Orb ----------------------------------------------------------- */
+.studio-orb { line-height: 0; }
+.studio-orb canvas { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .latency-budget > span { transition: none; }
 }

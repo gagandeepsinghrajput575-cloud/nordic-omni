@@ -285,7 +285,7 @@ export function ShowcaseExperience({
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="card overflow-hidden">
+      <section className="card studio-surface studio-grain overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="flex items-center gap-2">
             <Pill tone={mode === "live" ? "live" : "warn"}>
@@ -333,7 +333,13 @@ export function ShowcaseExperience({
         </div>
 
         <div className="px-4 pb-4">
-          <Waveform active={status === "listening" || status === "speaking"} bars={56} className="h-10" tone={status === "muted" ? "muted" : "accent"} />
+          <Waveform
+            active={status === "listening" || status === "speaking"}
+            bars={56}
+            className="h-10"
+            audioStream={voice.micStream}
+            tone={status === "muted" ? "muted" : "accent"}
+          />
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
             <AudioStatePill state={status} />

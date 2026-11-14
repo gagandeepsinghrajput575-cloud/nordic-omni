@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OrbVisualizer } from "@/components/audio/OrbVisualizer";
 import { AudioStatePill, BargeInPill, LatencyPill, Waveform } from "@/components/audio/Waveform";
-import { Icon, Pill, SectionHeader } from "@/components/ui/primitives";
+import { Icon, LatencyMeter, Pill, SectionHeader } from "@/components/ui/primitives";
 import type { VoiceState } from "@/lib/types";
 
 interface VoiceStudioProps {
@@ -103,7 +103,7 @@ export function VoiceStudio({
       />
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="card overflow-hidden">
+        <section className="card studio-surface studio-grain overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-3">
             <div className="flex items-center gap-2">
               <AudioStatePill state={state} />
@@ -146,6 +146,9 @@ export function VoiceStudio({
                   Release mic
                 </button>
               ) : null}
+            </div>
+            <div className="mx-auto mt-4 max-w-[320px]">
+              <LatencyMeter latencyMs={latency} label="Round trip · barge-in budget" />
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
               {(["listening", "thinking", "speaking", "muted"] as VoiceState[]).map((candidate) => (

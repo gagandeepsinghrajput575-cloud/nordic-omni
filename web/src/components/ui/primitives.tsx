@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export type IconName =
   | "grid"
@@ -188,18 +188,38 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   );
 }
 
+export type PillTone = "default" | "accent" | "live" | "danger" | "warn";
+
+const PILL_TONE: Record<PillTone, string> = {
+  default: "",
+  accent: "pill-accent",
+  live: "pill-live",
+  danger: "pill-danger",
+  warn: "pill-warn",
+};
+
+/**
+ * A telemetry pill. The dot is paired with the label so state is never carried
+ * by colour alone (WCAG 1.4.1), and every tone maps to an AA-checked ink pair
+ * declared in globals.css.
+ */
 export function Pill({
   children,
   tone = "default",
   className,
+  dot = false,
 }: {
   children: ReactNode;
-  tone?: "default" | "accent" | "live" | "danger" | "warn";
+  tone?: PillTone;
   className?: string;
+  dot?: boolean;
 }) {
-  const toneClass =
-    tone === "accent" ? "pill-accent" : tone === "live" ? "pill-live" : tone === "danger" ? "pill-danger" : tone === "warn" ? "pill-warn" : "";
-  return <span className={`pill ${toneClass} ${className ?? ""}`}>{children}</span>;
+  return (
+    <span className={`pill ${PILL_TONE[tone]} ${className ?? ""}`.trim()}>
+      {dot ? <span className={tone === "live" ? "dot-live" : tone === "warn" ? "dot-thinking" : tone === "danger" ? "dot-danger" : "dot-idle"} /> : null}
+      {children}
+    </span>
+  );
 }
 
 export function SectionHeader({
@@ -234,11 +254,13 @@ export function Stat({
   value,
   hint,
   tone = "default",
+  className,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
-  tone?: "default" | "accent" | "live" | "warn";
+  tone?: "default" | "accent" | "live" | "warn" | "danger";
+  className?: string;
 }) {
   const valueTone =
     tone === "accent"
@@ -247,9 +269,11 @@ export function Stat({
         ? "text-[var(--success)]"
         : tone === "warn"
           ? "text-[var(--warning)]"
-          : "text-[var(--text-primary)]";
+          : tone === "danger"
+            ? "text-[var(--danger)]"
+            : "text-[var(--text-primary)]";
   return (
-    <div className="hairline-card p-4">
+    <div className={`hairline-card stat-card p-4 ${className ?? ""}`.trim()}>
       <p className="label">{label}</p>
       <p className={`num mt-3 text-[26px] leading-none font-medium tracking-[-0.03em] ${valueTone}`}>{value}</p>
       {hint ? <p className="mt-2 text-[11.5px] leading-snug text-[var(--text-muted)]">{hint}</p> : null}
@@ -267,19 +291,213 @@ export function EmptyState({ title, description, action }: { title: string; desc
   );
 }
 
-export function Tag({ children }: { children: ReactNode }) {
+export function Tag({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className="rounded-md border border-[var(--border-subtle)] bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--glass-soft)] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--text-muted)] ${className ?? ""}`.trim()}
+    >
       {children}
     </span>
   );
 }
 
-export function Meter({ value, max = 100 }: { value: number; max?: number }) {
-  const percent = Math.max(0, Math.min(100, Math.round((value / Math.max(1, max)) * 100)));
+/**
+ * A budget meter. `budget` lets a metric be judged against a contract (the
+ * 300ms barge-in ceiling) rather than an arbitrary maximum, and the tone
+ * escalates as the value approaches it.
+ */
+export function Meter({
+  value,
+  max = 100,
+  budget,
+  label,
+  className,
+}: {
+  value: number;
+  max?: number;
+  budget?: number;
+  label?: string;
+  className?: string;
+}) {
+  const ceiling = budget ?? max;
+  const ratio = Math.max(0, value) / Math.max(1, ceiling);
+  const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+  const tone = ratio > 1 ? "danger" : ratio > 0.8 ? "warn" : "ok";
   return (
-    <div className="meter">
-      <span style={{ width: `${percent}%` }} />
+    <div className={`meter-wrap ${className ?? ""}`.trim()}>
+      {label ? (
+        <div className="mb-1 flex items-baseline justify-between gap-2">
+          <span className="label">{label}</span>
+          <span className={`num font-mono text-[10.5px] text-[var(--${tone === "danger" ? "danger" : tone === "warn" ? "warning" : "success"})]`}>
+            {Math.round(value)} / {ceiling}
+          </span>
+        </div>
+      ) : null}
+      <div
+        className="meter"
+        role="meter"
+        aria-valuenow={Math.round(value)}
+        aria-valuemin={0}
+        aria-valuemax={ceiling}
+        aria-label={label}
+      >
+        <span data-tone={tone} style={{ width: `${percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Studio primitives: the obsidian audio console. These are server-safe (no
+   hooks) so both server pages and client panels can compose them.
+   ------------------------------------------------------------------------- */
+
+/**
+ * A deep black glass instrument panel. Children inherit the studio ink tokens
+ * declared on `.studio-panel`, so no nested component needs a second theme.
+ */
+export function StudioPanel({
+  children,
+  className,
+  flush = false,
+  grain = true,
+  as: Tag = "section",
+}: {
+  children: ReactNode;
+  className?: string;
+  flush?: boolean;
+  grain?: boolean;
+  as?: "section" | "div" | "aside" | "article";
+}) {
+  return (
+    <Tag
+      className={[
+        "studio-panel",
+        flush ? "studio-panel--flush" : "",
+        grain ? "studio-grain" : "",
+        "overflow-hidden",
+        className ?? "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className="relative z-[1]">{children}</div>
+    </Tag>
+  );
+}
+
+/** The three-pill telemetry strip that sits atop every studio surface. */
+export function StudioStatusBar({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-3 ${className ?? ""}`.trim()}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * A horizontal iridescent spectrum. Decorative by default (`aria-hidden`);
+ * pass `label` when the spectrum is the content rather than chrome.
+ */
+export function Spectrum({
+  level = 0.4,
+  bars = 40,
+  className,
+  label,
+}: {
+  level?: number;
+  bars?: number;
+  className?: string;
+  label?: string;
+}) {
+  const count = Math.max(4, Math.min(96, Math.round(bars)));
+  const energy = Math.max(0, Math.min(1, Number.isFinite(level) ? level : 0));
+  return (
+    <div
+      className={`wave-shell ${className ?? ""}`.trim()}
+      aria-hidden={label ? undefined : true}
+      role={label ? "img" : undefined}
+      aria-label={label}
+    >
+      <div className="wave-bars">
+        {Array.from({ length: count }).map((_, index) => {
+          const progress = index / Math.max(1, count - 1);
+          const envelope = 0.4 + 0.6 * Math.sin(Math.PI * progress);
+          const wave = Math.abs(Math.sin(index * 1.7 + 0.6)) * 0.6 + Math.abs(Math.cos(index * 0.53)) * 0.4;
+          const height = Math.round(Math.max(8, Math.min(100, envelope * (0.35 + energy * 0.65) * wave * 100)));
+          const style: CSSProperties = { height: `${height}%` };
+          return (
+            <span
+              key={index}
+              className={energy > 0 ? "wave-bar is-live" : "wave-bar is-static"}
+              data-tone="accent"
+              style={{
+                ...style,
+                animationDelay: `${(index % 11) * 90}ms`,
+                animationDuration: `${1100 + (index % 7) * 140}ms`,
+              }}
+            />
+          );
+        })}
+      </div>
+      <span className="wave-spark" />
+    </div>
+  );
+}
+
+/**
+ * The latency budget meter for the sub-300ms contract. Colour, the numeric
+ * read-out, and the aria-label all carry the verdict, so the meaning survives
+ * greyscale and screen readers.
+ */
+export function LatencyMeter({
+  latencyMs,
+  budgetMs = 300,
+  label = "Round-trip latency",
+  className,
+}: {
+  latencyMs: number;
+  budgetMs?: number;
+  label?: string;
+  className?: string;
+}) {
+  const measured = Math.max(0, Math.round(latencyMs));
+  const ratio = measured / Math.max(1, budgetMs);
+  const within = measured <= budgetMs;
+  return (
+    <div className={className}>
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="label">{label}</span>
+        <span
+          className={`num font-mono text-[11px] ${within ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
+        >
+          {measured}ms
+        </span>
+      </div>
+      <div
+        className="meter"
+        role="meter"
+        aria-valuenow={measured}
+        aria-valuemin={0}
+        aria-valuemax={budgetMs}
+        aria-label={`${label}: ${measured} milliseconds, ${within ? "within" : "over"} the ${budgetMs} millisecond budget`}
+      >
+        <span
+          data-tone={within ? (ratio > 0.8 ? "warn" : "ok") : "danger"}
+          style={{ width: `${Math.max(3, Math.min(100, Math.round(ratio * 100)))}%` }}
+        />
+      </div>
+      <p className="mt-1.5 text-[10.5px] text-[var(--text-muted)]">
+        Budget {budgetMs}ms · {within ? "inside barge-in contract" : "over budget"}
+      </p>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
 import { useAudioBands, peakOf } from '@/lib/audio/useAudioBands';
+import { Waveform } from '@/components/audio/Waveform';
 import { Badge } from '@/components/ui/core';
 import { buttonClass } from '@/components/ui/form';
 import { Spinner } from '@/components/ui/SubmitButton';
@@ -143,7 +144,7 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
         </div>
         {isLive ? <div className="flex items-center gap-2"><span className="mr-1 text-[18px] font-medium tabular-nums tracking-[-0.03em]">{timer}</span><button type="button" onClick={toggleMute} aria-pressed={muted} aria-label={muted ? t('Slå mikrofon til', 'Unmute microphone') : t('Slå mikrofon fra', 'Mute microphone')} className={buttonClass(muted ? 'danger' : 'secondary', 'sm', 'icon-button')}>{muted ? <MicOff size={15} /> : <Mic size={15} />}</button><button type="button" onClick={hangUp} className={buttonClass('danger', 'sm')}><PhoneOff size={14} />{t('Læg på', 'Hang up')}</button></div> : isConnecting ? <Badge tone="warning"><Spinner className="h-3 w-3" />{t('Forbinder', 'Connecting')}</Badge> : <button type="button" onClick={startCall} className={buttonClass('primary')}><Phone size={15} />{stage === 'idle' ? t('Start opkald', 'Start call') : t('Ring igen', 'Call again')}</button>}
       </div>
-      {isLive ? <div className="border-t border-[var(--line)] pt-3"><div className={peak > 0.05 ? 'wave on' : 'wave'} aria-hidden>{bands.map((level, index) => <i key={index} style={{ transform: `scaleY(${Math.max(0.08, 0.08 + level * 0.92).toFixed(3)})`, transition: 'transform 90ms linear, opacity 200ms ease', opacity: 0.35 + level * 0.65 }} />)}</div><p className="text-center text-[12px] text-[var(--muted)]">{agentSpeaking ? <span className="text-[var(--accent-primary)]">{t('Receptionisten taler', 'Receptionist is speaking')}</span> : t('Lytter efter dit svar…', 'Listening for your reply…')}</p></div> : null}
+      {isLive ? <div className="studio-surface border-t border-[var(--line)] px-4 py-3"><Waveform active bars={40} className="h-8" levels={bands} tone={agentSpeaking ? 'accent' : 'muted'} /><p className="mt-2 text-center text-[12px] text-[var(--text-muted)]" role="status">{peak > 0.05 && agentSpeaking ? <span className="text-[var(--accent-primary)]">{t('Receptionisten taler', 'Receptionist is speaking')}</span> : t('Lytter efter dit svar…', 'Listening for your reply…')}</p></div> : null}
       {error ? <div className="notice notice-danger" role="alert">{error}</div> : null}
     </div>
   );

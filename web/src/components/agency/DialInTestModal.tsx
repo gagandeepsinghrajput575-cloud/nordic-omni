@@ -386,7 +386,7 @@ aria-label="Simulated caller number"
 ))}
 </div>
 
-<div className="mt-2">
+<div className="studio-surface mt-2 rounded-lg px-3 py-2">
 <Waveform active={state === "listening" || state === "speaking"} bars={44} className="h-8" tone={state === "idle" ? "muted" : "accent"} />
 </div>
 </div>
