@@ -9,6 +9,7 @@ type NavSpec = Omit<NavItem, 'label'> & { labelDa: string; labelEn: string };
 const NAV: NavSpec[] = [
   { href: '/portal', labelDa: 'Overblik', labelEn: 'Overview', icon: 'dashboard', exact: true },
   { href: '/portal/leads', labelDa: 'Kunder', labelEn: 'Callers', icon: 'users' },
+  { href: '/portal/chat', labelDa: 'Beskeder', labelEn: 'Messages', icon: 'messages' },
   { href: '/portal/settings', labelDa: 'Indstillinger', labelEn: 'Settings', icon: 'settings' },
 ];
 

@@ -662,3 +662,169 @@ export type SmsStatus = z.infer<typeof SmsStatusSchema>;
 export type SmsDispatchRecord = z.infer<typeof SmsDispatchRecordSchema>;
 export type SmsSummaryMetrics = z.infer<typeof SmsSummaryMetricsSchema>;
 export type SmsSendRequest = z.infer<typeof SmsSendRequestSchema>;
+
+// ==============================================================================
+// 8. DIRECT AGENCY <-> CLIENT CHAT & CO-PILOT BRIDGE (trekants-kommunikation)
+// ==============================================================================
+
+/**
+ * Strict actor identity for a three-way thread.
+ *
+ * The role is never inferred from a display name or a client-supplied string:
+ * the server stamps it from the authenticated session, so a client cannot
+ * impersonate the agency operator by posting `sender_role: 'agency_operator'`.
+ */
+export const SenderRoleSchema = z.enum(['agency_operator', 'client', 'ai_copilot']);
+export type SenderRole = z.infer<typeof SenderRoleSchema>;
+
+/** Chat channels. Reuses the channel vocabulary the rest of the app already uses. */
+export const ChatChannelSchema = z.enum(['web_chat', 'whatsapp', 'voice_inbound', 'portal']);
+export type ChatChannel = z.infer<typeof ChatChannelSchema>;
+
+export const MessageKindSchema = z.enum(['message', 'delegation', 'system']);
+export type MessageKind = z.infer<typeof MessageKindSchema>;
+
+export const CopilotDelegationStatusSchema = z.enum([
+  'pending', // created by the operator, awaiting dispatch
+  'sent', // question delivered to the client
+  'answered', // client replied; copilot has summarised
+  'closed', // operator closed it out
+]);
+export type CopilotDelegationStatus = z.infer<typeof CopilotDelegationStatusSchema>;
+
+export const AgencyClientMessageSchema = z
+  .object({
+    id: z.string().uuid(),
+    tenantId: z.string().uuid(),
+    /** Who wrote it. Stamped server-side from the session, never trusted from input. */
+    senderRole: SenderRoleSchema,
+    /** The user or contact id behind the role, for audit. Null for the copilot. */
+    senderRef: z.string().uuid().nullable(),
+    channel: ChatChannelSchema,
+    kind: MessageKindSchema.default('message'),
+    body: z.string().trim().min(1).max(4000),
+    /** Set when this message belongs to a delegation thread. */
+    delegationId: z.string().uuid().nullable(),
+    metadata: z.record(z.string(), z.unknown()).default({}),
+    createdAt: z.string(),
+  })
+  .strict();
+export type AgencyClientMessage = z.infer<typeof AgencyClientMessageSchema>;
+
+/** Body the agency (or client) posts. Role is deliberately absent. */
+export const PostChatMessageSchema = z
+  .object({
+    body: z.string().trim().min(1, 'Skriv en besked').max(4000, 'Beskeden er for lang'),
+    kind: MessageKindSchema.default('message'),
+    delegationId: z.string().uuid().nullish(),
+  })
+  .strict();
+export type PostChatMessage = z.infer<typeof PostChatMessageSchema>;
+
+/**
+ * Operator instruction to the co-pilot, e.g.
+ * "Spørg Hans om de tager opgaver i Roskilde".
+ *
+ * `instruction` is the raw Danish direction; `topic` is the short subject the
+ * co-pilot may extract so the question can be generated and later matched to
+ * the client's reply.
+ */
+export const CopilotDelegationRequestSchema = z
+  .object({
+    instruction: z.string().trim().min(4, 'Skriv en instruks til co-piloten').max(600),
+    contactId: z.string().uuid().nullish(),
+    channel: ChatChannelSchema.default('web_chat'),
+    topic: z.string().trim().min(2).max(160).nullish(),
+  })
+  .strict();
+export type CopilotDelegationRequest = z.infer<typeof CopilotDelegationRequestSchema>;
+
+export const CopilotDelegationSchema = z
+  .object({
+    id: z.string().uuid(),
+    tenantId: z.string().uuid(),
+    contactId: z.string().uuid().nullable(),
+    status: CopilotDelegationStatusSchema,
+    /** The operator's original Danish instruction, kept verbatim for audit. */
+    instruction: z.string(),
+    topic: z.string().nullable(),
+    /** The polite Danish question the co-pilot generated and sent. */
+    question: z.string().nullable(),
+    /** The client's reply, verbatim. */
+    answer: z.string().nullable(),
+    /** The co-pilot's Danish summary of the answer, for the operator. */
+    summary: z.string().nullable(),
+    /** True when the co-pilot detected the answer was not grounded in our data. */
+    needsAgencyInput: z.boolean().default(false),
+    createdAt: z.string(),
+    resolvedAt: z.string().nullable(),
+  })
+  .strict();
+export type CopilotDelegation = z.infer<typeof CopilotDelegationSchema>;
+
+/**
+ * A mutation the co-pilot wants to make, staged for human approval.
+ *
+ * Nothing here has been applied. `diff` is the human-readable before/after that
+ * the operator approves; `apply` is the machine change. This is the only shape
+ * in which the co-pilot may express a write.
+ */
+export const StagedMutationSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: z.enum(['pricing', 'business_hours', 'owner_contact', 'broadcast']),
+    /** Danish, one line, e.g. "Pris for 'Tagrens' ændres fra 2.500 til 2.800 kr." */
+    summary: z.string().min(1),
+    diff: z.array(z.object({ field: z.string(), before: z.string(), after: z.string() })),
+    requiresApproval: z.literal(true),
+  })
+  .strict();
+export type StagedMutation = z.infer<typeof StagedMutationSchema>;
+
+/**
+ * Co-pilot intent classification.
+ *
+ * `ungrounded` is a first-class outcome: the question could not be answered from
+ * the agency database. It is not an error and must never fall back to a guess.
+ */
+export const CopilotIntentSchema = z.enum([
+  'metrics',
+  'settings',
+  'pricing',
+  'delegation',
+  'ungrounded',
+  'smalltalk',
+]);
+export type CopilotIntent = z.infer<typeof CopilotIntentSchema>;
+
+export const CopilotReplySchema = z
+  .object({
+    intent: CopilotIntentSchema,
+    /** Danish reply text, ready to post. */
+    body: z.string().min(1),
+    /** Present when the intent was `settings`/`pricing`. Never applied automatically. */
+    mutation: StagedMutationSchema.nullable().default(null),
+    /** Present when the intent was `delegation`. */
+    delegation: CopilotDelegationSchema.nullable().default(null),
+    /**
+     * True when the co-pilot could not ground the answer and says so. The body
+     * then promises verification with the operator rather than inventing facts.
+     */
+    needsAgencyInput: z.boolean().default(false),
+  })
+  .strict();
+export type CopilotReply = z.infer<typeof CopilotReplySchema>;
+
+/** Per-tenant latch controlling automated replies. */
+export const ChatStateSchema = z
+  .object({
+    tenantId: z.string().uuid(),
+    aiEnabled: z.boolean().default(true),
+    /** Why the latch is off, for the UI banner. */
+    pausedReason: z.string().nullable(),
+    updatedAt: z.string(),
+  })
+  .strict();
+export type ChatState = z.infer<typeof ChatStateSchema>;
+
+export type AgencyClientMessageInput = z.infer<typeof AgencyClientMessageSchema>;
