@@ -4,6 +4,29 @@ This guide defines the official prompt engineering specifications for LM Arena A
 
 ---
 
+## 0. Accessing Frontier Models: Capability Gating, Direct Selection & 60s Diagnostics
+
+In blind Arena modes ([Start Voting](https://arena.ai/) and [Agent Arena](https://arena.ai/leaderboard/agent)), the router uses **pre-read weighted random sampling** to preserve benchmark impartiality ([Interaction-as-a-Judge](https://arena.ai/blog/interaction-as-a-judge/)). The router does *not* read prompt difficulty to award stronger models to harder tasks.
+
+### 1. Capability Gating in Blind Agent Mode
+To narrow the randomized routing pool exclusively to top-tier orchestrators, enforce technical filters that eliminate weaker endpoints *before* the sampling roll:
+* **Enable Workspace Connectors**: Restricts routing pool to models certified for multi-tool schemas and authenticated connector pipelines.
+* **Include Multimodal Inputs**: Attaching UI wireframes, architecture diagrams, or error screenshots drops text-only endpoints and forces selection of vision-to-code orchestrators.
+* **Provide Multi-File / Structured Archives**: Filters out endpoints with narrow context windows or weak file-system tool harnesses.
+
+### 2. Deterministic Flagship Selection (Bypassing Blind Routing)
+When executing production work where randomized assignment cannot be risked:
+* **Direct Model Selection**: Use [Choose any model](https://arena.ai/direct) to pick flagship models directly (`Claude Fable 5.2 Max`, `Claude Opus 5.5 Max`, `Gemini 4 Carbon`).
+* **Side-by-Side Mode**: Use [Compare Models Side by Side](https://arena.ai/side-by-side) to evaluate two explicitly chosen frontier models simultaneously.
+
+### 3. Early-Turn Diagnostics (The 60-Second Re-Roll Sentinel)
+Evaluate model behavior during its first two tool calls:
+* **Signals of High / Max Orchestrator**: Maps directory structure and reads configuration/test files *before* writing code; uses targeted searches (`grep`, `rg`, line-range reads); analyzes full stack traces on error.
+* **Signals of Low / Medium Orchestrator**: Immediately starts writing or overwriting files without checking dependencies; repeats failing commands with minor syntax guesses; hallucinates paths.
+* **The Re-Roll Rule**: If a blind session exhibits Low-tier thrashing in turns 1–2, **terminate immediately and open a fresh session to re-roll the orchestrator**.
+
+---
+
 ## 1. LMSYS Max Router & Frontier Model Triggering Engine
 
 LM Arena Agentic mode does NOT allocate top-tier frontier models based on prompt hype. Prompting with phrases like *"Act as a world-class engineer"* or *"Use your smartest model"* triggers Arena's **Steerability Penalty ($P_{\text{steer}}$)**, causing sessions to down-route to lightweight utility models.
@@ -53,6 +76,51 @@ Every prompt must adhere strictly to the 5-pillar structure delivered in **EXACT
 ### The Standardized Architectural Freedom Clause
 Every prompt directive section must conclude with this cognitive ownership clause:
 > *"You have complete architectural ownership of internal implementation details, state machines, memoization strategies, error recovery, and concurrency patterns. Design the optimal solution that satisfies all invariant boundaries and passes all verification gates."*
+
+---
+
+## 3. Production-Ready Frontier Agent Prompt Template (Mandatory 3-Phase Protocol)
+
+For Agent Mode tasks (`arena.ai/agent`), wrap assignments in this production template:
+
+```markdown
+## Objective
+[State the exact deliverable, target system, and end-user behavior in 2–3 sentences.]
+
+## Inputs & Attached Context
+- Attached Artifact / Connector: [Reference your uploaded screenshot, diagram, repo archive, or active Connector]
+- Constraint: You must inspect and extract all specifications from the attached artifact/connector before proposing changes.
+
+## Execution Protocol (Mandatory Phases)
+
+### Phase 1: Environment Audit (Read-Only)
+1. Inspect the workspace structure, package dependencies, and relevant existing modules using targeted search commands (`grep`, `rg`, line-range reads; do not dump lockfiles or build folders).
+2. Identify potential edge cases, version conflicts, or architectural constraints.
+3. Output a concise implementation plan mapping exact files to create or modify.
+*Constraint: Do NOT write or edit any files until Phase 1 is complete.*
+
+### Phase 2: Implementation
+1. Implement the solution modularly, matching existing project conventions and strict typing.
+2. Handle error states, input validation, and edge cases explicitly—no placeholder logic or TODO stubs.
+3. You have full architectural ownership of internal implementation details, state machines, and concurrency patterns.
+
+### Phase 3: Verification & Self-Correction
+1. Run the build, type-checker, and test suite:
+   - `(cd web && npx tsc --noEmit)`
+   - `npm test`
+   - `(cd agent-worker && .venv/bin/python -m unittest discover -s tests)`
+2. If any command fails, analyze the full error trace, explain the root cause, and patch it cleanly.
+3. Do not conclude until all verification checks pass with zero errors.
+```
+
+---
+
+## 4. Mid-Session Steering Strategy (Interaction-as-a-Judge Optimization)
+
+Arena tracks **Steerability, Confirmed Success, Bash Recovery, and Tool Hallucination**:
+* **Replace Vague Pushback with Diagnostic Constraints**: Instead of *"That didn't work, fix it"*, write: *"The build failed with `[exact error]` because `[module X]` expects `[type Y]`. Inspect `[file]` lines 40–80 before applying a patch."*
+* **Explicitly Confirm Milestone Completion**: When Phase 1 or Phase 2 succeeds, state: *"Phase 1 verified—proceed to Phase 2."* This locks in the valid state and prevents the agent from rewriting working code.
+* **Isolate Failing Sub-Tasks**: If an agent gets stuck on a complex integration, pause and instruct it: *"Write a standalone minimal reproduction script in `/tmp/test_repro.ts` to verify the behavior before touching the main codebase."*
 
 ---
 
