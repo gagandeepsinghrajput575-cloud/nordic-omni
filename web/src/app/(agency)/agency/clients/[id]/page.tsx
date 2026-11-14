@@ -20,6 +20,8 @@ import { KnowledgeEditor } from './KnowledgeEditor';
 import { AiBrainPanel } from './AiBrainPanel';
 import { CalendarBookingPanel } from '@/components/agency/CalendarBookingPanel';
 import { generateServerSlots } from '@/lib/calendar/slots-server';
+import { AgencyClientChatPanel } from '@/components/agency/AgencyClientChatPanel';
+import { getChatState, listChatMessages, listDelegations } from '@/lib/db/client-chat';
 import { restoreAgentConfigForm } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +39,18 @@ export default async function AgencyClientDetailPage({ params }: { params: Promi
     getLatestBrainBundle(session.userId, id), listWorkspaceMembers(session.userId, id), listWebhooks(session.userId, id),
   ]);
   const bookings = await generateServerSlots({ userId: session.userId, tenantId: id });
+  // The chat thread is read separately and tolerantly: a failure here must not
+  // take down the whole workspace page.
+  const [chatMessages, chatDelegations, chatState] = await Promise.all([
+    listChatMessages(session.userId, id, { limit: 200 }).catch(() => []),
+    listDelegations(session.userId, id).catch(() => []),
+    getChatState(session.userId, id).catch(() => ({
+      tenantId: id,
+      aiEnabled: true,
+      pausedReason: null,
+      updatedAt: new Date(0).toISOString(),
+    })),
+  ]);
   const isDanish = tenant.default_language === 'da-DK';
   const promptHistory = <Card>
     <CardHeader title="Prompt history" hint="Every save creates a reversible snapshot." action={<Badge tone="neutral"><History size={12} />{history.length}</Badge>} />
@@ -72,6 +86,27 @@ export default async function AgencyClientDetailPage({ params }: { params: Promi
           <p className="text-[11.5px] leading-relaxed text-[var(--text-muted)]">
             Tider vurderes altid i Europe/Copenhagen, mandag–fredag 07:00–16:00, og danske helligdage
             udelukkes. Et aktivt hold låser tiden i 10 minutter, mens samtalen kører.
+          </p>
+        </div>
+      ),
+      chat: (
+        <div className="space-y-4">
+          <SectionTitle action={<Badge tone="accent"><ShieldCheck size={12} />RLS scoped</Badge>}>
+            Direkte kundechat
+          </SectionTitle>
+          <AgencyClientChatPanel
+            tenantId={id}
+            tenantName={tenant.name}
+            contactId={contacts[0]?.id ?? null}
+            contactName={contacts[0]?.full_name ?? null}
+            initialMessages={chatMessages}
+            initialDelegations={chatDelegations}
+            initialState={chatState}
+          />
+          <p className="text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+            Co-piloten svarer kun ud fra jeres egne data. Pris- og indstillingsændringer
+            stilles til godkendelse, og spørgsmål uden datagrundlag sendes videre til jer
+            i stedet for at blive gættet.
           </p>
         </div>
       ),
