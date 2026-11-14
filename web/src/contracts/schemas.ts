@@ -419,3 +419,61 @@ export type OwnerCopilotCommand = z.infer<typeof OwnerCopilotCommandSchema>;
 export type LiveKitTokenRequest = z.infer<typeof LiveKitTokenRequestSchema>;
 export type ProvisionWizardRequest = z.infer<typeof ProvisionWizardRequestSchema>;
 export type ProvisionTenantPayload = z.infer<typeof ProvisionTenantPayloadSchema>;
+
+// ==============================================================================
+// 6. TELEPHONY SMS DISPATCH SCHEMAS
+// ==============================================================================
+export const SmsMessageTypeSchema = z.enum([
+  'customer_followup',
+  'lead_alert',
+  'inspection_confirm',
+  'custom',
+]);
+
+export const SmsStatusSchema = z.enum([
+  'queued',
+  'sending',
+  'delivered',
+  'failed',
+]);
+
+export const SmsDispatchRecordSchema = z.object({
+  id: z.string(),
+  recipient: z.string(),
+  messageType: SmsMessageTypeSchema,
+  body: z.string(),
+  callLogId: z.string().nullable(),
+  contactId: z.string().nullable(),
+  workspaceId: z.string(),
+  workspaceName: z.string(),
+  status: SmsStatusSchema,
+  carrier: z.string(),
+  segments: z.number().int().positive(),
+  deliveryLatencyMs: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  error: z.string().optional(),
+});
+
+export const SmsSummaryMetricsSchema = z.object({
+  totalSent24h: z.number().int().nonnegative(),
+  deliveredCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  deliveryRatePct: z.number().min(0).max(100),
+  avgLatencyMs: z.number().int().nonnegative(),
+  carrierStatus: z.enum(['healthy', 'degraded']),
+});
+
+export const SmsSendRequestSchema = z.object({
+  recipient: z.string().min(1),
+  messageType: SmsMessageTypeSchema.optional().default('custom'),
+  body: z.string().optional(),
+  callLogId: z.string().nullable().optional(),
+  contactId: z.string().nullable().optional(),
+  workspaceId: z.string().optional(),
+});
+
+export type SmsMessageType = z.infer<typeof SmsMessageTypeSchema>;
+export type SmsStatus = z.infer<typeof SmsStatusSchema>;
+export type SmsDispatchRecord = z.infer<typeof SmsDispatchRecordSchema>;
+export type SmsSummaryMetrics = z.infer<typeof SmsSummaryMetricsSchema>;
+export type SmsSendRequest = z.infer<typeof SmsSendRequestSchema>;
