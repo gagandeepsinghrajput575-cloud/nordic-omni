@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { OrbVisualizer } from "@/components/audio/OrbVisualizer";
 import { AudioStatePill, BargeInPill, LatencyPill, Waveform } from "@/components/audio/Waveform";
 import { Icon, Pill } from "@/components/ui/primitives";
+import { VoicePlayground } from "@/components/showcase/VoicePlayground";
 import { useBrowserVoice } from "@/hooks/useBrowserVoice";
 import { streamReceptionistChat } from "@/lib/chat-client";
 import { formatClock } from "@/lib/format";
@@ -66,6 +67,8 @@ export function ShowcaseExperience({
   const [leadError, setLeadError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  /** Anchor for the playground's "hear the real voice" jump. */
+  const consoleRef = useRef<HTMLDivElement | null>(null);
   const sessionStartedAt = useRef<number | null>(null);
   const conversationCounted = useRef(false);
   const speakRef = useRef<(text: string, spokenLanguage?: Language) => Promise<void>>(async () => undefined);
@@ -282,316 +285,353 @@ export function ShowcaseExperience({
     thinking: "Thinking through your question",
     muted: "Microphone muted",
   };
+  // Danish sample lines for the playground, derived from the live greeting so
+  // the preview always quotes something the agent actually says.
+  const playgroundPresets = language === "da"
+    ? [
+        greetingDa,
+        `Hvad koster det at få renset mit tag?`,
+        `Jeg vil gerne bestille en tid i næste uge.`,
+      ]
+    : [
+        greetingEn,
+        `How much does it cost to clean my roof?`,
+        `I would like to book an appointment next week.`,
+      ];
+
+  const scrollToConsole = (): void => {
+    consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="card studio-surface studio-grain overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Pill tone={mode === "live" ? "live" : "warn"}>
-              <span className={mode === "live" ? "dot-live" : "dot-thinking"} />
-              {mode === "live" ? "Live model" : "Grounded demo"}
-            </Pill>
-            <Pill>{knowledgeCount} grounded sources</Pill>
-          </div>
-          <div className="flex items-center gap-1">
-            {allowDanish ? (
-              <button
-                type="button"
-                className={`pill ${language === "da" ? "pill-accent" : ""}`}
-                onClick={() => switchLanguage("da")}
-              >
-                Dansk
-              </button>
-            ) : null}
-            {allowEnglish ? (
-              <button
-                type="button"
-                className={`pill ${language === "en" ? "pill-accent" : ""}`}
-                onClick={() => switchLanguage("en")}
-              >
-                English
-              </button>
-            ) : null}
-          </div>
-        </div>
+    <div className="el-canvas -mx-4 px-4 py-6 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl space-y-5">
+        {/* ---- Voice playground: the headline instrument ---------------------- */}
+        <VoicePlayground
+          agentName={agentName}
+          presets={playgroundPresets}
+          initialText={playgroundPresets[0]}
+          language={language}
+          onRequestLive={scrollToConsole}
+        />
 
-        <div className="relative px-4 pt-4">
-          <div className="mx-auto w-full max-w-[360px]">
-            <OrbVisualizer
-              state={status === "muted" || status === "thinking" ? "idle" : status}
-              audioStream={voice.micStream}
-            />
-          </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-16 flex justify-center">
-            <div className="rounded-full border border-[var(--border-subtle)] bg-[rgba(8,9,12,0.72)] px-3 py-1.5 backdrop-blur">
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                {stateLabel[status]}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-4 pb-4">
-          <Waveform
-            active={status === "listening" || status === "speaking"}
-            bars={56}
-            className="h-10"
-            audioStream={voice.micStream}
-            tone={status === "muted" ? "muted" : "accent"}
-          />
-
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-            <AudioStatePill state={status} />
-            <BargeInPill />
-            <LatencyPill latencyMs={latencyMs} mode={mode} />
-            {bargeIns > 0 ? <Pill tone="accent">{bargeIns} barge-in{bargeIns === 1 ? "" : "s"}</Pill> : null}
-          </div>
-
-          {voice.interim ? (
-            <p className="mt-3 rounded-lg border border-[rgba(201,242,108,0.2)] bg-[rgba(201,242,108,0.05)] px-3 py-2 text-center text-[12.5px] italic text-[var(--text-secondary)]">
-              “{voice.interim}”
-            </p>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            {!started ? (
-              <button type="button" className="btn btn-accent px-5" onClick={() => void startConversation()}>
-                <Icon name="mic" className="h-4 w-4" />
-                Start conversation
-              </button>
-            ) : (
-              <>
-                <button type="button" className="btn btn-primary" onClick={() => void toggleMute()}>
-                  <Icon name={status === "muted" ? "mic" : "wave"} className="h-4 w-4" />
-                  {status === "muted" ? "Unmute" : "Mute"}
-                </button>
-                <button type="button" className="btn btn-danger" onClick={endConversation}>
-                  End · {formatClock(elapsed)}
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => {
-                voice.cancelSpeech();
-                setStatus(started ? "listening" : "idle");
-              }}
-            >
-              Stop audio
-            </button>
-          </div>
-
-          <p className="mt-3 text-center text-[11px] leading-relaxed text-[var(--text-muted)]">
-            {openState.isOpen ? `${openState.headline}. ` : `${openState.headline}. `}
-            Emergency line {escalationPhone}. No phone number or telephony required — audio stays in your browser.
-          </p>
-
-          {voice.error ? (
-            <p className="mt-2 rounded-lg border border-[rgba(243,197,107,0.24)] bg-[rgba(243,197,107,0.07)] px-3 py-2 text-center text-[11.5px] text-[var(--warning)]">
-              {voice.error}
-            </p>
-          ) : null}
-          {error ? (
-            <p className="mt-2 rounded-lg border border-[rgba(255,107,107,0.26)] bg-[rgba(255,107,107,0.07)] px-3 py-2 text-center text-[11.5px] text-[#ffb3b3]">
-              {error}
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      <div className="space-y-5">
-        <section className="card flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className={started ? "dot-live" : "dot-thinking"} />
-              <p className="text-[12.5px] font-medium text-[var(--text-primary)]">Live transcript</p>
-              <Pill>{language === "da" ? "da-DK" : "en-GB"}</Pill>
-            </div>
-            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
-              {providerLabel}
-            </span>
-          </div>
-
-          <div ref={scrollRef} className="transcript-scroll h-[280px] space-y-3 overflow-y-auto px-4 py-4">
-            {messages.length === 0 && !streamingText ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                <p className="text-[13px] text-[var(--text-secondary)]">{greeting}</p>
-                <p className="max-w-[260px] text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  Press start and ask about opening hours, prices or an appointment. You can interrupt {agentName} at any
-                  time.
-                </p>
+        {/* ---- The live console ---------------------------------------------- */}
+        <div ref={consoleRef} className="grid gap-5 lg:grid-cols-[1.02fr_0.98fr]">
+          <section className="el-glass el-shimmer overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--el-line)] px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Pill tone={mode === "live" ? "live" : "warn"}>
+                  <span className={mode === "live" ? "dot-live" : "dot-thinking"} />
+                  {mode === "live" ? "Live model" : "Grounded demo"}
+                </Pill>
+                <Pill>{knowledgeCount} grounded sources</Pill>
               </div>
-            ) : null}
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === "caller" ? "justify-end" : "justify-start"} rise`}
-              >
-                <div className="max-w-[85%]">
-                  <p className="mb-1 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                    {message.role === "agent" ? agentName : "Caller"} ·{" "}
-                    {new Date(message.at).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                  <div
-                    className={`rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
-                      message.role === "caller"
-                        ? "bg-[rgba(201,242,108,0.1)] text-[var(--text-primary)]"
-                        : "border border-[var(--border-subtle)] bg-white/[0.025] text-[var(--text-secondary)]"
-                    }`}
+              <div className="flex items-center gap-1">
+                {allowDanish ? (
+                  <button
+                    type="button"
+                    className={`pill ${language === "da" ? "pill-accent" : ""}`}
+                    onClick={() => switchLanguage("da")}
                   >
-                    {message.text}
-                  </div>
-                </div>
+                    Dansk
+                  </button>
+                ) : null}
+                {allowEnglish ? (
+                  <button
+                    type="button"
+                    className={`pill ${language === "en" ? "pill-accent" : ""}`}
+                    onClick={() => switchLanguage("en")}
+                  >
+                    English
+                  </button>
+                ) : null}
               </div>
-            ))}
-            {streamingText ? (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] rounded-xl border border-[rgba(201,242,108,0.24)] bg-[rgba(201,242,108,0.05)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
-                  {streamingText}
-                  <span className="ml-0.5 inline-block h-3 w-[2px] animate-pulse bg-[var(--accent-primary)] align-middle" />
-                </div>
-              </div>
-            ) : null}
-            {busy && !streamingText ? (
-              <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
-                <span className="dot-thinking" /> {agentName} is retrieving the answer…
-              </div>
-            ) : null}
-          </div>
-
-          {toolNotes.length > 0 ? (
-            <div className="border-t border-[var(--border-subtle)] px-4 py-2">
-              {toolNotes.map((note, index) => (
-                <p key={`${note}-${index}`} className="truncate font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                  ↳ {note}
-                </p>
-              ))}
             </div>
-          ) : null}
 
-          <div className="border-t border-[var(--border-subtle)] p-3">
-            <div className="flex items-center gap-2">
-              <input
-                className="input"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void sendMessage(input);
-                  }
-                }}
-                placeholder="Or type your question here…"
-                aria-label="Type a message to the receptionist"
+            <div className="relative px-4 pt-4">
+              <div className="mx-auto w-full max-w-[340px]">
+                <OrbVisualizer
+                  state={status === "muted" || status === "thinking" ? "idle" : status}
+                  audioStream={voice.micStream}
+                />
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-14 flex justify-center">
+                <div className="rounded-full border border-[var(--el-line)] bg-[rgba(5,5,7,0.74)] px-3 py-1.5 backdrop-blur">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--el-ink-secondary)]">
+                    {stateLabel[status]}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-4 pb-4">
+              <Waveform
+                active={status === "listening" || status === "speaking"}
+                bars={56}
+                className="h-10"
+                audioStream={voice.micStream}
+                tone={status === "muted" ? "muted" : "accent"}
               />
-              <button
-                type="button"
-                className="btn btn-primary btn-sm h-[36px]"
-                onClick={() => void sendMessage(input)}
-                disabled={busy || input.trim().length === 0}
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </section>
 
-        <section className="card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="label">Instant lead-to-call</p>
-              <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                Test a browser call now, or have {agentName} call you back.
-              </p>
-            </div>
-            {leadCaptured ? <Pill tone="live">Lead captured</Pill> : null}
-          </div>
-
-          {leadResult ? (
-            <div className="mt-3 rounded-lg border border-[rgba(110,231,183,0.26)] bg-[rgba(110,231,183,0.07)] px-3 py-3">
-              <p className="flex items-center gap-2 text-[12.5px] font-medium text-[var(--success)]">
-                <Icon name="check" className="h-3.5 w-3.5" />
-                Reference {leadResult.reference}
-              </p>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--text-secondary)]">{leadResult.message}</p>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm mt-2"
-                onClick={() => {
-                  setLeadResult(null);
-                  setLeadName("");
-                  setLeadPhone("");
-                }}
-              >
-                Submit another
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <input
-                  className="input"
-                  value={leadName}
-                  onChange={(event) => setLeadName(event.target.value)}
-                  placeholder="Full name"
-                  autoComplete="name"
-                />
-                <input
-                  className="input"
-                  value={leadPhone}
-                  onChange={(event) => setLeadPhone(event.target.value)}
-                  placeholder="+45 20 00 00 00"
-                  type="tel"
-                  autoComplete="tel"
-                />
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                <AudioStatePill state={status} />
+                <BargeInPill />
+                <LatencyPill latencyMs={latencyMs} mode={mode} />
+                {bargeIns > 0 ? <Pill tone="accent">{bargeIns} barge-in{bargeIns === 1 ? "" : "s"}</Pill> : null}
               </div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+
+              {voice.interim ? (
+                <p className="mt-3 rounded-lg border border-[var(--el-line)] bg-[rgba(255,255,255,0.04)] px-3 py-2 text-center text-[12.5px] italic text-[var(--el-ink-secondary)]">
+                  “{voice.interim}”
+                </p>
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                {!started ? (
+                  <button type="button" className="btn btn-accent px-5" onClick={() => void startConversation()}>
+                    <Icon name="mic" className="h-4 w-4" />
+                    Start conversation
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className="btn btn-primary" onClick={() => void toggleMute()}>
+                      <Icon name={status === "muted" ? "mic" : "wave"} className="h-4 w-4" />
+                      {status === "muted" ? "Unmute" : "Mute"}
+                    </button>
+                    <button type="button" className="btn btn-danger" onClick={endConversation}>
+                      End · {formatClock(elapsed)}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
-                  onClick={() => setLeadChannel("phone")}
-                  className={`hairline-card flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                    leadChannel === "phone" ? "border-[rgba(201,242,108,0.4)] bg-[rgba(201,242,108,0.06)]" : ""
-                  }`}
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    voice.cancelSpeech();
+                    setStatus(started ? "listening" : "idle");
+                  }}
                 >
-                  <Icon name="phone" className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
-                  <span>
-                    <span className="block text-[12px] text-[var(--text-primary)]">Automated callback</span>
-                    <span className="block text-[10.5px] text-[var(--text-muted)]">Qualify by phone</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLeadChannel("browser")}
-                  className={`hairline-card flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                    leadChannel === "browser" ? "border-[rgba(201,242,108,0.4)] bg-[rgba(201,242,108,0.06)]" : ""
-                  }`}
-                >
-                  <Icon name="wave" className="h-3.5 w-3.5 text-[var(--accent-secondary)]" />
-                  <span>
-                    <span className="block text-[12px] text-[var(--text-primary)]">Browser test call</span>
-                    <span className="block text-[10.5px] text-[var(--text-muted)]">No telephony</span>
-                  </span>
+                  Stop audio
                 </button>
               </div>
-              {leadError ? <p className="mt-2 text-[11.5px] text-[#ffb3b3]">{leadError}</p> : null}
-              <button
-                type="button"
-                className="btn btn-accent mt-2 w-full"
-                onClick={() => void submitLead()}
-                disabled={leadSubmitting || leadName.trim().length < 2 || leadPhone.trim().length < 6}
-              >
-                {leadSubmitting ? "Saving…" : leadChannel === "phone" ? "Queue my qualification call" : "Link this browser session"}
-                <Icon name="arrow" className="h-3.5 w-3.5" />
-              </button>
-              <p className="mt-2 text-[10.5px] leading-relaxed text-[var(--text-muted)]">
-                We store your details with the {workspaceName} workspace and hand the lead to the on-call team. No phone
-                system required for the demo.
+
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-[var(--el-ink-muted)]">
+                {openState.headline}. Emergency line {escalationPhone}. No phone number or telephony required — audio
+                stays in your browser.
               </p>
-            </>
-          )}
-        </section>
+
+              {voice.error ? (
+                <p className="mt-2 rounded-lg border border-[color-mix(in_srgb,var(--el-amber)_30%,transparent)] bg-[color-mix(in_srgb,var(--el-amber)_10%,transparent)] px-3 py-2 text-center text-[11.5px] text-[var(--el-amber)]">
+                  {voice.error}
+                </p>
+              ) : null}
+              {error ? (
+                <p className="mt-2 rounded-lg border border-[color-mix(in_srgb,var(--el-rose)_30%,transparent)] bg-[color-mix(in_srgb,var(--el-rose)_10%,transparent)] px-3 py-2 text-center text-[11.5px] text-[var(--el-rose)]">
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          </section>
+
+          <div className="space-y-4">
+            <section className="el-glass flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[var(--el-line)] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className={started ? "dot-live" : "dot-thinking"} />
+                  <p className="text-[12.5px] font-medium text-[var(--el-ink)]">Live transcript</p>
+                  <Pill>{language === "da" ? "da-DK" : "en-GB"}</Pill>
+                </div>
+                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--el-ink-muted)]">
+                  {providerLabel}
+                </span>
+              </div>
+
+              <div ref={scrollRef} className="transcript-scroll h-[264px] space-y-3 overflow-y-auto px-4 py-4">
+                {messages.length === 0 && !streamingText ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <p className="text-[13px] text-[var(--el-ink-secondary)]">{greeting}</p>
+                    <p className="max-w-[260px] text-[11px] leading-relaxed text-[var(--el-ink-muted)]">
+                      Press start and ask about opening hours, prices or an appointment. You can interrupt {agentName} at
+                      any time.
+                    </p>
+                  </div>
+                ) : null}
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.role === "caller" ? "justify-end" : "justify-start"} rise`}
+                  >
+                    <div className="max-w-[85%]">
+                      <p className="mb-1 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[var(--el-ink-muted)]">
+                        {message.role === "agent" ? agentName : "Caller"} ·{" "}
+                        {new Date(message.at).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                      <div
+                        className={`rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
+                          message.role === "caller"
+                            ? "bg-[color-mix(in_srgb,var(--el-cyan)_12%,transparent)] text-[var(--el-ink)]"
+                            : "border border-[var(--el-line)] bg-[rgba(255,255,255,0.03)] text-[var(--el-ink-secondary)]"
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {streamingText ? (
+                  <div className="flex justify-start">
+                    <div className="max-w-[85%] rounded-xl border border-[color-mix(in_srgb,var(--el-accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--el-accent)_8%,transparent)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--el-ink)]">
+                      {streamingText}
+                      <span className="ml-0.5 inline-block h-3 w-[2px] animate-pulse bg-[var(--el-accent)] align-middle" />
+                    </div>
+                  </div>
+                ) : null}
+                {busy && !streamingText ? (
+                  <div className="flex items-center gap-2 text-[11px] text-[var(--el-ink-muted)]">
+                    <span className="dot-thinking" /> {agentName} is retrieving the answer…
+                  </div>
+                ) : null}
+              </div>
+
+              {toolNotes.length > 0 ? (
+                <div className="border-t border-[var(--el-line)] px-4 py-2">
+                  {toolNotes.map((note, index) => (
+                    <p key={`${note}-${index}`} className="truncate font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--el-ink-muted)]">
+                      ↳ {note}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="border-t border-[var(--el-line)] p-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="input"
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendMessage(input);
+                      }
+                    }}
+                    placeholder="Or type your question here…"
+                    aria-label="Type a message to the receptionist"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm h-[36px]"
+                    onClick={() => void sendMessage(input)}
+                    disabled={busy || input.trim().length === 0}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="el-glass p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="label">Instant lead-to-call</p>
+                  <p className="mt-1 text-[12px] text-[var(--el-ink-secondary)]">
+                    Test a browser call now, or have {agentName} call you back.
+                  </p>
+                </div>
+                {leadCaptured ? <Pill tone="live">Lead captured</Pill> : null}
+              </div>
+
+              {leadResult ? (
+                <div className="mt-3 rounded-lg border border-[color-mix(in_srgb,var(--el-mint)_30%,transparent)] bg-[color-mix(in_srgb,var(--el-mint)_10%,transparent)] px-3 py-3">
+                  <p className="flex items-center gap-2 text-[12.5px] font-medium text-[var(--el-mint)]">
+                    <Icon name="check" className="h-3.5 w-3.5" />
+                    Reference {leadResult.reference}
+                  </p>
+                  <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--el-ink-secondary)]">{leadResult.message}</p>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm mt-2"
+                    onClick={() => {
+                      setLeadResult(null);
+                      setLeadName("");
+                      setLeadPhone("");
+                    }}
+                  >
+                    Submit another
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <input
+                      className="input"
+                      value={leadName}
+                      onChange={(event) => setLeadName(event.target.value)}
+                      placeholder="Full name"
+                      autoComplete="name"
+                    />
+                    <input
+                      className="input"
+                      value={leadPhone}
+                      onChange={(event) => setLeadPhone(event.target.value)}
+                      placeholder="+45 20 00 00 00"
+                      type="tel"
+                      autoComplete="tel"
+                    />
+                  </div>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setLeadChannel("phone")}
+                      aria-pressed={leadChannel === "phone"}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+                        leadChannel === "phone"
+                          ? "border-[color-mix(in_srgb,var(--el-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--el-accent)_12%,transparent)]"
+                          : "border-[var(--el-line)] bg-[rgba(255,255,255,0.02)]"
+                      }`}
+                    >
+                      <Icon name="phone" className="h-3.5 w-3.5 text-[var(--el-accent)]" />
+                      <span>
+                        <span className="block text-[12px] text-[var(--el-ink)]">Automated callback</span>
+                        <span className="block text-[10.5px] text-[var(--el-ink-muted)]">Qualify by phone</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadChannel("browser")}
+                      aria-pressed={leadChannel === "browser"}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+                        leadChannel === "browser"
+                          ? "border-[color-mix(in_srgb,var(--el-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--el-accent)_12%,transparent)]"
+                          : "border-[var(--el-line)] bg-[rgba(255,255,255,0.02)]"
+                      }`}
+                    >
+                      <Icon name="wave" className="h-3.5 w-3.5 text-[var(--el-cyan)]" />
+                      <span>
+                        <span className="block text-[12px] text-[var(--el-ink)]">Browser test call</span>
+                        <span className="block text-[10.5px] text-[var(--el-ink-muted)]">No telephony</span>
+                      </span>
+                    </button>
+                  </div>
+                  {leadError ? <p className="mt-2 text-[11.5px] text-[var(--el-rose)]">{leadError}</p> : null}
+                  <button
+                    type="button"
+                    className="btn btn-accent mt-2 w-full"
+                    onClick={() => void submitLead()}
+                    disabled={leadSubmitting || leadName.trim().length < 2 || leadPhone.trim().length < 6}
+                  >
+                    {leadSubmitting ? "Saving…" : leadChannel === "phone" ? "Queue my qualification call" : "Link this browser session"}
+                    <Icon name="arrow" className="h-3.5 w-3.5" />
+                  </button>
+                  <p className="mt-2 text-[10.5px] leading-relaxed text-[var(--el-ink-muted)]">
+                    We store your details with the {workspaceName} workspace and hand the lead to the on-call team. No phone
+                    system required for the demo.
+                  </p>
+                </>
+              )}
+            </section>
+          </div>
+        </div>
       </div>
     </div>
   );
