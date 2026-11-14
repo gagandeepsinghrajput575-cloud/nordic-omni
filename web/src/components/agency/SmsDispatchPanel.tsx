@@ -43,6 +43,12 @@ const TEMPLATES: Record<
     defaultText:
       "Nyt lead fra +45 27 44 18 02 (Jens Hansen). Projekt: Tagrenovering 120 m². Estimeret værdi: 145.000 DKK. Log ind for at se detaljer.",
   },
+  booking_confirm: {
+    label: "Tidsbestilling (Booking Confirmed)",
+    placeholder: "Din tid er booket...",
+    defaultText:
+      "Tak for dit opkald. Din tid er booket, og du modtager en kalenderinvitation med det samme. Mvh receptionen.",
+  },
   inspection_confirm: {
     label: "Besigtigelse (Inspection Confirmed)",
     placeholder: "Besigtigelse bekræftet...",

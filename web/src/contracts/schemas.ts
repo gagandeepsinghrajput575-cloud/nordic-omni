@@ -427,6 +427,7 @@ export const SmsMessageTypeSchema = z.enum([
   'customer_followup',
   'lead_alert',
   'inspection_confirm',
+  'booking_confirm',
   'custom',
 ]);
 
@@ -471,6 +472,190 @@ export const SmsSendRequestSchema = z.object({
   contactId: z.string().nullable().optional(),
   workspaceId: z.string().optional(),
 });
+
+
+// ==============================================================================
+// 7. UNIVERSAL CALENDAR BOOKING SCHEMAS
+// ==============================================================================
+// Danish reception bookings are evaluated in Europe/Copenhagen, held for ten
+// minutes while the caller is on the phone, then confirmed into whichever
+// calendar the caller actually uses. The hold is the concurrency primitive: an
+// unexpired hold on a slot makes it unavailable to everyone else.
+// ==============================================================================
+
+export const CalendarProviderSchema = z.enum([
+  'google',
+  'apple_icloud',
+  'outlook',
+  'calcom',
+  'ics_universal',
+]);
+
+export const BookingStatusSchema = z.enum(['held', 'confirmed', 'expired', 'released']);
+
+/** ISO instant. Kept as a string so the contract matches the wire format. */
+const IsoInstantSchema = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), 'Must be an ISO-8601 instant')
+  .refine((value) => /T.*(Z|[+-]\d{2}:\d{2})$/.test(value), 'Must carry an explicit offset');
+
+/** Ten minutes, the optimistic hold window during a live call. */
+export const SLOT_HOLD_SECONDS = 600;
+
+export const BookingSlotSchema = z
+  .object({
+    id: z.string().min(1),
+    startIso: IsoInstantSchema,
+    endIso: IsoInstantSchema,
+    localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+    localStart: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM'),
+    localEnd: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM'),
+    durationMinutes: z.number().int().positive(),
+    label: z.string().min(1),
+    available: z.boolean(),
+    blockedBy: z.enum(['booked', 'held', 'past']).optional(),
+  })
+  .superRefine((slot, ctx) => {
+    const start = Date.parse(slot.startIso);
+    const end = Date.parse(slot.endIso);
+    if (end <= start) {
+      ctx.addIssue({ code: 'custom', message: 'Slot must end after it starts', path: ['endIso'] });
+      return;
+    }
+    const minutes = Math.round((end - start) / 60_000);
+    if (minutes !== slot.durationMinutes) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'durationMinutes must match the start/end instant',
+        path: ['durationMinutes'],
+      });
+    }
+    if (slot.localEnd <= slot.localStart) {
+      ctx.addIssue({ code: 'custom', message: 'localEnd must be after localStart', path: ['localEnd'] });
+    }
+  });
+
+export const SlotSlotQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  days: z.coerce.number().int().min(1).max(60).optional(),
+  provider: CalendarProviderSchema.optional(),
+});
+
+export const SlotHoldRequestSchema = z.object({
+  /** Absent on first enquiry; the workspace always comes from the session. */
+  tenantId: z.string().uuid().optional(),
+  contactId: z.string().uuid().nullish(),
+  callLogId: z.string().uuid().nullish(),
+  startIso: IsoInstantSchema,
+  endIso: IsoInstantSchema,
+  provider: CalendarProviderSchema.default('ics_universal'),
+  /** Danish subject matter, echoed into the invitation. */
+  topic: z.string().trim().min(2).max(180).default('Møde'),
+  notes: z.string().trim().max(1000).default(''),
+  holdSeconds: z.number().int().min(60).max(SLOT_HOLD_SECONDS * 3).default(SLOT_HOLD_SECONDS),
+  /** Calendar connection handle for the owner's calendar, when configured. */
+  calcomLink: z.string().url().optional(),
+});
+
+export const BookingConfirmationSchema = z.object({
+  tenantId: z.string().uuid(),
+  contactId: z.string().uuid().nullish(),
+  callLogId: z.string().uuid().nullish(),
+  startIso: IsoInstantSchema,
+  endIso: IsoInstantSchema,
+  provider: CalendarProviderSchema.default('ics_universal'),
+  /** When present the hold is claimed; when absent the slot is checked fresh. */
+  holdId: z.string().min(1).nullish(),
+  attendeeName: z.string().trim().min(2).max(160),
+  attendeeEmail: z.string().email().nullish(),
+  attendeePhone: z
+    .string()
+    .regex(/^\+[1-9]\d{6,14}$/, 'Must be E.164 format e.g. +4520123456')
+    .nullish(),
+  topic: z.string().trim().min(2).max(180).default('Møde'),
+  notes: z.string().trim().max(1000).default(''),
+  location: z.string().trim().max(240).default(''),
+  calcomLink: z.string().url().optional(),
+  /** Dispatch the Danish confirmation SMS after confirming. */
+  sendSms: z.boolean().default(true),
+});
+
+export const BookingHoldRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().uuid(),
+  contactId: z.string().uuid().nullable(),
+  callLogId: z.string().uuid().nullable(),
+  provider: CalendarProviderSchema,
+  status: BookingStatusSchema,
+  startIso: IsoInstantSchema,
+  endIso: IsoInstantSchema,
+  topic: z.string(),
+  notes: z.string(),
+  /** Instant the optimistic lock lapses; never extended retroactively. */
+  expiresAtIso: IsoInstantSchema,
+  /** Danish, e.g. `man. 18. nov. 08:00–08:30`. */
+  label: z.string(),
+  createdAtIso: IsoInstantSchema,
+});
+
+export const BookingRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().uuid(),
+  contactId: z.string().uuid().nullable(),
+  callLogId: z.string().uuid().nullable(),
+  provider: CalendarProviderSchema,
+  startIso: IsoInstantSchema,
+  endIso: IsoInstantSchema,
+  label: z.string(),
+  topic: z.string(),
+  attendeeName: z.string(),
+  attendeeEmail: z.string().email().nullable(),
+  attendeePhone: z.string().nullable(),
+  /** RFC 5545 payload the booking was confirmed with. */
+  icsUid: z.string().min(1),
+  createdAtIso: IsoInstantSchema,
+});
+
+export const CalendarLinksSchema = z.object({
+  google: z.string().url(),
+  outlook: z.string().url(),
+  apple: z.string().startsWith('data:text/calendar'),
+  calcom: z.string().url(),
+  webcal: z.string().startsWith('webcal://'),
+});
+
+export const SlotHoldResponseSchema = z.object({
+  ok: z.literal(true),
+  hold: BookingHoldRecordSchema,
+  slot: BookingSlotSchema,
+  /** Seconds remaining on the hold, as the caller's countdown. */
+  expiresInSeconds: z.number().int().nonnegative(),
+});
+
+export const BookingConfirmationResponseSchema = z.object({
+  ok: z.literal(true),
+  booking: BookingRecordSchema,
+  links: CalendarLinksSchema,
+  sms: z
+    .object({
+      queued: z.boolean(),
+      recipient: z.string().nullable(),
+      body: z.string(),
+    })
+    .optional(),
+});
+
+export type CalendarProvider = z.infer<typeof CalendarProviderSchema>;
+export type BookingStatus = z.infer<typeof BookingStatusSchema>;
+export type BookingSlot = z.infer<typeof BookingSlotSchema>;
+export type SlotSlotQuery = z.infer<typeof SlotSlotQuerySchema>;
+export type SlotHoldRequest = z.infer<typeof SlotHoldRequestSchema>;
+export type BookingConfirmation = z.infer<typeof BookingConfirmationSchema>;
+export type BookingHoldRecord = z.infer<typeof BookingHoldRecordSchema>;
+export type BookingRecord = z.infer<typeof BookingRecordSchema>;
+export type CalendarLinks = z.infer<typeof CalendarLinksSchema>;
+export type SlotHoldResponse = z.infer<typeof SlotHoldResponseSchema>;
+export type BookingConfirmationResponse = z.infer<typeof BookingConfirmationResponseSchema>;
 
 export type SmsMessageType = z.infer<typeof SmsMessageTypeSchema>;
 export type SmsStatus = z.infer<typeof SmsStatusSchema>;

@@ -2,13 +2,14 @@
 
 import { useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Bot, Clock3, CreditCard, Globe, LayoutDashboard, UsersRound, Webhook } from 'lucide-react';
+import { Bot, CalendarClock, Clock3, CreditCard, Globe, LayoutDashboard, UsersRound, Webhook } from 'lucide-react';
 import { Tabs } from '@/components/ui/Tabs';
 
 const ITEMS = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={15} /> },
   { id: 'team', label: 'Team & access', icon: <UsersRound size={15} /> },
   { id: 'hours', label: 'Business hours', icon: <Clock3 size={15} /> },
+  { id: 'calendar', label: 'Calendar booking', icon: <CalendarClock size={15} /> },
   { id: 'pricing', label: 'Pricing', icon: <CreditCard size={15} /> },
   { id: 'knowledge', label: 'Knowledge', icon: <Globe size={15} /> },
   { id: 'prompt', label: 'Prompt studio', icon: <Bot size={15} /> },

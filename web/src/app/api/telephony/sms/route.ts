@@ -52,7 +52,13 @@ export async function POST(request: Request): Promise<Response> {
       return jsonError("Invalid phone number format. Must be a valid Danish or international E.164 number", 400);
     }
 
-    const validTypes: SmsMessageType[] = ["customer_followup", "lead_alert", "inspection_confirm", "custom"];
+    const validTypes: SmsMessageType[] = [
+      "customer_followup",
+      "lead_alert",
+      "inspection_confirm",
+      "booking_confirm",
+      "custom",
+    ];
     const messageType: SmsMessageType = validTypes.includes(rawType as SmsMessageType)
       ? (rawType as SmsMessageType)
       : "custom";
@@ -89,6 +95,10 @@ export async function POST(request: Request): Promise<Response> {
         messageBody = `Nyt lead fra ${recipient}. Henvendelse registreret hos ${workspaceName}. Log ind i dashboardet for at gennemgå detaljer.`;
       } else if (messageType === "inspection_confirm") {
         messageBody = `Besigtigelse bekræftet af ${workspaceName}. Vores håndværker ankommer som aftalt.`;
+      } else if (messageType === "booking_confirm") {
+        // The calendar route always supplies the time and link; this is the
+        // safe fallback so a booking SMS is never sent without its details.
+        messageBody = `Tak for dit opkald til ${workspaceName}. Din tid er booket, og invitationen ligger i din kalender.`;
       } else {
         return jsonError("Message body is required for custom SMS dispatch", 400);
       }
