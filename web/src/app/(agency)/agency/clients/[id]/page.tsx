@@ -18,6 +18,8 @@ import { AgencyHoursEditor, AgencyPricingEditor } from '@/components/agency/Work
 import { PromptEditor } from './PromptEditor';
 import { KnowledgeEditor } from './KnowledgeEditor';
 import { AiBrainPanel } from './AiBrainPanel';
+import { CalendarBookingPanel } from '@/components/agency/CalendarBookingPanel';
+import { generateServerSlots } from '@/lib/calendar/slots-server';
 import { restoreAgentConfigForm } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +36,7 @@ export default async function AgencyClientDetailPage({ params }: { params: Promi
     listKnowledge(session.userId, id), listConfigHistory(session.userId, id), listContacts(session.userId, id, 1),
     getLatestBrainBundle(session.userId, id), listWorkspaceMembers(session.userId, id), listWebhooks(session.userId, id),
   ]);
+  const bookings = await generateServerSlots({ userId: session.userId, tenantId: id });
   const isDanish = tenant.default_language === 'da-DK';
   const promptHistory = <Card>
     <CardHeader title="Prompt history" hint="Every save creates a reversible snapshot." action={<Badge tone="neutral"><History size={12} />{history.length}</Badge>} />
@@ -47,6 +50,31 @@ export default async function AgencyClientDetailPage({ params }: { params: Promi
       overview: <div className="space-y-5"><WorkspaceControls tenantId={id} status={tenant.status} receptionMode={tenant.reception_mode} did={tenant.flynumber_did} /><Card><CardHeader title="Business identity" hint="Contact facts are shared with the client portal." /><dl className="grid gap-5 p-5 sm:grid-cols-2 xl:grid-cols-4">{[['Owner', tenant.owner_name], ['Owner phone', tenant.owner_phone], ['Owner email', tenant.owner_email], ['Assigned DID', tenant.flynumber_did ?? 'Browser calls only']].map(([label,value]) => <div key={label} className="min-w-0"><dt className="text-[12px] text-[var(--muted)]">{label}</dt><dd className="mt-1 break-words text-[13px] font-medium">{value || '—'}</dd></div>)}</dl><div className="border-t border-[var(--line)] p-5"><h3 className="mb-2 text-[13px] font-medium">Operational notice</h3><p className="text-[13px] text-[var(--text-secondary)]">{tenant.active_broadcast_message || 'No active notice.'}</p></div></Card><div className="notice notice-info"><Phone size={17} className="shrink-0" /><p className="text-[12px]">Carrier setup remains external: point the DID at your LiveKit SIP trunk and run the SIP provisioning script. Saving controls here does not purchase a number or claim a carrier connection.</p></div></div>,
       team: <TeamManager tenantId={id} members={members} />,
       hours: <AgencyHoursEditor tenantId={id} hours={tenant.business_hours ?? {}} />,
+      calendar: (
+        <div className="space-y-4">
+          <SectionTitle action={<Badge tone="accent"><ShieldCheck size={12} />RLS scoped</Badge>}>
+            Universal kalenderbooking
+          </SectionTitle>
+          <CalendarBookingPanel
+            tenantId={id}
+            tenantName={tenant.name}
+            agentName={tenant.owner_name}
+            timezone={bookings.timezone}
+            initialSlots={bookings.slots}
+            contactName={contacts[0]?.full_name ?? null}
+            contactPhone={contacts[0]?.phone_number ?? null}
+            availabilityError={
+              bookings.degraded
+                ? 'Kalenderen kunne ikke læses, så der vises ingen tider. Prøv igen om et øjeblik — book ikke i blinde.'
+                : null
+            }
+          />
+          <p className="text-[11.5px] leading-relaxed text-[var(--text-muted)]">
+            Tider vurderes altid i Europe/Copenhagen, mandag–fredag 07:00–16:00, og danske helligdage
+            udelukkes. Et aktivt hold låser tiden i 10 minutter, mens samtalen kører.
+          </p>
+        </div>
+      ),
       pricing: <AgencyPricingEditor tenantId={id} rows={(tenant.pricing_catalog ?? []).map((row) => ({ ...row, price_dkk: row.price_dkk ?? 0, unit: row.unit ?? 'fixed' }))} />,
       knowledge: <div className="space-y-6"><AiBrainPanel tenantId={id} bundle={brain ? { ...brain, payload: brain.payload as BrainPayload } : null} /><KnowledgeEditor tenantId={id} items={knowledge.map((item) => ({ id: item.id, title: item.title, content: item.content, category: String(item.category), priority: item.priority }))} /></div>,
       prompt: <div className="space-y-6"><section><SectionTitle action={<Badge tone="accent"><ShieldCheck size={12} />Agency only</Badge>}>Receptionist instructions</SectionTitle><Card className="p-5">{config ? <PromptEditor tenantId={id} tenantSlug={tenant.slug} tenantName={tenant.name} defaultLanguage={tenant.default_language} contactId={contacts[0]?.id} contactName={contacts[0]?.full_name ?? 'Caller'} initial={{ customer_system_prompt: config.customer_system_prompt, copilot_system_prompt: config.copilot_system_prompt, greeting_script: config.greeting_script, voice_id: config.voice_id }} /> : <EmptyState compact title="No agent configuration" description="This workspace has no agent configuration on file." />}</Card></section>{promptHistory}</div>,
