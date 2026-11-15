@@ -318,7 +318,16 @@ test('the glass primitives stay in their own client module', () => {
 });
 
 test('Spring constants match the CSS curve so motion feels consistent', () => {
-  assert.match(glass, /export const SPRING = \{ type: 'spring', stiffness: 420, damping: 34, mass: 0\.7 \} as const/);
+  // The glass module used to restate the literals, which made it a second
+  // source of truth. It now imports the preset and re-exports it, so the curve
+  // is declared exactly once in the motion vocabulary.
+  const springs = read('src/lib/motion/springs.ts');
+  assert.match(
+    springs,
+    /export const SPRING: SpringPreset = \{ type: 'spring', stiffness: 420, damping: 34, mass: 0\.7 \}/,
+  );
+  assert.match(glass, /import \{[^}]*\bSPRING\b[^}]*\} from '@\/lib\/motion\/springs'/);
+  assert.doesNotMatch(glass, /export const SPRING =/, 'glass.tsx must not redeclare the spring');
   // The stylesheet documents the same spring for CSS-driven transitions.
   assert.match(css, /--el-spring: cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
 });

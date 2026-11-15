@@ -2,6 +2,7 @@
 
 import { useId, useMemo, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { SPRING, SPRING_SOFT } from '@/lib/motion/springs';
 
 /**
  * ElevenLabs-style tactile primitives.
@@ -15,9 +16,14 @@ import { motion, useReducedMotion } from 'framer-motion';
  * asserted against all three elevations in `showcase-elevenlabs.test.ts`.
  */
 
-/** The shared spring. Matches `--el-spring` in globals.css. */
-export const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.7 } as const;
-export const SPRING_SOFT = { type: 'spring', stiffness: 260, damping: 28 } as const;
+/**
+ * The spring vocabulary is not redeclared here.
+ *
+ * `lib/motion/springs.ts` is the single source of truth; this module re-exports
+ * rather than restating the literals, so a change to the curve can never leave
+ * the glass controls drifting away from the rest of the product.
+ */
+export { SPRING, SPRING_SOFT };
 
 // -----------------------------------------------------------------------------
 // GlassButton

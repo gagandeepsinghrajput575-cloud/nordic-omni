@@ -1324,3 +1324,314 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   .el-nav-link,
   .el-segment-button { transition: none !important; }
 }
+
+/* ---------- Segmented thumb, light theme --------------------------------- */
+/* The dark thumb is a white wash; on paper it would be invisible, so the
+   light theme swaps in an ink wash of the same weight. */
+:root[data-theme='light'] .el-segment-track {
+  background: linear-gradient(180deg, rgba(9, 9, 11, 0.10), rgba(9, 9, 11, 0.05));
+  border-color: var(--acc);
+}
+
+/* =========================================================================
+   Piece 1 — Welcome hero and studio playground
+   =========================================================================
+   Every value here resolves from a theme token. No literal colour appears in
+   this block, so the chromatic scan in design-system.test.ts stays green and
+   both themes are derived from one set of declarations.
+   ---------------------------------------------------------------------- */
+
+.welcome-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  /* Paper has no mesh; the studio mesh would read as fog on white. */
+  background: var(--bg);
+}
+
+.welcome-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 620px;
+  background-image: var(--el-mesh-a, none), var(--el-mesh-b, none);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.welcome-wrap {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1180px;
+  padding-inline: clamp(20px, 5vw, 40px);
+}
+
+.welcome-body { padding-block: clamp(56px, 9vw, 112px) clamp(48px, 7vw, 88px); }
+
+/* ---------- Headline band ------------------------------------------------ */
+.welcome-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .welcome-hero {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: clamp(32px, 6vw, 96px);
+  }
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: clamp(2.4rem, 5.1vw, 3.85rem);
+  line-height: 1.02;
+  letter-spacing: -0.032em;
+  font-weight: 560;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.welcome-title-line { display: block; }
+
+.welcome-deck {
+  margin: 0;
+  /* Top-aligns the deck's first line with the headline's cap height at L1024. */
+  padding-top: 0;
+  max-width: 46ch;
+  font-size: clamp(0.95rem, 1.15vw, 1.0625rem);
+  line-height: 1.55;
+  color: var(--el-ink-secondary);
+}
+
+@media (min-width: 1024px) {
+  .welcome-deck { padding-top: 0.45em; justify-self: end; }
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: clamp(24px, 3.4vw, 34px);
+}
+
+/* ---------- Studio playground card --------------------------------------- */
+.studio-card {
+  position: relative;
+  margin-top: clamp(34px, 5vw, 56px);
+  border: 1px solid var(--border-control);
+  border-radius: var(--r-xl);
+  /* Glass elevation: the blur is what makes the border read as an edge and
+     not a box drawn on the page. */
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
+  box-shadow: var(--el-shadow, var(--shadow-float)), var(--hl);
+  overflow: hidden;
+}
+
+.studio-card-head {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--el-elevated);
+}
+
+.studio-card-body {
+  position: relative;
+  padding: clamp(22px, 3.4vw, 40px) clamp(16px, 3vw, 34px) clamp(16px, 2.4vw, 24px);
+}
+
+/* The switchable panel: a hairline grid of tiles, centred. */
+.studio-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: clamp(10px, 2vw, 22px);
+  align-items: end;
+  justify-items: center;
+  min-height: 260px;
+}
+
+.studio-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.studio-tile-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--orb-size, 104px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  /* A true-grey ramp: silver to zinc. Achromatic by construction. */
+  background: radial-gradient(
+    circle at 32% 28%,
+    color-mix(in srgb, var(--text) calc(var(--orb-lift, 18) * 1%), transparent),
+    color-mix(in srgb, var(--text) calc(var(--orb-lift, 18) * 0.35%), transparent) 62%,
+    transparent 78%
+  ), linear-gradient(160deg, var(--el-elevated), color-mix(in srgb, var(--el-elevated) 45%, var(--bg)));
+  box-shadow: var(--hl);
+}
+
+.studio-tile-orb[data-ramp='0'] { --orb-lift: 10; --orb-size: 88px; opacity: 0.62; }
+.studio-tile-orb[data-ramp='1'] { --orb-lift: 16; --orb-size: 96px; opacity: 0.78; }
+.studio-tile-orb[data-ramp='2'] { --orb-lift: 26; --orb-size: 124px; opacity: 1; }
+.studio-tile-orb[data-ramp='3'] { --orb-lift: 20; --orb-size: 108px; opacity: 0.88; }
+
+.studio-tile-title {
+  font-size: 0.8125rem;
+  font-weight: 560;
+  color: var(--text);
+  text-align: center;
+}
+
+.studio-tile-caption {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--el-ink-muted);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* ---------- Waveform ----------------------------------------------------- */
+.wave-visual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 78px;
+  padding-inline: 2px;
+  touch-action: none;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  width: 100%;
+}
+
+.wave-visual:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--r-sm);
+}
+
+.wave-bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 999px;
+  /* Height is the animated property; the bar never changes width, so the
+     layout does not reflow while the playhead travels. */
+  height: var(--h, 30%);
+  background: color-mix(in srgb, var(--text) 82%, transparent);
+  transform-origin: center;
+  transition: height 90ms linear;
+}
+
+/* Bars already played read as solid ink; upcoming bars drop back. */
+.wave-bar[data-played='false'] { opacity: 0.34; }
+
+.wave-visual[data-state='idle'] .wave-bar { opacity: 0.42; }
+
+.wave-visual[data-state='paused'] .wave-bar { opacity: 0.5; }
+
+/* The playhead is a 1px rule, not a filled block, so it never hides a bar. */
+.wave-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+.wave-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 999px;
+  background: var(--text);
+  box-shadow: var(--hl);
+}
+
+/* Static fallback: identical silhouette, zero motion. */
+.wave-static { width: 100%; height: 78px; display: block; color: var(--text); }
+
+.wave-static path { fill: currentColor; opacity: 0.82; }
+
+/* ---------- Transport bar ------------------------------------------------ */
+.studio-transport {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: clamp(18px, 2.6vw, 28px);
+  padding-top: clamp(14px, 2vw, 20px);
+  border-top: 1px solid var(--line);
+}
+
+.studio-transport-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.studio-transport-mode {
+  font-size: 0.75rem;
+  font-weight: 560;
+  color: var(--text);
+}
+
+.studio-transport-time {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--el-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-play {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), background var(--dur) var(--ease);
+}
+
+.studio-play:hover:not(:disabled) { transform: translateY(-1px); }
+.studio-play:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.studio-play:disabled { opacity: 0.5; cursor: progress; }
+
+.studio-play:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
+.studio-mock-note {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--el-ink-muted);
+  text-align: right;
+}
+
+/* ---------- Reduced motion ----------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .wave-bar { transition: none; }
+  .studio-play { transition: none; }
+  .studio-play:hover:not(:disabled),
+  .studio-play:active:not(:disabled) { transform: none; }
+}
