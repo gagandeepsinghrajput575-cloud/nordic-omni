@@ -30,16 +30,45 @@ test('owner-pool imports are limited to explicit infrastructure/trusted-write bo
     }
   };
   walk(root);
+  // The Universal Inbound Gateway is a pre-identity boundary by construction: an
+  // external caller presents a credential, not a session, so the key lookup and
+  // the tenant-existence check must run on the owner connection. Both files are
+  // listed deliberately and are covered by their own assertions below.
   assert.deepEqual(files.sort(), [
     'app/api/auth/login/route.ts',
     'app/api/health/route.ts',
     'app/api/livekit/abandon/route.ts',
     'app/api/livekit/token/route.ts',
+    'app/api/v1/agency/webhook/route.ts',
     'lib/auth/session.ts',
     'lib/db/client.ts',
     'lib/db/trusted-records.ts',
     'lib/webhooks/dispatcher.ts',
+    'lib/webhooks/inbound-dispatch.ts',
   ]);
+
+  // The new boundary is held to the same standard: the owner connection may not
+  // be used for ordinary reads inside the dispatcher.
+  const inboundDispatch = source('../src/lib/webhooks/inbound-dispatch.ts');
+  assert.equal((inboundDispatch.match(/adminSql`/g) ?? []).length, 1);
+  const identityStart = inboundDispatch.indexOf('export async function resolveActingUser');
+  const adminIndex = inboundDispatch.indexOf('adminSql`');
+  assert.ok(
+    adminIndex > identityStart,
+    'the single owner-connection statement must sit inside resolveActingUser',
+  );
+
+  // The route uses it only for credential and receipt lookups, never for data.
+  const inboundRoute = source('../src/app/api/v1/agency/webhook/route.ts');
+  const routeAdminCalls = inboundRoute.match(/adminSql`[^`]*`/g) ?? [];
+  assert.ok(routeAdminCalls.length > 0, 'the route resolves credentials on the owner connection');
+  for (const call of routeAdminCalls) {
+    assert.match(
+      call,
+      /webhook_api_keys|webhook_inbound_receipts/,
+      `the gateway may only touch credential tables on the owner connection, saw: ${call.slice(0, 60)}`,
+    );
+  }
   assert.doesNotMatch(source('../src/lib/db/queries.ts'), /adminSql/);
   assert.doesNotMatch(source('../src/lib/ai/escalation.ts'), /adminSql/);
   assert.doesNotMatch(source('../src/lib/db/chat.ts'), /adminSql/);

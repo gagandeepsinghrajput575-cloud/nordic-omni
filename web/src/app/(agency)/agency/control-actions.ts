@@ -10,6 +10,8 @@ import { getTenantFacts } from '@/lib/db/queries';
 import type { CatalogItem } from '@/lib/estimation';
 import { testWebhook } from '@/lib/webhooks/dispatcher';
 import { WEBHOOK_EVENTS, newWebhookSecret } from '@/lib/webhooks/protocol';
+import { listApiKeys, mintApiKey, revokeApiKey, rotateApiKey } from '@/lib/webhooks/inbound-keys';
+import { probeVision, visionConfigFromEnv } from '@/lib/vision/push';
 import type { ActionState } from '@/lib/actions/types';
 
 const idSchema = z.string().uuid();
@@ -154,4 +156,78 @@ export async function agencyFactsAction(_prev: ActionState, formData: FormData):
     refresh(tenantId);
     return { ok: true, message: 'Saved. The receptionist uses these facts on the next conversation.' };
   } catch (error) { return failure(error); }
+}
+
+/* ---------------------------------------------------------------- Inbound gateway --- */
+
+/**
+ * Minting a key returns the plaintext exactly once. It is deliberately surfaced
+ * in `message` (shown once) rather than stored, so a refresh cannot recover it.
+ */
+export async function mintInboundKeyAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { session } = await agencyScope();
+  const name = String(formData.get('name') || '').trim();
+  const tenantId = String(formData.get('tenantId') || '').trim();
+  if (name.length < 2 || name.length > 120) return { ok: false, error: 'Give the key a name between 2 and 120 characters.' };
+  if (tenantId && !idSchema.safeParse(tenantId).success) return { ok: false, error: 'Invalid workspace scope.' };
+  try {
+    const minted = await mintApiKey(session.userId, { name, tenantId: tenantId || null });
+    refresh(tenantId || null);
+    return { ok: true, message: `API key created. Copy it now — it is shown once and cannot be recovered: ${minted.key}` };
+  } catch (error) {
+    return { ok: false, error: describeKeyFailure(error) };
+  }
+}
+
+export async function inboundKeyControlAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { session } = await agencyScope();
+  const id = String(formData.get('id') || '');
+  const action = String(formData.get('action') || '');
+  if (!idSchema.safeParse(id).success || !['revoke', 'rotate'].includes(action)) {
+    return { ok: false, error: 'Invalid key request.' };
+  }
+  try {
+    if (action === 'rotate') {
+      const rotated = await rotateApiKey(session.userId, id);
+      if (!rotated) return { ok: false, error: 'The key could not be rotated.' };
+      refresh(null);
+      return { ok: true, message: `Key rotated. The previous key is revoked. New key (shown once): ${rotated.key}` };
+    }
+    const revoked = await revokeApiKey(session.userId, id);
+    if (!revoked) return { ok: false, error: 'The key was not found or is already revoked.' };
+    refresh(null);
+    return { ok: true, message: 'Key revoked. Requests using it will fail immediately.' };
+  } catch (error) {
+    return { ok: false, error: describeKeyFailure(error) };
+  }
+}
+
+/** Reads keys through RLS so the page never needs the admin connection. */
+export async function loadInboundKeysAction(): Promise<ActionState & { keys?: Awaited<ReturnType<typeof listApiKeys>> }> {
+  const { session } = await agencyScope();
+  try {
+    return { ok: true, keys: await listApiKeys(session.userId) };
+  } catch {
+    return { ok: false, error: 'The gateway keys could not be read.' };
+  }
+}
+
+/** One-click Vision connection probe. */
+export async function testVisionAction(): Promise<ActionState> {
+  await agencyScope();
+  const result = await probeVision(visionConfigFromEnv());
+  if (!result.configured) return { ok: false, error: result.detail };
+  return result.reachable ? { ok: true, message: result.detail } : { ok: false, error: result.detail };
+}
+
+/**
+ * A missing 0020 migration must read as an operational instruction, not a
+ * generic failure: "relation does not exist" is the most likely cause here.
+ */
+function describeKeyFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/relation .*webhook_api_keys.* does not exist/i.test(message)) {
+    return 'The gateway tables are missing. Apply migration 0020_universal_inbound_gateway.sql as the schema owner.';
+  }
+  return 'The key operation failed. Check the server log for details.';
 }
