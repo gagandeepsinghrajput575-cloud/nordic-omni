@@ -21,11 +21,15 @@ X,
 import { InlineNotice } from "@/components/ui/client-ui";
 import { Equalizer, LiveStatus } from "@/components/ui/studio";
 import { Pill } from "@/components/ui/primitives";
-import { Waveform } from "@/components/audio/Waveform";
+import { TelephonyBargeInMeter, Waveform } from "@/components/audio/Waveform";
 import { formatMs, formatRelative } from "@/lib/format";
 import type { SipSessionView, TelephonyNumberView, VoiceState } from "@/lib/types";
 
 interface DispatchTelemetry {
+/** "budget" until the worker reports a real turn; "measured" from then on. */
+source?: "budget" | "measured" | "declined";
+measured?: { sessionLatencyMs: number; withinBudget: boolean; overByMs: number };
+budgets?: { sttMs: number; llmFirstTokenMs: number; ttsFirstByteMs: number; bargeInMs: number; roundTripMs: number };
 ringDelayMs: number;
 sttLatencyMs: number;
 llmFirstTokenMs: number;
@@ -50,6 +54,9 @@ agent: { participantIdentity: string };
 metadata: { attempt: string; codec: string; sampleRate: number };
 };
 telemetry?: DispatchTelemetry;
+bargeIn?: { budgetMs: number; tenantBudgetMs: number; measurementPoint?: string } | null;
+voice?: { provider: string; configured: boolean; reason: string | null; greeting: string } | null;
+calendar?: { configured: boolean; reason: string | null; availableSlots: number; nextSlot: { offer: string } | null } | null;
 session?: SipSessionView | null;
 error?: string;
 }
@@ -388,6 +395,32 @@ aria-label="Simulated caller number"
 
 <div className="studio-surface mt-2 rounded-lg px-3 py-2">
 <Waveform active={state === "listening" || state === "speaking"} bars={44} className="h-8" tone={state === "idle" ? "muted" : "accent"} />
+{/* The sub-150ms promise, metered against the tenant's own budget rather than the
+    studio round-trip ceiling: barge-in is the part of the budget that has to hold
+    while the agent is mid-sentence. Until the worker reports a turn this reads
+    "awaiting commit" — a budget is not a measurement. */}
+<div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+<TelephonyBargeInMeter
+latencyMs={telemetry?.measured?.sessionLatencyMs ?? 0}
+budgetMs={result?.bargeIn?.tenantBudgetMs ?? result?.bargeIn?.budgetMs}
+source={telemetry?.source === "measured" ? "measured" : "budget"}
+/>
+<span className="font-mono text-[8.5px] uppercase tracking-[0.08em] text-[var(--text-muted)]">
+{result?.bargeIn?.measurementPoint ? "measured at the bridge" : "no measurement point reported"}
+</span>
+</div>
+{result?.voice && !result.voice.configured ? (
+<div className="mt-2 rounded-lg border border-[var(--border-strong)] bg-[var(--glass-soft)] px-2 py-1.5 text-[10.5px] text-[var(--text-secondary)]" role="status">
+{result.voice.provider === "browser_fallback"
+? `Browser voice fallback: ${result.voice.reason ?? "no conversational agent is configured"}. The phone call is answered, but the telephony synthesizer is not.`
+: `${result.voice.provider}: ${result.voice.reason ?? "ready"}`}
+</div>
+) : null}
+{result?.calendar && !result.calendar.configured ? (
+<p className="mt-2 text-[10.5px] text-[var(--text-muted)]">
+Calendar: {result.calendar.reason ?? "no booking link configured"} — the receptionist offers a callback instead of a time.
+</p>
+) : null}
 </div>
 </div>
 

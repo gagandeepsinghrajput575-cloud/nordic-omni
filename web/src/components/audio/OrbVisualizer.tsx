@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '@/lib/theme/ThemeContext';
+import { BARGE_IN_BUDGET_MS, judgeLatency } from '@/lib/telephony/types';
 import {
   createAnalyserRuntime,
   createMotionPreference,
@@ -26,6 +27,16 @@ export interface OrbVisualizerProps {
   audioStream?: MediaStream | null;
   size?: number;
   className?: string;
+  /**
+   * The barge-in verdict, when this orb is metering a live phone call.
+   *
+   * `latched` means the caller has interrupted and the agent is deliberately
+   * silent — the ring holds its collapsed shape instead of blooming, so "the
+   * receptionist stopped talking because you spoke" is visible, not implied.
+   * `latencyMs` is measured caller-speech → agent-silence; `budgetMs` is the
+   * tenant's own ceiling (never looser than the product's 150 ms).
+   */
+  bargeIn?: { latencyMs: number; budgetMs?: number; latched?: boolean; commits?: number; overBudgetCommits?: number } | null;
 }
 
 /**
@@ -59,7 +70,12 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
   audioStream = null,
   size = 180,
   className = '',
+  bargeIn = null,
 }) => {
+  // One computation, shared with the ledger and the pill: `judgeLatency` decides
+  // the verdict here so the orb can never render "within budget" next to a meter
+  // that says over.
+  const verdict = bargeIn ? judgeLatency(bargeIn.latencyMs, bargeIn.budgetMs ?? BARGE_IN_BUDGET_MS) : null;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { theme } = useTheme();
 
@@ -242,7 +258,15 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
     };
   }, [size, isActive, state]);
 
-  const label = STATE_LABEL[state];
+  const latched = Boolean(bargeIn?.latched);
+  const label = latched ? 'Barge-in latched' : STATE_LABEL[state];
+  const readout = verdict
+    ? `${verdict.measuredMs} ms of ${verdict.budgetMs} ms budget · ${
+        verdict.withinBudget ? 'within' : `${verdict.overByMs} ms over`
+      }${bargeIn?.commits ? ` · ${bargeIn.commits} interruption${bargeIn.commits === 1 ? '' : 's'}` : ''}${
+        bargeIn?.overBudgetCommits ? `, ${bargeIn.overBudgetCommits} too slow` : ''
+      }`
+    : null;
 
   return (
     <div className={`studio-orb relative flex items-center justify-center ${className}`.trim()}>
@@ -251,11 +275,19 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
         width={size}
         height={size}
         role="img"
-        aria-label={`${label} — audio visualiser`}
+        aria-label={`${label} — audio visualiser${readout ? ` · ${readout}` : ''}`}
         className="block rounded-full"
         style={{ width: `${size}px`, height: `${size}px` }}
       />
       {state === 'dire_hold' ? <span className="pill pill-danger absolute -bottom-2">Hold for owner</span> : null}
+      {/* An over-budget barge-in is a defect the operator can hear, so it is
+          labelled on the orb itself rather than left in a telemetry panel. The
+          pill appears only on a violation; a healthy call stays quiet. */}
+      {verdict && !verdict.withinBudget ? (
+        <span className="pill pill-danger absolute -top-2 mono" role="status">
+          barge-in {verdict.measuredMs}ms · +{verdict.overByMs}ms over budget
+        </span>
+      ) : null}
     </div>
   );
 };

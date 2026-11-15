@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { VoiceState } from "@/lib/types";
 import { useAudioBands } from "@/lib/audio/useAudioBands";
 import { css, rampAt, type RGB } from "@/lib/audio/orb-shader";
+import { BARGE_IN_BUDGET_MS, judgeLatency } from "@/lib/telephony/types";
 import { useTheme } from "@/lib/theme/ThemeContext";
 
 interface WaveformProps {
@@ -236,6 +237,66 @@ export function LatencyPill({ latencyMs, mode }: { latencyMs: number; mode: "liv
         <span style={{ width: `${Math.max(4, Math.round(ratio * 100))}%` }} />
       </span>
       <span className="text-[var(--text-muted)]">· {mode === "live" ? "provider" : "grounded"}</span>
+    </span>
+  );
+}
+
+/**
+ * The telephony barge-in meter, measured against the *bridge* budget.
+ *
+ * This is not `LatencyPill`. That one meters the studio round trip (speech end →
+ * first audio token) against the 300 ms ceiling the waveform contract has always
+ * used. This one meters the narrower promise the phone bridge makes: caller speech
+ * became unambiguous → agent audio actually stopped, against
+ * `BARGE_IN_BUDGET_MS` (150 ms) in `lib/telephony/types.ts`, or the tenant's own
+ * tighter budget when they set one.
+ *
+ * The verdict comes from `judgeLatency`, the same function the ledger persists
+ * with, so a meter can never disagree with the record. `commits` and
+ * `overBudgetCommits` are the server's counters, not the browser's, which is why
+ * an honest "this call was slow twice" is possible here at all.
+ */
+export function TelephonyBargeInMeter({
+  latencyMs,
+  budgetMs,
+  commits = 0,
+  overBudgetCommits = 0,
+  source = "budget",
+}: {
+  latencyMs: number;
+  budgetMs?: number;
+  commits?: number;
+  overBudgetCommits?: number;
+  /** "measured" once a real commit has been reported; "budget" until then. */
+  source?: "budget" | "measured";
+}) {
+  const verdict = judgeLatency(latencyMs, budgetMs ?? BARGE_IN_BUDGET_MS);
+  const tone = verdict.overByMs > 0 ? "pill-danger" : verdict.ratio > 0.8 ? "pill-warn" : "pill-live";
+  const measured = source === "measured";
+
+  return (
+    <span
+      className={`${tone} pill`}
+      data-budgeted={verdict.withinBudget ? "within" : "over"}
+      title="Caller speech to agent silence, measured at the bridge. Interruption is committed synchronously: the audio sink is muted before the provider turn is cut, and every provider audio event at or before the interrupt id is discarded."
+      aria-label={`Barge-in ${verdict.measuredMs} milliseconds of a ${verdict.budgetMs} millisecond budget, ${
+        verdict.withinBudget ? "within" : "over"
+      } budget${measured ? ", measured" : ", budget only"}`}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+        <path d="M5.6 1 2.2 5.6h2.1L4.1 9l3.6-4.7H5.5L5.6 1Z" stroke="currentColor" strokeOpacity="0.75" />
+      </svg>
+      <span className="mono">{verdict.measuredMs}ms</span>
+      <span className="latency-budget" aria-hidden="true">
+        <span style={{ width: `${Math.max(4, Math.round(verdict.ratio * 100))}%` }} />
+      </span>
+      <span className="text-[var(--text-muted)]">
+        / {verdict.budgetMs}ms{verdict.overByMs > 0 ? ` · +${verdict.overByMs}` : ""}
+      </span>
+      <span className="mono text-[var(--text-muted)]">
+        {measured ? `barge-in ${commits}` : "awaiting commit"}
+        {overBudgetCommits > 0 ? ` · ${overBudgetCommits} over` : ""}
+      </span>
     </span>
   );
 }

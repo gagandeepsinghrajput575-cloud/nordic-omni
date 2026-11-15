@@ -13,6 +13,8 @@ import {
   FixedWindowRateLimiter,
   resolveLiveKitAccess,
 } from '@/lib/livekit/policy';
+import { liveCallBinding } from '@/lib/telephony/bridge';
+import { TELEPHONY_DATA_TOPIC, ownerParticipantIdentity } from '@/lib/telephony/livekit-room';
 
 /** Legacy identity/room fields are accepted but ignored; the server owns them. */
 const BodySchema = z.object({
@@ -22,6 +24,12 @@ const BodySchema = z.object({
   participantName: z.string().min(1).max(200).optional(),
   role: z.enum(['customer', 'owner_consult', 'owner_merged']).default('customer'),
   contactId: z.string().uuid().optional(),
+  /**
+   * The bridge's call id. When present the token joins *that* room instead of
+   * minting a fresh attempt-scoped one — this is how a human gets onto a live
+   * AI call without the two sides inventing different room names.
+   */
+  telephonySessionId: z.string().min(1).max(120).optional(),
 });
 const limiter = new FixedWindowRateLimiter(10, 60_000);
 
@@ -31,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token request', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { tenantId, role: requestedRole, contactId } = parsed.data;
+  const { tenantId, role: requestedRole, contactId, telephonySessionId } = parsed.data;
   const session = await apiSession();
   const rateKey = session?.userId ?? `${tenantId}:${contactId ?? 'owner'}`;
   if (!limiter.allow(rateKey)) {
@@ -75,8 +83,40 @@ export async function POST(req: NextRequest) {
 
   const attemptId = randomUUID();
   const subjectId = access.role === 'customer' ? access.contactId! : session!.userId;
-  const roomName = buildRoomName(tenant.slug, subjectId, attemptId);
-  const participantIdentity = buildParticipantIdentity(access.role, subjectId, attemptId);
+
+  /**
+   * Joining a live bridge call.
+   *
+   * The room name is *not* minted here: the bridge already reserved one when the
+   * call was dispatched, and a second naming scheme would put the human in a
+   * different room from the caller. The binding is process-local, so a call this
+   * worker did not answer is refused rather than guessed at — and the tenant check
+   * compares against the binding's own grounding, never against the request body.
+   */
+  const binding = telephonySessionId ? liveCallBinding(telephonySessionId) : null;
+  if (telephonySessionId && !binding) {
+    return NextResponse.json(
+      { error: 'That call is not live in this worker, so there is no room to join.' },
+      { status: 409 },
+    );
+  }
+  if (binding && binding.context.grounding.tenantId !== tenantId) {
+    return NextResponse.json({ error: 'That call belongs to a different workspace.' }, { status: 403 });
+  }
+  if (binding && access.role === 'customer') {
+    // The caller on a PSTN leg has no session; a browser customer joining a phone
+    // call would be a second audio path into the same conversation, and the agent
+    // would answer whichever one spoke last.
+    return NextResponse.json(
+      { error: 'Only a workspace member can join a live phone call.' },
+      { status: 409 },
+    );
+  }
+
+  const roomName = binding ? binding.context.roomName : buildRoomName(tenant.slug, subjectId, attemptId);
+  const participantIdentity = binding
+    ? ownerParticipantIdentity(subjectId, attemptId)
+    : buildParticipantIdentity(access.role, subjectId, attemptId);
   const participantName = access.role === 'customer' ? contact?.full_name || 'Customer' : session!.fullName || 'Owner';
 
   // Track the attempt even if the browser never reaches the worker.
@@ -98,15 +138,58 @@ export async function POST(req: NextRequest) {
       call_id: access.role === 'customer' ? attemptId : null,
     }),
   });
-  at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: false });
+  // Data channel is opened only for a bridge join: that is how the human sends
+  // `request_transfer` / `end_call` on `nordic.telephony.v1`. An ordinary customer
+  // token keeps `canPublishData: false`, so nothing new can be injected into a
+  // browser call that the orchestrator would have to trust.
+  at.addGrant({
+    roomJoin: true,
+    room: roomName,
+    canPublish: true,
+    canSubscribe: true,
+    canPublishData: Boolean(binding),
+  });
   at.roomConfig = new RoomConfiguration({
-    agents: [new RoomAgentDispatch({ agentName: LIVEKIT_AGENT_NAME })],
-    metadata: JSON.stringify({ tenant_id: tenantId, call_id: attemptId }),
+    // Agents are dispatched only for a fresh room. A bridge call already has its
+    // receptionist in the room; a second dispatch would give the caller two
+    // agents answering each other.
+    ...(binding ? {} : { agents: [new RoomAgentDispatch({ agentName: LIVEKIT_AGENT_NAME })] }),
+    metadata: JSON.stringify(
+      binding
+        ? {
+            tenant_id: tenantId,
+            call_id: attemptId,
+            telephony_session_id: telephonySessionId,
+            dispatch_rule_id: binding.context.dispatchRuleId,
+            data_topic: TELEPHONY_DATA_TOPIC,
+          }
+        : { tenant_id: tenantId, call_id: attemptId },
+    ),
   });
 
   try {
     const token = await at.toJwt();
-    return NextResponse.json({ success: true, token, attemptId, roomName, participantIdentity, serverUrl: env.NEXT_PUBLIC_LIVEKIT_URL, role: access.role });
+    return NextResponse.json({
+      success: true,
+      token,
+      attemptId,
+      roomName,
+      participantIdentity,
+      serverUrl: env.NEXT_PUBLIC_LIVEKIT_URL,
+      role: access.role,
+      // Echoed only when a live call was actually attached, so a client can tell
+      // "joined the receptionist's room" from "started an instant call".
+      ...(binding
+        ? {
+            telephonySessionId,
+            dataTopic: TELEPHONY_DATA_TOPIC,
+            bargeInBudgetMs: binding.context.grounding.bargeInBudgetMs,
+            // Turns recorded so far, so a late joiner knows how much of the call it
+            // missed. Not a transcript: the caller's words stay in the ledger.
+            turnsRecorded: binding.context.projected,
+          }
+        : {}),
+    });
   } catch (error) {
     if (access.role === 'customer') {
       await adminSql`

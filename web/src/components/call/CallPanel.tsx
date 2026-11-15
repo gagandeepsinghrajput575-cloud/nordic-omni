@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
 import { useAudioBands, peakOf } from '@/lib/audio/useAudioBands';
-import { Waveform } from '@/components/audio/Waveform';
+import { Waveform, TelephonyBargeInMeter } from '@/components/audio/Waveform';
 import { Badge } from '@/components/ui/core';
 import { buttonClass } from '@/components/ui/form';
 import { Spinner } from '@/components/ui/SubmitButton';
@@ -34,6 +34,24 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
   const attemptIdRef = useRef<string | null>(null);
   const bands = useAudioBands(agentStream, 24);
   const peak = peakOf(bands);
+  /**
+   * Barge-in, measured rather than asserted.
+   *
+   * `speechStartRef` is when the *caller* became an active speaker while the agent
+   * was still talking; the meter is closed when the agent is observed to have
+   * stopped. That interval is the honest number for this path: the browser cannot
+   * truncate a provider turn it does not own, so nothing here claims a sub-150 ms
+   * commit it did not perform. The report goes to the bridge's control route, which
+   * recomputes the verdict against the tenant's budget — the browser measures, it
+   * does not grade.
+   */
+  const speechStartRef = useRef<number | null>(null);
+  const reportedRef = useRef(false);
+  const [bargeIn, setBargeIn] = useState<{ latencyMs: number; budgetMs: number; source: 'budget' | 'measured' }>({
+    latencyMs: 0,
+    budgetMs: 150,
+    source: 'budget',
+  });
   const t = (da: string, en: string) => isDanish ? da : en;
 
   const cleanupCall = useCallback(() => {
@@ -45,6 +63,11 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
     setAgentStream(null);
     setAgentSpeaking(false);
     setMuted(false);
+    // A closed call must not keep a half-open measurement, or the next call starts
+    // out reporting the previous caller's interruption.
+    speechStartRef.current = null;
+    reportedRef.current = false;
+    setBargeIn((previous) => ({ latencyMs: 0, budgetMs: previous.budgetMs, source: 'budget' }));
   }, []);
 
   useEffect(() => () => cleanupCall(), [cleanupCall]);
@@ -92,7 +115,31 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
         track.detach().forEach((element) => element.remove());
         if (audioRef.current && !audioRef.current.isConnected) audioRef.current = null;
       });
-      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setAgentSpeaking(speakers.some((participant) => !participant.isLocal)));
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        const agent = speakers.some((participant) => !participant.isLocal);
+        const caller = speakers.some((participant) => participant.isLocal);
+        setAgentSpeaking(agent);
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        if (agent && caller && speechStartRef.current === null) {
+          speechStartRef.current = now;
+          reportedRef.current = false;
+        }
+        if (speechStartRef.current !== null && !agent) {
+          const latencyMs = Math.max(0, Math.round(now - speechStartRef.current));
+          speechStartRef.current = null;
+          setBargeIn((previous) => ({ ...previous, latencyMs, source: 'measured' }));
+          if (!reportedRef.current) {
+            reportedRef.current = true;
+            // Fire-and-forget: a failed telemetry write must never end a call.
+            void fetch('/api/telephony/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'barge_in', callId: attemptIdRef.current, tenantId, latencyMs, path: 'sustained' }),
+              keepalive: true,
+            }).catch(() => undefined);
+          }
+        }
+      });
       room.on(RoomEvent.Disconnected, () => {
         if (intentionalDisconnectRef.current) return;
         cleanupCall();
@@ -144,7 +191,17 @@ export function CallPanel({ tenantId, contactId, contactName, isDanish }: CallPa
         </div>
         {isLive ? <div className="flex items-center gap-2"><span className="mr-1 text-[18px] font-medium tabular-nums tracking-[-0.03em]">{timer}</span><button type="button" onClick={toggleMute} aria-pressed={muted} aria-label={muted ? t('Slå mikrofon til', 'Unmute microphone') : t('Slå mikrofon fra', 'Mute microphone')} className={buttonClass(muted ? 'danger' : 'secondary', 'sm', 'icon-button')}>{muted ? <MicOff size={15} /> : <Mic size={15} />}</button><button type="button" onClick={hangUp} className={buttonClass('danger', 'sm')}><PhoneOff size={14} />{t('Læg på', 'Hang up')}</button></div> : isConnecting ? <Badge tone="warning"><Spinner className="h-3 w-3" />{t('Forbinder', 'Connecting')}</Badge> : <button type="button" onClick={startCall} className={buttonClass('primary')}><Phone size={15} />{stage === 'idle' ? t('Start opkald', 'Start call') : t('Ring igen', 'Call again')}</button>}
       </div>
-      {isLive ? <div className="studio-surface border-t border-[var(--line)] px-4 py-3"><Waveform active bars={40} className="h-8" levels={bands} tone={agentSpeaking ? 'accent' : 'muted'} /><p className="mt-2 text-center text-[12px] text-[var(--text-muted)]" role="status">{peak > 0.05 && agentSpeaking ? <span className="text-[var(--accent-primary)]">{t('Receptionisten taler', 'Receptionist is speaking')}</span> : t('Lytter efter dit svar…', 'Listening for your reply…')}</p></div> : null}
+      {isLive ? <div className="studio-surface border-t border-[var(--line)] px-4 py-3"><Waveform active bars={40} className="h-8" levels={bands} tone={agentSpeaking ? 'accent' : 'muted'} />
+          <div className="mt-2 flex justify-center">
+            <TelephonyBargeInMeter
+              latencyMs={bargeIn.latencyMs}
+              budgetMs={bargeIn.budgetMs}
+              source={bargeIn.source}
+              commits={bargeIn.source === 'measured' ? 1 : 0}
+              overBudgetCommits={0}
+            />
+          </div>
+          <p className="mt-2 text-center text-[12px] text-[var(--text-muted)]" role="status">{peak > 0.05 && agentSpeaking ? <span className="text-[var(--accent-primary)]">{t('Receptionisten taler', 'Receptionist is speaking')}</span> : t('Lytter efter dit svar…', 'Listening for your reply…')}</p></div> : null}
       {error ? <div className="notice notice-danger" role="alert">{error}</div> : null}
     </div>
   );
