@@ -2,10 +2,11 @@
 
 import { useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useFocusTrap } from './overlay';
 import { buttonClass } from './form';
+import { modalIn, modalOut, modalRest } from '@/lib/motion/springs';
 
 export function Dialog({ open, onClose, title, description, children, footer, wide = false }: {
   open: boolean;
@@ -19,12 +20,13 @@ export function Dialog({ open, onClose, title, description, children, footer, wi
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
   useFocusTrap(ref, open, onClose);
+  const reduceMotion = useReducedMotion();
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <motion.div className="overlay-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+        <motion.div className="overlay-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.16 }} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
           <motion.div
             ref={ref}
             role="dialog"
@@ -34,10 +36,9 @@ export function Dialog({ open, onClose, title, description, children, footer, wi
             tabIndex={-1}
             className="modal-panel"
             style={{ maxWidth: wide ? 720 : 540 }}
-            initial={{ opacity: 0, y: 14, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.985 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+            initial={modalIn(reduceMotion)}
+            animate={modalRest(reduceMotion)}
+            exit={modalOut(reduceMotion)}
           >
             <div className="modal-header">
               <div>

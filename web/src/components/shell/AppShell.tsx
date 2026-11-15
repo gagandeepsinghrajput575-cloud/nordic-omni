@@ -10,7 +10,7 @@ import { BrandLockup, BrandMark } from '@/components/ui/BrandMark';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 import { buttonClass } from '@/components/ui/form';
 import { useFocusTrap } from '@/components/ui/overlay';
-import { SPRING } from '@/lib/motion/springs';
+import { SPRING, pageIn, pageRest } from '@/lib/motion/springs';
 import { LogoutButton } from './LogoutButton';
 
 const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen, webhook: Webhook, messages: MessagesSquare } satisfies Record<string, LucideIcon>;
@@ -114,14 +114,28 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
             </div>
           </div>
 
-          <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1440px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-7">{children}</main>
+          {/*
+            Route transition: the stage springs up 8px into place on every
+            navigation. Keyed on the pathname so it replays, and collapsed to
+            opacity-only under reduced motion so nothing travels.
+          */}
+          <motion.main
+            key={pathname}
+            id="main-content"
+            tabIndex={-1}
+            initial={pageIn(reduceMotion)}
+            animate={pageRest(reduceMotion)}
+            className="mx-auto w-full max-w-[1440px] px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-7"
+          >
+            {children}
+          </motion.main>
         </div>
       </div>
 
       <AnimatePresence>
         {open ? (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.button type="button" tabIndex={-1} aria-label="Close navigation" className="absolute inset-0 bg-[rgba(5,5,7,.68)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} onClick={close} />
+            <motion.button type="button" tabIndex={-1} aria-label="Close navigation" className="absolute inset-0 bg-[var(--overlay)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18 }} onClick={close} />
             <motion.aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" tabIndex={-1} className="el-sidebar absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col shadow-2xl" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 320, damping: 34 }}>
               <button type="button" onClick={close} aria-label="Close navigation" className={cn(buttonClass('ghost', 'sm', 'icon-button'), 'absolute right-3 top-5')}><X size={18} /></button>
               {sidebarContent('mobile')}

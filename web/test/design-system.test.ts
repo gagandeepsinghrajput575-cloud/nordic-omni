@@ -39,6 +39,16 @@ function token(name: string): string {
   return match[1];
 }
 
+/** Slice out a whole theme ramp so its own tokens can be asserted in isolation. */
+function themeBlock(theme: 'light' | 'dark'): string {
+  const opener = new RegExp(`\\:root\\[data-theme='${theme}'\\]`);
+  const start = css.search(opener);
+  assert.ok(start >= 0, `a ${theme} ramp must exist`);
+  const end = css.indexOf('\n}', start);
+  assert.ok(end > start, `the ${theme} ramp must close`);
+  return css.slice(start, end);
+}
+
 const GROUND = '#050507';
 const SURFACE = '#0b0b0f';
 const ELEVATED = '#121218';
@@ -47,7 +57,8 @@ const ELEVATED = '#121218';
 // 1. One identity
 // -----------------------------------------------------------------------------
 
-test('there is exactly one visual identity and it is obsidian', () => {
+test('the document ships two themes and the default is Obsidian', () => {
+  // The bare `:root` ramp is the dark one; light only arrives by selection.
   assert.equal(token('bg'), '#050507');
   assert.equal(token('panel'), '#0b0b0f');
   assert.equal(token('text'), '#f4f4f6');
@@ -55,26 +66,56 @@ test('there is exactly one visual identity and it is obsidian', () => {
   for (const warm of ['#FAF7F2', '#F4EFEA', '#ECE5DC', '#1C1512', '#2A201C', '#75675e']) {
     assert.ok(!css.toUpperCase().includes(warm.toUpperCase()), `${warm} must be gone`);
   }
-  // Both theme selectors must resolve to the same palette rather than diverge.
-  assert.match(css, /:root,\s*\n\.theme-light \{/);
-  assert.doesNotMatch(css, /\.theme-light \{[^}]*--bg:\s*#(?!050507)/);
+  assert.match(css, /\:root\[data-theme='light'\],\s*\n\.theme-light \{/);
 });
 
-test('the document, the boot script and the context all pin dark', () => {
-  assert.match(layout, /data-theme="dark"/);
-  assert.match(layout, /className="dark"/);
-  assert.match(layout, /color: '#050507'/);
-  assert.match(themeScript, /r\.dataset\.theme='dark'/);
-  assert.doesNotMatch(themeScript, /=== 'light'|!=='dark'\)t='light'/);
-  assert.match(themeContext, /useState<ThemeMode>\('dark'\)/);
-  // No stored preference may resurrect a second palette.
-  assert.doesNotMatch(themeContext, /return 'light'/);
+test('the light ramp is ElevenLabs paper-white, not a dimmed obsidian', () => {
+  const light = themeBlock('light');
+  assert.match(light, /--bg:\s*#fafafa/, 'ground must be #fafafa');
+  assert.match(light, /--panel:\s*#ffffff/, 'panels must be pure white');
+  // Type is pitch black, not a softened charcoal.
+  assert.match(light, /--text:\s*#09090b/);
+  assert.match(light, /--primary:\s*#09090b/, 'the CTA is stark black');
+  assert.match(light, /--primary-ink:\s*#ffffff/, 'and its label is pure white');
+  // Hairlines are zinc, and the control border clears the 3:1 non-text bar.
+  assert.match(light, /--line:/);
+  assert.match(light, /--border-control:\s*#8a8a94/);
+  assert.match(light, /color-scheme:\s*light/);
 });
 
-test('the theme switcher declares the single identity instead of toggling', () => {
-  assert.doesNotMatch(switcher, /setTheme\(/, 'a switcher that cannot switch must not pretend to');
-  assert.doesNotMatch(switcher, /OPTIONS/, 'the light/dark option list must be gone');
-  assert.match(switcher, /Obsidian/);
+test('the document, the boot script and the context resolve a real theme', () => {
+  // Server paint must not assume a theme the boot script will contradict.
+  assert.match(layout, /suppressHydrationWarning/);
+  assert.match(layout, /themeInitScript/);
+  assert.match(layout, /color: '#fafafa'/, 'light browser chrome');
+  assert.match(layout, /color: '#050507'/, 'dark browser chrome');
+  // The boot script reads storage, then the OS, then falls back to light.
+  assert.match(themeScript, /localStorage\.getItem/);
+  assert.match(themeScript, /prefers-color-scheme: dark/);
+  assert.match(themeScript, /r\.dataset\.theme=t/);
+  // The context resolves the same way and defaults to light.
+  assert.match(themeContext, /DEFAULT_THEME: ThemeMode = 'light'/);
+  assert.match(themeContext, /useState<ThemeMode>\(DEFAULT_THEME\)/);
+  assert.match(themeContext, /prefers-color-scheme: dark/);
+  // A stored preference wins over the OS.
+  assert.match(themeContext, /saved === 'light' \|\| saved === 'dark'/);
+  // A toggle from another tab is adopted, not re-derived.
+  assert.match(themeContext, /event\.newValue === 'light'/);
+});
+
+test('the theme switcher is a real, keyboard-operable toggle', () => {
+  assert.match(switcher, /useTheme\(\)/);
+  assert.match(switcher, /cycleTheme/, 'it must actually change the theme');
+  // It is one button carrying its own state, not a pair of hidden options.
+  assert.match(switcher, /aria-pressed=\{isDark\}/);
+  assert.match(switcher, /aria-label=\{label\}/);
+  assert.match(switcher, /event\.key === 'Enter' \|\| event\.key === ' '/);
+  // Both glyphs exist, and the indicator glides rather than snapping.
+  assert.match(switcher, /Moon/);
+  assert.match(switcher, /Sun/);
+  assert.match(switcher, /layoutId="theme-pill"/);
+  // Every animated element has a static fallback.
+  assert.match(switcher, /useReducedMotion\(\)/);
 });
 
 // -----------------------------------------------------------------------------
@@ -173,7 +214,10 @@ test('one spring vocabulary is shared rather than re-declared per component', ()
   assert.match(motion, /export const SPRING(: SpringPreset)? = \{ type: 'spring'/);
   assert.match(motion, /export const SPRING_SOFT/);
   // Components import the preset instead of inventing a curve.
-  assert.match(shell, /import \{ SPRING \} from '@\/lib\/motion\/springs'/);
+  assert.match(shell, /import \{[^}]*\bSPRING\b[^}]*\} from '@\/lib\/motion\/springs'/);
+  // The route transition reuses the same presets rather than a local curve.
+  assert.match(shell, /pageIn\(reduceMotion\)/);
+  assert.match(shell, /pageRest\(reduceMotion\)/);
   assert.match(shell, /const NAV_SPRING = SPRING;/);
   assert.match(read('src/components/ui/Tabs.tsx'), /from '@\/lib\/motion\/springs'/);
 });
@@ -329,7 +373,12 @@ function rgbOf(literal: string): [number, number, number] | null {
  * status dots are the one Tier-4 exception, so they are allowed by name rather
  * than by hue. Everything else must be achromatic.
  */
-const CHROMATIC_ALLOWLIST = new Set(['#4c1d95', '#2c6647', '#8a5a16', '#a13a35', '#34d399', '#fb7185']);
+const CHROMATIC_ALLOWLIST = new Set([
+  '#4c1d95', '#2c6647', '#8a5a16', '#a13a35',
+  // Status dots, Tier 4: the only chromatic pixels in the product.
+  '#34d399', '#fb7185',   // dark — legible on obsidian
+  '#047857', '#be123c',   // light — #34d399 measures 1.84:1 on #fafafa
+]);
 
 test('the stylesheet carries no chromatic colour outside the documented allowlist', () => {
   const offenders: string[] = [];
@@ -422,4 +471,115 @@ test('semantic dots survive, and nothing tints a background with them', () => {
   // The success/danger *soft* backgrounds must be neutral, not green/red washes.
   assert.match(css, /--success-soft: rgba\(255, 255, 255/);
   assert.match(css, /--danger-soft: rgba\(255, 255, 255/);
+});
+
+// -----------------------------------------------------------------------------
+// 7. The light theme clears the same bar as the dark one
+// -----------------------------------------------------------------------------
+
+/** Read one hex token out of a specific theme ramp. */
+function lightToken(name: string): string {
+  const block = themeBlock('light');
+  const match = block.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
+  assert.ok(match, `light --${name} must be declared as a hex colour`);
+  return match[1];
+}
+
+test('light mode type is AAA on the ground, on panels and on the zinc bubble', () => {
+  const ink = lightToken('text');
+  assert.ok(contrast(ink, '#fafafa') >= 18, `primary ink is ${contrast(ink, '#fafafa').toFixed(2)} on ground`);
+  assert.ok(contrast(ink, '#ffffff') >= 18, 'primary ink must stay AAA on white panels');
+  assert.ok(contrast(ink, '#f4f4f5') >= 18, 'and on the operator bubble');
+  // Secondary ink is a lower tier but still AAA.
+  const secondary = lightToken('text-secondary');
+  for (const ground of ['#fafafa', '#ffffff', '#f4f4f5']) {
+    assert.ok(contrast(secondary, ground) >= 7, `secondary ink only ${contrast(secondary, ground).toFixed(2)} on ${ground}`);
+  }
+});
+
+test('light muted ink clears AA everywhere it is painted', () => {
+  const muted = lightToken('muted');
+  // #71717a measures 4.40 on the zinc bubble and would fail; #6b6b74 is the fix.
+  assert.notEqual(muted, '#71717a', 'the specified muted failed AA on the operator bubble');
+  for (const ground of ['#fafafa', '#ffffff', '#f4f4f5']) {
+    const ratio = contrast(muted, ground);
+    assert.ok(ratio >= 4.5, `muted ink is ${ratio.toFixed(2)} on ${ground}`);
+  }
+});
+
+test('the light CTA is a stark black button with white type', () => {
+  const bg = lightToken('primary');
+  const ink = lightToken('primary-ink');
+  assert.equal(ink, '#ffffff');
+  assert.ok(contrast(ink, bg) >= 18, `CTA label is ${contrast(ink, bg).toFixed(2)}`);
+  assert.ok(contrast(lightToken('primary-hover'), ink) >= 7, 'the hover state must stay legible');
+});
+
+test('light control borders clear the 3:1 non-text bar, hairlines stay decorative', () => {
+  const control = lightToken('border-control');
+  for (const ground of ['#fafafa', '#ffffff', '#f4f4f5']) {
+    assert.ok(contrast(control, ground) >= 3, `control border is ${contrast(control, ground).toFixed(2)} on ${ground}`);
+  }
+  // #e4e4e7 is a hairline: it must never be used where it carries meaning.
+  assert.ok(contrast(lightToken('line'), '#fafafa') < 1.5, 'the hairline is deliberately low contrast');
+});
+
+test('the status dots consume the theme-aware pigments, not the ink ramp', () => {
+  // A dot declared but never consumed renders grey and the tier-4 contract is
+  // silently broken, so the class must reference the token directly.
+  assert.match(css, /\.dot-live \{ background: var\(--dot-online\)/);
+  assert.match(css, /\.dot-danger \{ background: var\(--dot-alert\)/);
+  // And they stay 6px with no size animation.
+  const dot = css.match(/\.dot-live,[^{]*\{[^}]*\}/);
+  assert.ok(dot, 'the dot base rule must exist');
+  assert.match(dot![0], /width:\s*6px/);
+  assert.match(dot![0], /height:\s*6px/);
+});
+
+test('light status dots are legible chroma, not the dark-mode pastels', () => {
+  for (const [name, role] of [['dot-online', 'online'], ['dot-alert', 'offline']] as const) {
+    const dot = lightToken(name);
+    const ratio = contrast(dot, '#fafafa');
+    assert.ok(ratio >= 4.5, `the ${role} dot is only ${ratio.toFixed(2)} on paper white`);
+  }
+});
+
+test('every theme declares the same token surface', () => {
+  const dark = themeBlock('dark');
+  const light = themeBlock('light');
+  const names = (block: string) => new Set([...block.matchAll(/--([a-z0-9-]+):/g)].map((m) => m[1]));
+  const darkNames = names(dark);
+  const lightNames = names(light);
+  // Light may add tokens, but it must not silently drop one and inherit a dark
+  // value that was never designed for paper white.
+  const missing = [...darkNames].filter((name) => !lightNames.has(name));
+  assert.deepEqual(missing, [], `light ramp is missing: ${missing.join(', ')}`);
+});
+
+// -----------------------------------------------------------------------------
+// 8. Every animated surface honours reduced motion
+// -----------------------------------------------------------------------------
+
+const ANIMATED = [
+  'components/ui/Dialog.tsx',
+  'components/ui/Tabs.tsx',
+  'components/theme/ThemeSwitcher.tsx',
+  'components/audio/Waveform.tsx',
+  'components/audio/OrbVisualizer.tsx',
+  'components/shell/AppShell.tsx',
+  'components/portal/ClientDirectChatPanel.tsx',
+  'components/agency/AgencyClientChatPanel.tsx',
+  'components/showcase/VoicePlayground.tsx',
+];
+
+test('no animated component ships without a reduced-motion path', () => {
+  const offenders: string[] = [];
+  for (const file of ANIMATED) {
+    const source = read(`src/${file}`);
+    // A file that animates nothing needs no guard.
+    if (!/motion\.|AnimatePresence|requestAnimationFrame/.test(source)) continue;
+    const guarded = /useReducedMotion|prefersReducedMotion|reduceMotion|prefers-reduced-motion/.test(source);
+    if (!guarded) offenders.push(file);
+  }
+  assert.deepEqual(offenders, [], `animating without a static fallback: ${offenders.join(', ')}`);
 });

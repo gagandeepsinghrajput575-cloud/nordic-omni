@@ -98,11 +98,13 @@ test('the waveform and orb never claim motion they do not have', () => {
 
 test('the spectrum sweeps hue across the sequence instead of repeating per bar', () => {
   // A gradient that repeats inside every bar reads as candy; the hue must travel.
-  assert.match(waveform, /function barGradient\(progress: number\)/);
-  assert.match(waveform, /rampAt\(STUDIO_RAMP, 0\.04 \+ progress \* 0\.9\)/);
-  assert.match(waveform, /barGradient\(index \/ Math\.max\(1, count - 1\)\)/);
+  assert.match(waveform, /function barGradient\(progress: number, ramp: readonly RGB\[\]\)/);
+  assert.match(waveform, /rampAt\(ramp, 0\.04 \+ progress \* 0\.9\)/);
+  assert.match(waveform, /barGradient\(index \/ Math\.max\(1, count - 1\), ramp\)/);
   // Muted and danger must stay flat so they cannot be mistaken for energy.
   assert.match(waveform, /tone === "accent" \? \{ backgroundImage: barGradient/);
+  // The ramp is picked per theme: silver on obsidian, ink on paper.
+  assert.match(waveform, /theme === "light" \? PAPER_RAMP : STUDIO_RAMP/);
 });
 
 test('telemetry is paired with a numeric read-out, never colour alone', () => {

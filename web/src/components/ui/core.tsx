@@ -8,7 +8,14 @@ export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 export function Card({ children, className, interactive = false }: {
   children: ReactNode; className?: string; interactive?: boolean;
 }) {
-  return <div className={cn('glass min-w-0', interactive && 'card-interactive', className)}>{children}</div>;
+  // Interactive cards are the one surface that reacts to the pointer: a 2px
+  // lift on hover and a slight compression on press. Non-interactive cards stay
+  // static so the page is not a field of twitching rectangles.
+  return (
+    <div className={cn('glass min-w-0', interactive && 'card-interactive', className)}>
+      {children}
+    </div>
+  );
 }
 
 export function CardHeader({ title, hint, action, className }: {

@@ -14,19 +14,23 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+/** The fallback when the visitor has expressed no preference at all. */
+export const DEFAULT_THEME: ThemeMode = 'light';
+
 /**
- * The product has one visual identity, so this always resolves to 'dark'.
- *
- * The old three-theme engine (`nordic-noir`, `industrial-volt`,
- * `surgical-daylight`) and the retired light shell all collapse here. Reading
- * storage is kept so a stale key is overwritten rather than reinterpreted, but
- * no stored value can bring the warm shell back.
+ * Resolve the theme in the same order the pre-paint script uses, so hydration
+ * never disagrees with what the browser already painted:
+ *   saved preference -> OS preference -> DEFAULT_THEME.
  */
 function readTheme(): ThemeMode {
   try {
-    localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
   } catch { /* Storage can be unavailable in private or embedded browsing. */ }
-  return 'dark';
+  try {
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+  } catch { /* matchMedia is not guaranteed in every embedded webview. */ }
+  return DEFAULT_THEME;
 }
 
 function applyTheme(theme: ThemeMode) {
@@ -39,14 +43,17 @@ function applyTheme(theme: ThemeMode) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<ThemeMode>(DEFAULT_THEME);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     setTheme(readTheme());
     setReady(true);
     const sync = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) setTheme(readTheme());
+      if (event.key !== STORAGE_KEY) return;
+      // Another tab toggled: adopt its value verbatim rather than re-deriving,
+      // because that tab may have chosen explicitly against the OS preference.
+      if (event.newValue === 'light' || event.newValue === 'dark') setTheme(event.newValue);
     };
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
@@ -58,7 +65,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* In-memory preference still works. */ }
   }, [theme, ready]);
 
-  const cycleTheme = useCallback(() => setTheme((current) => current === 'light' ? 'dark' : 'light'), []);
+  const cycleTheme = useCallback(
+    () => setTheme((current) => (current === 'light' ? 'dark' : 'light')),
+    [],
+  );
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, cycleTheme }}>

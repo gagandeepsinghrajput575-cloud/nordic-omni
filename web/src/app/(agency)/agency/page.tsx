@@ -58,7 +58,7 @@ export default async function AgencyPortfolioPage() {
 
       {/* Emergency Alert Banner if any open critical issues */}
       {totalDire > 0 ? (
-        <div className="notice notice-danger flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.08)] p-4 text-[13px]">
+        <div className="notice notice-danger flex items-center justify-between rounded-xl border border-[var(--wash-4)] bg-[var(--wash-2)] p-4 text-[13px]">
           <div className="flex items-center gap-3">
             <AlertTriangle size={18} className="text-[var(--danger)] shrink-0" aria-hidden />
             <span className="font-medium text-[var(--text-primary)]">

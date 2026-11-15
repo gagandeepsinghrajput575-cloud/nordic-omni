@@ -172,7 +172,7 @@ export function HoursDigest({
             <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">{agentName} reads this live</span>
           </div>
 
-          <div className="mt-3 divide-y divide-[rgba(255,255,255,0.045)]">
+          <div className="mt-3 divide-y divide-[var(--wash-1)]">
             {days.map((day, index) => (
               <div key={day.dayOfWeek} className="py-2.5">
                 <div className="flex flex-wrap items-center gap-2">
@@ -187,8 +187,8 @@ export function HoursDigest({
                     }
                     className={`relative h-[18px] w-[32px] shrink-0 rounded-full border transition-colors ${
                       day.isOpen
-                        ? "border-[rgba(255,255,255,0.45)] bg-[rgba(255,255,255,0.24)]"
-                        : "border-[var(--border-subtle)] bg-white/[0.04]"
+                        ? "border-[var(--wash-4)] bg-[var(--wash-4)]"
+                        : "border-[var(--border-subtle)] bg-[var(--wash-1)]"
                     }`}
                     aria-pressed={day.isOpen}
                     aria-label={`Toggle ${DAY_NAMES[day.dayOfWeek]}`}
@@ -347,7 +347,7 @@ export function HoursDigest({
                     ) : null}
                     <span
                       className={`block w-full rounded-sm transition-all ${
-                        bucket.calls > 0 ? "bg-[var(--accent-primary)] opacity-80 group-hover:opacity-100" : "bg-white/[0.07]"
+                        bucket.calls > 0 ? "bg-[var(--accent-primary)] opacity-80 group-hover:opacity-100" : "bg-[var(--wash-2)]"
                       }`}
                       style={{ height: `${height}%` }}
                     />

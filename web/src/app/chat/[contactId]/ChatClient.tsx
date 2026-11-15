@@ -8,6 +8,8 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import { Badge } from '@/components/ui/core';
 import { buttonClass } from '@/components/ui/form';
 import { Spinner } from '@/components/ui/SubmitButton';
+import { motion, useReducedMotion } from 'framer-motion';
+import { SPRING, bubbleIn, springFor } from '@/lib/motion/springs';
 
 interface InitialMessage { id: string; role: 'customer' | 'ai'; content: string; channel: string; createdAt: string }
 interface EstimateView { minimum: number; maximum: number; midpoint: number; service: string; squareMeters: number | null; disclaimer: string }
@@ -16,6 +18,7 @@ interface UiMessage extends InitialMessage { estimate?: EstimateView; notice?: b
 export function ChatClient({ contactId, contactName, tenantName, isDanish, initialMessages, autoReply }: {
   contactId: string; contactName: string | null; tenantName: string; isDanish: boolean; initialMessages: InitialMessage[]; autoReply: boolean;
 }) {
+  const reduceMotion = useReducedMotion();
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -103,7 +106,20 @@ export function ChatClient({ contactId, contactName, tenantName, isDanish, initi
           </div>
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5" role="log" aria-live="polite" aria-relevant="additions">
             {!hasHistory ? <Bubble role="ai" channel="web_chat" isDanish={isDanish}>{t(`Hej${contactName ? ` ${contactName.split(' ')[0]}` : ''}. Skriv kort, hvad du har brug for, så hjælper jeg dig videre.`, `Hi${contactName ? ` ${contactName.split(' ')[0]}` : ''}. Tell me briefly what you need and I’ll help you forward.`)}</Bubble> : null}
-            {messages.map((message) => <div key={message.id} className="space-y-2"><Bubble role={message.role} channel={message.channel} notice={message.notice} isDanish={isDanish}>{message.content}</Bubble>{message.estimate ? <EstimateCard estimate={message.estimate} /> : null}</div>)}
+            {messages.map((message, index) => (
+              <motion.div
+                key={message.id}
+                className="space-y-2"
+                initial={bubbleIn(reduceMotion)}
+                animate={{ opacity: 1, y: 0 }}
+                // Newest entries land last; the stagger is capped so a long
+                // thread does not spend a second catching up.
+                transition={{ ...springFor(reduceMotion, SPRING), delay: reduceMotion ? 0 : Math.min(index, 6) * 0.035 }}
+              >
+                <Bubble role={message.role} channel={message.channel} notice={message.notice} isDanish={isDanish}>{message.content}</Bubble>
+                {message.estimate ? <EstimateCard estimate={message.estimate} /> : null}
+              </motion.div>
+            ))}
             {sending ? <div className="flex items-center gap-2 px-1 text-[12px] text-[var(--muted)]"><Spinner className="h-3.5 w-3.5" />{t('Tænker…', 'Thinking…')}</div> : null}
             {error ? <p className="notice notice-danger" role="alert">{error}</p> : null}
           </div>

@@ -27,15 +27,39 @@ function contrast(a: string, b: string): number {
   return (high + 0.05) / (low + 0.05);
 }
 
-/** Pull an `--el-*` custom property out of the stylesheet. */
-function token(name: string): string {
-  const match = css.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`));
-  assert.ok(match, `token ${name} must be declared as a hex colour`);
+/**
+ * The glass layer's dark ramp lives in the `:root` block that opens the layer
+ * itself; the light ramp is an override further up in the theme spine.
+ */
+function ramp(theme: 'light' | 'dark'): string {
+  if (theme === 'dark') {
+    const start = css.indexOf('ELEVENLABS GLASS LAYER');
+    assert.ok(start >= 0, 'the glass layer must exist');
+    return css.slice(start);
+  }
+  const start = css.search(/\:root\[data-theme='light'\]/);
+  assert.ok(start >= 0, 'a light ramp must exist');
+  const end = css.indexOf('\n}', start);
+  assert.ok(end > start, 'the light ramp must close');
+  return css.slice(start, end);
+}
+
+/**
+ * Pull an `--el-*` custom property out of a named theme. The glass layer now
+ * declares the same token names twice, once per theme, so an unscoped match
+ * would silently read whichever ramp happens to come first.
+ */
+function token(name: string, theme: 'light' | 'dark' = 'dark'): string {
+  const match = ramp(theme).match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`));
+  assert.ok(match, `token ${name} must be declared as a hex colour in the ${theme} ramp`);
   return match[1];
 }
 
-/** Every elevation text can sit on in the glass layer. */
+/** Every elevation text can sit on in the dark glass layer. */
 const ELEVATIONS = ['#050507', '#0b0b0f', '#121218'] as const;
+
+/** And the light glass layer's three elevations. */
+const LIGHT_ELEVATIONS = ['#fafafa', '#ffffff', '#f4f4f5'] as const;
 
 // -----------------------------------------------------------------------------
 // 1. Contrast
@@ -70,6 +94,29 @@ test('the glass ground is the documented obsidian values', () => {
   assert.equal(token('--el-black'), '#050507');
   assert.equal(token('--el-surface'), '#0b0b0f');
   assert.equal(token('--el-elevated'), '#121218');
+});
+
+test('the light glass layer inverts to paper white with ink-black type', () => {
+  assert.equal(token('--el-black', 'light'), '#fafafa');
+  assert.equal(token('--el-surface', 'light'), '#ffffff');
+  assert.equal(token('--el-elevated', 'light'), '#f4f4f5');
+  assert.equal(token('--el-ink', 'light'), '#09090b');
+  assert.equal(token('--el-accent', 'light'), '#09090b');
+});
+
+test('every glass ink clears WCAG AA on all three light elevations', () => {
+  // The same nine inks, re-measured against paper white. #71717a would fail
+  // here (4.40:1 on #f4f4f5), which is why light muted is #6b6b74.
+  for (const name of ['--el-ink', '--el-ink-secondary', '--el-ink-muted', '--el-accent', '--el-violet', '--el-cyan', '--el-mint', '--el-amber', '--el-rose']) {
+    const hex = token(name, 'light');
+    for (const elevation of LIGHT_ELEVATIONS) {
+      const ratio = contrast(hex, elevation);
+      assert.ok(
+        ratio >= 4.5,
+        `${name} (${hex}) on ${elevation} must reach AA, got ${ratio.toFixed(2)}:1`,
+      );
+    }
+  }
 });
 
 test('iridescent gradients are never handed to a text property', () => {

@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { VoiceState } from "@/lib/types";
 import { useAudioBands } from "@/lib/audio/useAudioBands";
 import { css, rampAt, type RGB } from "@/lib/audio/orb-shader";
+import { useTheme } from "@/lib/theme/ThemeContext";
 
 interface WaveformProps {
   active?: boolean;
@@ -45,12 +46,27 @@ const STUDIO_RAMP: readonly RGB[] = [
 ];
 
 /**
+ * The same ramp inverted for the light theme.
+ *
+ * White bars are invisible on paper, so the sequence runs from near-black to
+ * mid zinc: `#09090b` -> `#27272a`, exactly the ink the light spec asks for.
+ * It stays a true-grey sequence, so the waveform is still achromatic — only its
+ * direction changes.
+ */
+const PAPER_RAMP: readonly RGB[] = [
+  [9, 9, 11],
+  [39, 39, 42],
+  [63, 63, 70],
+  [82, 82, 91],
+];
+
+/**
  * A per-bar monochrome gradient. Varying brightness by index is what makes the
  * waveform read as a real spectrum; a single repeated gradient reads as a slab.
  * The bars keep a translucent-to-solid falloff so they still look like glass.
  */
-function barGradient(progress: number): string {
-  const colour = rampAt(STUDIO_RAMP, 0.04 + progress * 0.9);
+function barGradient(progress: number, ramp: readonly RGB[]): string {
+  const colour = rampAt(ramp, 0.04 + progress * 0.9);
   return `linear-gradient(180deg, ${css(colour, 0.98)} 0%, ${css(colour, 0.7)} 46%, ${css(colour, 0.24)} 100%)`;
 }
 
@@ -102,6 +118,10 @@ export function Waveform({
   levels,
   audioStream = null,
 }: WaveformSpectrumProps) {
+  const { theme } = useTheme();
+  // Studio surfaces stay obsidian in both themes, so the bright ramp is the
+  // default; only a paper-white ground needs the inverted one.
+  const ramp = theme === "light" ? PAPER_RAMP : STUDIO_RAMP;
   const count = Math.max(4, Math.min(128, Math.round(bars)));
   const analysed = levels !== undefined && levels.length > 0;
   // Hooks are unconditional: the analyser only runs when a stream exists.
@@ -128,9 +148,9 @@ export function Waveform({
         {heights.map((height, index) => {
           const style: CSSProperties = {
             height: `${Math.max(6, Math.min(100, height))}%`,
-            // Only the accent tone is iridescent; muted and danger stay flat so
-            // their meaning is never confused with energy.
-            ...(tone === "accent" ? { backgroundImage: barGradient(index / Math.max(1, count - 1)) } : {}),
+            // Only the accent tone carries the ramp; muted and danger stay flat
+            // so their meaning is never confused with energy.
+            ...(tone === "accent" ? { backgroundImage: barGradient(index / Math.max(1, count - 1), ramp) } : {}),
             ...(driven && active
               ? {}
               : {
