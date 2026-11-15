@@ -321,7 +321,7 @@ export function KnowledgeStudio({
             </p>
           ) : null}
           {notice ? (
-            <p className="rounded-lg border border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.07)] px-3 py-2 text-[12px] text-[var(--success)]">
+            <p className="rounded-lg border border-[var(--wash-4)] bg-[var(--wash-2)] px-3 py-2 text-[12px] text-[var(--success)]">
               {notice}
             </p>
           ) : null}
@@ -331,7 +331,7 @@ export function KnowledgeStudio({
               <p className="label">Grounded sources · {items.length}</p>
               <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">{workspaceName}</span>
             </div>
-            <ul className="divide-y divide-[rgba(255,255,255,0.045)]">
+            <ul className="divide-y divide-[var(--wash-1)]">
               {items.map((item) => (
                 <li key={item.id} className="px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
@@ -382,7 +382,7 @@ export function KnowledgeStudio({
         <section className="card flex h-fit flex-col overflow-hidden xl:sticky xl:top-24">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.35),transparent)] text-[10px] font-medium text-[var(--text-primary)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_30%_25%,var(--wash-4),transparent)] text-[10px] font-medium text-[var(--text-primary)]">
                 {agentName.slice(0, 1)}
               </span>
               <div>
@@ -402,8 +402,8 @@ export function KnowledgeStudio({
                 <div
                   className={`max-w-[86%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
                     message.role === "caller"
-                      ? "bg-[rgba(255,255,255,0.12)] text-[var(--text-primary)]"
-                      : "border border-[var(--border-subtle)] bg-white/[0.025] text-[var(--text-secondary)]"
+                      ? "bg-[var(--wash-3)] text-[var(--text-primary)]"
+                      : "border border-[var(--border-subtle)] bg-[var(--wash-1)] text-[var(--text-secondary)]"
                   }`}
                 >
                   {message.text}
@@ -412,7 +412,7 @@ export function KnowledgeStudio({
             ))}
             {streaming ? (
               <div className="flex justify-start">
-                <div className="max-w-[86%] rounded-xl border border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.05)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
+                <div className="max-w-[86%] rounded-xl border border-[var(--wash-4)] bg-[var(--wash-1)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
                   {streaming}
                   <span className="ml-0.5 inline-block h-3 w-[2px] animate-pulse bg-[var(--accent-primary)] align-middle" />
                 </div>

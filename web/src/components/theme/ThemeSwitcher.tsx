@@ -1,48 +1,90 @@
 'use client';
 
+import { useCallback } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Moon } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/lib/theme/ThemeContext';
+import { SPRING, springFor } from '@/lib/motion/springs';
 
 /**
- * The product ships one visual identity: obsidian glass.
+ * Tier 2 — a real theme toggle, not a badge.
  *
- * The theme engine still writes `data-theme` for backwards compatibility and so
- * a returning visitor's saved preference does not break, but both values now
- * resolve to the same palette. This indicator replaces the old light/dark toggle
- * rather than pretending to offer a choice that no longer exists.
+ * Two states, one spring-animated pill that glides between them via `layoutId`.
+ * It is a single button with `aria-pressed`, so it is reachable and operable by
+ * keyboard (Space/Enter are native button semantics) and announced correctly.
+ *
+ * The icon rotates rather than swapping instantly, so the state change reads as
+ * a physical motion; under `prefers-reduced-motion` the rotation is dropped and
+ * the pill jumps, because the icon swap plus the label still convey the state.
  */
 export function ThemeSwitcher({ className = '' }: { className?: string }) {
+  const { theme, cycleTheme } = useTheme();
   const reduceMotion = useReducedMotion();
+  const isDark = theme === 'dark';
+  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+
+  const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    // A button already reports Space/Enter, but handling them explicitly keeps
+    // the toggle working when it is composed into a non-button host element.
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      cycleTheme();
+    }
+  }, [cycleTheme]);
+
   return (
-    <motion.div
+    <button
+      type="button"
+      onClick={cycleTheme}
+      onKeyDown={onKeyDown}
+      aria-pressed={isDark}
+      aria-label={label}
+      title={label}
       className={className}
       style={{
+        position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '3px 10px 3px 8px',
-        border: '1px solid rgba(255,255,255,.10)',
+        gap: 7,
+        minHeight: 30,
+        padding: '3px 11px 3px 9px',
+        border: '1px solid var(--line)',
         borderRadius: 999,
-        background: 'rgba(255,255,255,.045)',
+        background: 'var(--accent-soft)',
+        color: 'var(--text)',
         fontSize: 11,
         fontWeight: 550,
         letterSpacing: '0.02em',
-        color: 'var(--text-muted)',
         whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        overflow: 'hidden',
       }}
-      initial={false}
-      animate={reduceMotion ? undefined : { opacity: 1 }}
-      title="Obsidian is the only appearance"
     >
+      {/* The travelling pill: one shared layout element, so it glides. */}
       <motion.span
         aria-hidden
-        animate={reduceMotion ? undefined : { rotate: [0, -8, 0] }}
-        transition={reduceMotion ? undefined : { duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ display: 'inline-flex', color: 'var(--accent-primary)' }}
+        layoutId="theme-pill"
+        transition={springFor(reduceMotion, SPRING)}
+        style={{
+          position: 'absolute',
+          insetBlock: 3,
+          left: isDark ? 'calc(50% - 1px)' : 3,
+          right: isDark ? 3 : 'calc(50% + 1px)',
+          borderRadius: 999,
+          background: isDark ? 'var(--wash-4)' : 'var(--chip-glass)',
+          border: '1px solid var(--line)',
+          boxShadow: 'var(--hl)',
+        }}
+      />
+      <motion.span
+        aria-hidden
+        style={{ position: 'relative', display: 'inline-flex' }}
+        animate={reduceMotion ? undefined : { rotate: isDark ? 0 : 180 }}
+        transition={springFor(reduceMotion, SPRING)}
       >
-        <Moon size={12} strokeWidth={1.8} />
+        {isDark ? <Moon size={12} strokeWidth={1.9} /> : <Sun size={12} strokeWidth={1.9} />}
       </motion.span>
-      <span>Obsidian</span>
-    </motion.div>
+      <span style={{ position: 'relative' }}>{isDark ? 'Obsidian' : 'Studio'}</span>
+    </button>
   );
 }

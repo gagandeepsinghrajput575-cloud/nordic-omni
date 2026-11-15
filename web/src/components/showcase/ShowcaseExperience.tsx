@@ -381,7 +381,7 @@ export function ShowcaseExperience({
               </div>
 
               {voice.interim ? (
-                <p className="mt-3 rounded-lg border border-[var(--el-line)] bg-[rgba(255,255,255,0.04)] px-3 py-2 text-center text-[12.5px] italic text-[var(--el-ink-secondary)]">
+                <p className="mt-3 rounded-lg border border-[var(--el-line)] bg-[var(--wash-1)] px-3 py-2 text-center text-[12.5px] italic text-[var(--el-ink-secondary)]">
                   “{voice.interim}”
                 </p>
               ) : null}
@@ -470,7 +470,7 @@ export function ShowcaseExperience({
                         className={`rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
                           message.role === "caller"
                             ? "bg-[color-mix(in_srgb,var(--el-cyan)_12%,transparent)] text-[var(--el-ink)]"
-                            : "border border-[var(--el-line)] bg-[rgba(255,255,255,0.03)] text-[var(--el-ink-secondary)]"
+                            : "border border-[var(--el-line)] bg-[var(--wash-1)] text-[var(--el-ink-secondary)]"
                         }`}
                       >
                         {message.text}
@@ -587,7 +587,7 @@ export function ShowcaseExperience({
                       className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
                         leadChannel === "phone"
                           ? "border-[color-mix(in_srgb,var(--el-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--el-accent)_12%,transparent)]"
-                          : "border-[var(--el-line)] bg-[rgba(255,255,255,0.02)]"
+                          : "border-[var(--el-line)] bg-[var(--wash-1)]"
                       }`}
                     >
                       <Icon name="phone" className="h-3.5 w-3.5 text-[var(--el-accent)]" />
@@ -603,7 +603,7 @@ export function ShowcaseExperience({
                       className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
                         leadChannel === "browser"
                           ? "border-[color-mix(in_srgb,var(--el-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--el-accent)_12%,transparent)]"
-                          : "border-[var(--el-line)] bg-[rgba(255,255,255,0.02)]"
+                          : "border-[var(--el-line)] bg-[var(--wash-1)]"
                       }`}
                     >
                       <Icon name="wave" className="h-3.5 w-3.5 text-[var(--el-cyan)]" />

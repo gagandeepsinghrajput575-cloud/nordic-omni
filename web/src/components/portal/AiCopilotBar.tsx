@@ -7,7 +7,7 @@ import { Sparkles, Send, CheckCircle2, AlertCircle, ArrowRight, X, CornerDownLef
 import { executeClientAiCommand, type AiCommandResult } from '@/app/(client)/portal/ai-actions';
 import { Spinner } from '@/components/ui/SubmitButton';
 import { EqualizerBadge } from '@/components/ui/glass';
-import { springFor, SPRING_SOFT } from '@/lib/motion/springs';
+import { springFor, SPRING, SPRING_SOFT } from '@/lib/motion/springs';
 
 /**
  * Tier 1 — AI interface.
@@ -25,6 +25,8 @@ import { springFor, SPRING_SOFT } from '@/lib/motion/springs';
 export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
+  // Bumped by ⌘K; the command line springs once each time it is invoked.
+  const [kbdPulse, setKbdPulse] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [prompt, setPrompt] = useState('');
@@ -43,6 +45,8 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         inputRef.current?.focus();
+        // Pulse the surface so the jump is legible even if focus lands off-screen.
+        setKbdPulse((n) => n + 1);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -86,9 +90,9 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
         <span
           className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
           style={{
-            background: 'linear-gradient(160deg, rgba(255,255,255,.16), rgba(255,255,255,.05))',
-            border: '1px solid rgba(255,255,255,.22)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.16)',
+            background: 'linear-gradient(160deg, var(--wash-3), var(--surface-raised))',
+            border: '1px solid var(--wash-4)',
+            boxShadow: 'inset 0 1px 0 var(--wash-4)',
             color: 'var(--accent-primary)',
           }}
           aria-hidden
@@ -111,12 +115,24 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div
-          className="flex items-center gap-2 rounded-xl px-2.5 transition-[border-color,box-shadow] duration-200"
+        <motion.div
+          className="flex items-center gap-2 rounded-xl px-2.5"
+          // The ring ignites outward on focus and the row leans in slightly.
+          // Both are suppressed under reduced motion, where only the border
+          // colour changes — a non-animated but still visible focus state.
+          key={`command-${kbdPulse}`}
+          // Re-keying replays the entrance; the pulse is a one-shot spring.
+          initial={kbdPulse === 0 || reduceMotion ? false : { scale: 0.985 }}
+          animate={{
+            scale: focused && !reduceMotion ? 1.004 : 1,
+            boxShadow: focused
+              ? '0 0 0 3px var(--focus-ring), var(--glow-soft, transparent)'
+              : 'inset 0 1px 0 rgba(0, 0, 0, 0.06)',
+          }}
+          transition={springFor(reduceMotion, SPRING)}
           style={{
-            border: `1px solid ${focused ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.10)'}`,
-            background: 'rgba(255,255,255,.045)',
-            boxShadow: focused ? '0 0 0 3px rgba(255,255,255,.16)' : 'inset 0 1px 0 rgba(0,0,0,.24)',
+            border: `1px solid ${focused ? 'var(--accent-primary)' : 'var(--line)'}`,
+            background: 'var(--surface-raised)',
           }}
         >
           <label htmlFor="operations-command" className="sr-only">{t('Skriv en kommando', 'Write a command')}</label>
@@ -151,7 +167,7 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
             {busy ? <Spinner /> : <Send size={14} aria-hidden />}
             <span className="hidden sm:inline">{busy ? t('Arbejder…', 'Working…') : t('Udfør', 'Run')}</span>
           </motion.button>
-        </div>
+        </motion.div>
       </form>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -193,7 +209,7 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
               type="button"
               onClick={() => setResult(null)}
               aria-label={t('Luk besked', 'Dismiss message')}
-              className="shrink-0 rounded p-1 hover:bg-[rgba(255,255,255,.08)]"
+              className="shrink-0 rounded p-1 hover:bg-[var(--wash-2)]"
             >
               <X size={14} />
             </button>

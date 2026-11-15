@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from 'react';
 import { motion, useInView, useReducedMotion } from 'framer-motion';
-import { riseIn, revealContainer, revealItem } from '@/lib/motion/springs';
+import { SPRING, riseIn, revealContainer, revealItem, springFor } from '@/lib/motion/springs';
 import { cn } from '@/components/ui/core';
 
 /**
@@ -119,5 +119,32 @@ export function Magnetic({ children, className, strength = 6 }: {
     >
       {children}
     </motion.div>
+  );
+}
+
+/**
+ * A surface that lifts toward the pointer and settles back with a spring.
+ *
+ * Hover is a progressive enhancement, never a requirement: the card is fully
+ * readable at rest, and the press compresses slightly so touch gets feedback
+ * that a hover-only affordance would never deliver. Both are suppressed under
+ * reduced motion, where the card is simply static.
+ */
+export function MotionCard({ children, className, as = 'div', ...rest }: {
+  children: ReactNode;
+  className?: string;
+} & { as?: 'div' | 'article' | 'li' } & Record<string, unknown>) {
+  const reduceMotion = useReducedMotion();
+  const MotionTag = motion[as] as typeof motion.div;
+  return (
+    <MotionTag
+      className={className}
+      whileHover={reduceMotion ? undefined : { y: -2 }}
+      whileTap={reduceMotion ? undefined : { scale: 0.995 }}
+      transition={springFor(reduceMotion, SPRING)}
+      {...rest}
+    >
+      {children}
+    </MotionTag>
   );
 }

@@ -159,7 +159,7 @@ export function ClientDirectChatPanel({
                   className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${
                     mine
                       ? 'rounded-br-md border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--text)]'
-                      : 'rounded-bl-md border border-[var(--border-subtle)] bg-[rgba(255,255,255,.05)] text-[var(--text)]'
+                      : 'rounded-bl-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text)]'
                   }`}
                 >
                   {!mine ? (
@@ -212,7 +212,7 @@ export function ClientDirectChatPanel({
             rows={1}
             placeholder="Skriv en besked…"
             aria-label="Din besked"
-            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--border-subtle)] bg-[var(--input)] px-3 py-2.5 text-[13px] text-[var(--text)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(255,255,255,.18)]"
+            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--border-subtle)] bg-[var(--input)] px-3 py-2.5 text-[13px] text-[var(--text)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--focus-ring)]"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();

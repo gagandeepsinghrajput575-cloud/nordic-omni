@@ -65,3 +65,43 @@ export const riseIn = (reduceMotion: boolean | null) => ({
   hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0, transition: springFor(reduceMotion, SPRING_SOFT) },
 });
+
+// -----------------------------------------------------------------------------
+// Surface-level presets
+// -----------------------------------------------------------------------------
+
+/** A card or row that lifts toward the pointer. */
+export const hoverLift = (reduceMotion: boolean | null) =>
+  reduceMotion ? {} : { y: -2 };
+
+/** A button that compresses under the finger. */
+export const pressScale = (reduceMotion: boolean | null) =>
+  reduceMotion ? {} : { scale: 0.98 };
+
+/** A modal or drawer entering: barely smaller, then springing to rest. */
+export const modalIn = (reduceMotion: boolean | null) =>
+  reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.96, y: 10 };
+
+export const modalRest = (reduceMotion: boolean | null) => ({
+  opacity: 1,
+  scale: 1,
+  y: 0,
+  transition: springFor(reduceMotion, SPRING),
+});
+
+export const modalOut = (reduceMotion: boolean | null) =>
+  reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 };
+
+/** A route stage entering after a navigation. */
+export const pageIn = (reduceMotion: boolean | null) =>
+  reduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 };
+
+export const pageRest = (reduceMotion: boolean | null) => ({
+  opacity: 1,
+  y: 0,
+  transition: springFor(reduceMotion, SPRING_SOFT),
+});
+
+/** A chat bubble popping into the thread. */
+export const bubbleIn = (reduceMotion: boolean | null) =>
+  reduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 };

@@ -24,7 +24,7 @@ export function EmptyState({ icon, title, description, action, compact = false }
       {icon ? (
         <div
           className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent-primary)]"
-          style={{ boxShadow: '0 0 0 6px rgba(255,255,255,.05), inset 0 1px 0 rgba(255,255,255,.12)' }}
+          style={{ boxShadow: '0 0 0 6px var(--wash-1), inset 0 1px 0 var(--wash-3)' }}
           aria-hidden
         >
           {icon}
@@ -59,10 +59,10 @@ export function ScoreBar({ score, max = 100 }: { score: number; max?: number }) 
   const pct = (value / safeMax) * 100;
   return (
     <div className="flex items-center gap-2.5" role="meter" aria-label="Lead score" aria-valuenow={value} aria-valuemin={0} aria-valuemax={safeMax}>
-      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[rgba(255,255,255,.09)]" aria-hidden>
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--wash-3)]" aria-hidden>
         <span
           className="block h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, rgba(255,255,255,.55), #ffffff)' }}
+          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--wash-4), var(--accent-primary))' }}
         />
       </span>
       <span className="text-[12px] tabular-nums text-[var(--text-secondary)]" aria-hidden>{score}</span>
