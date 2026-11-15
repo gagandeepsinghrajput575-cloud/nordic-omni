@@ -11,11 +11,11 @@ export function InlineNotice({
 }) {
   const toneClasses =
     tone === "danger"
-      ? "border-[rgba(255,107,107,0.3)] bg-[rgba(255,107,107,0.08)] text-[var(--danger,#ff6b6b)]"
+      ? "border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)]"
       : tone === "warn"
-      ? "border-[rgba(255,184,77,0.3)] bg-[rgba(255,184,77,0.08)] text-[var(--warning,#ffb84d)]"
+      ? "border-[var(--warning-line)] bg-[var(--warning-soft)] text-[var(--warning)]"
       : tone === "accent"
-      ? "border-[rgba(216,200,166,0.3)] bg-[rgba(216,200,166,0.08)] text-[var(--accent-primary,#d8c8a6)]"
+      ? "border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent-primary)]"
       : "border-[var(--border-subtle)] bg-[var(--glass-soft)] text-[var(--text-secondary)]";
 
   return (

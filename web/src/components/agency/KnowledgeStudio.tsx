@@ -316,7 +316,7 @@ export function KnowledgeStudio({
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-[rgba(255,107,107,0.28)] bg-[rgba(255,107,107,0.08)] px-3 py-2 text-[12px] text-[#ffb3b3]">
+            <p className="rounded-lg border border-[var(--danger-line)] bg-[var(--danger-soft)] px-3 py-2 text-[12px] text-[var(--danger)]">
               {error}
             </p>
           ) : null}

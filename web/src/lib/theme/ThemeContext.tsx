@@ -14,13 +14,19 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+/**
+ * The product has one visual identity, so this always resolves to 'dark'.
+ *
+ * The old three-theme engine (`nordic-noir`, `industrial-volt`,
+ * `surgical-daylight`) and the retired light shell all collapse here. Reading
+ * storage is kept so a stale key is overwritten rather than reinterpreted, but
+ * no stored value can bring the warm shell back.
+ */
 function readTheme(): ThemeMode {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    // Migrate the old three-theme engine without losing a user's dark preference.
-    if (saved === 'dark' || saved === 'nordic-noir' || saved === 'industrial-volt') return 'dark';
+    localStorage.getItem(STORAGE_KEY);
   } catch { /* Storage can be unavailable in private or embedded browsing. */ }
-  return 'light';
+  return 'dark';
 }
 
 function applyTheme(theme: ThemeMode) {
@@ -33,7 +39,7 @@ function applyTheme(theme: ThemeMode) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<ThemeMode>('light');
+  const [theme, setTheme] = useState<ThemeMode>('dark');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {

@@ -21,9 +21,17 @@ export function EmptyState({ icon, title, description, action, compact = false }
 }) {
   return (
     <div className={cn('flex flex-col items-center justify-center px-6 text-center', compact ? 'py-9' : 'py-14')}>
-      {icon ? <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--bg-raised)] text-[var(--muted)]" aria-hidden>{icon}</div> : null}
-      <h3 className="text-[15px] font-semibold tracking-[-0.02em] text-[var(--text)]">{title}</h3>
-      {description ? <p className="mt-2 max-w-sm text-[13px] leading-6 text-[var(--muted)]">{description}</p> : null}
+      {icon ? (
+        <div
+          className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent-primary)]"
+          style={{ boxShadow: '0 0 0 6px rgba(201,184,255,.05), inset 0 1px 0 rgba(255,255,255,.12)' }}
+          aria-hidden
+        >
+          {icon}
+        </div>
+      ) : null}
+      <h3 className="text-[15px] font-semibold tracking-[-0.022em] text-[var(--text)]">{title}</h3>
+      {description ? <p className="mt-2 max-w-sm text-[13px] leading-6 text-[var(--text-muted)]">{description}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );
@@ -34,7 +42,7 @@ const AVATAR_TONES = [
   ['var(--info-soft)', 'var(--info)'],
   ['var(--warning-soft)', 'var(--warning)'],
   ['var(--neutral-soft)', 'var(--text-secondary)'],
-];
+] as const;
 
 export function Avatar({ name, size = 34, seed }: { name: string | null; size?: number; seed?: string }) {
   const source = seed || name || 'caller';
@@ -51,8 +59,11 @@ export function ScoreBar({ score, max = 100 }: { score: number; max?: number }) 
   const pct = (value / safeMax) * 100;
   return (
     <div className="flex items-center gap-2.5" role="meter" aria-label="Lead score" aria-valuenow={value} aria-valuemin={0} aria-valuemax={safeMax}>
-      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--active)]" aria-hidden>
-        <span className="block h-full rounded-full bg-[var(--accent-primary)] transition-[width] duration-500" style={{ width: `${pct}%` }} />
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[rgba(255,255,255,.09)]" aria-hidden>
+        <span
+          className="block h-full rounded-full transition-[width] duration-500"
+          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #c9b8ff, #7fe4ff)' }}
+        />
       </span>
       <span className="text-[12px] tabular-nums text-[var(--text-secondary)]" aria-hidden>{score}</span>
     </div>

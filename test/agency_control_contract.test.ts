@@ -74,9 +74,17 @@ test('client sessions cannot enter agency paths and lifecycle gates every call c
   assert.equal(resolveLiveKitAccess({ tenantId: 't', tenantStatus: 'suspended', requestedRole: 'customer', session: null, isTenantOwner: false }).ok, false);
 });
 
-test('warm palette reaches orb tokens and motion has a reduced-motion fallback', () => {
+test('the obsidian palette reaches orb tokens and motion has a reduced-motion fallback', () => {
   const css = read('web/src/app/globals.css');
-  for (const color of ['#FAF7F2', '#F4EFEA', '#ECE5DC', '#1C1512', '#2A201C', '#7C3AED', '#9333EA']) assert.ok(css.includes(color));
+  // The single identity: obsidian ground, glass elevations, measured inks and the
+  // iridescent pigments. These are the values every route resolves against.
+  for (const color of ['#050507', '#0b0b0f', '#121218', '#f4f4f6', '#c6c6d0', '#a9a9b6', '#c9b8ff', '#7fe4ff']) {
+    assert.ok(css.includes(color), `globals.css must ship ${color}`);
+  }
+  // The retired warm shell must not survive anywhere in the stylesheet.
+  for (const warm of ['#FAF7F2', '#F4EFEA', '#ECE5DC', '#2A201C']) {
+    assert.ok(!css.toUpperCase().includes(warm.toUpperCase()), `warm token ${warm} must be gone`);
+  }
   assert.match(css, /--ease: cubic-bezier\(0\.16, 1, 0\.3, 1\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   for (const token of ['--accent-primary', '--accent-secondary', '--danger', '--warning', '--text-muted', '--line']) assert.ok(css.includes(token));

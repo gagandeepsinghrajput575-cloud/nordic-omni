@@ -1,37 +1,48 @@
 'use client';
 
-import { useId } from 'react';
-import { motion } from 'framer-motion';
-import { Moon, Sun } from 'lucide-react';
-import { useTheme, type ThemeMode } from '@/lib/theme/ThemeContext';
-import { cn } from '@/components/ui/core';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Moon } from 'lucide-react';
 
-const OPTIONS: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { id: 'light', label: 'Use light theme', icon: Sun },
-  { id: 'dark', label: 'Use dark theme', icon: Moon },
-];
-
+/**
+ * The product ships one visual identity: obsidian glass.
+ *
+ * The theme engine still writes `data-theme` for backwards compatibility and so
+ * a returning visitor's saved preference does not break, but both values now
+ * resolve to the same palette. This indicator replaces the old light/dark toggle
+ * rather than pretending to offer a choice that no longer exists.
+ */
 export function ThemeSwitcher({ className = '' }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
-  const id = useId();
+  const reduceMotion = useReducedMotion();
   return (
-    <div className={cn('theme-switcher', className)} role="group" aria-label="Appearance">
-      {OPTIONS.map(({ id: value, label, icon: Icon }) => (
-        <button
-          key={value}
-          type="button"
-          className="theme-option"
-          aria-label={label}
-          title={label}
-          aria-pressed={theme === value}
-          onClick={() => setTheme(value)}
-        >
-          {theme === value ? (
-            <motion.span layoutId={`theme-${id}`} className="theme-option-indicator" aria-hidden transition={{ type: 'spring', stiffness: 450, damping: 35 }} />
-          ) : null}
-          <Icon size={15} strokeWidth={1.7} className="relative z-10" aria-hidden />
-        </button>
-      ))}
-    </div>
+    <motion.div
+      className={className}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '3px 10px 3px 8px',
+        border: '1px solid rgba(255,255,255,.10)',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,.045)',
+        fontSize: 11,
+        fontWeight: 550,
+        letterSpacing: '0.02em',
+        color: 'var(--text-muted)',
+        whiteSpace: 'nowrap',
+      }}
+      initial={false}
+      animate={reduceMotion ? undefined : { opacity: 1 }}
+      title="Obsidian is the only appearance"
+    >
+      <motion.span
+        aria-hidden
+        animate={reduceMotion ? undefined : { rotate: [0, -8, 0] }}
+        transition={reduceMotion ? undefined : { duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ display: 'inline-flex', color: 'var(--accent-primary)' }}
+      >
+        <Moon size={12} strokeWidth={1.8} />
+      </motion.span>
+      <span>Obsidian</span>
+    </motion.div>
   );
 }

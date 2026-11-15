@@ -363,14 +363,14 @@ export function AgencyClientChatPanel({
                 }}
                 rows={2}
                 placeholder="Skriv til kunden… (Enter sender, Shift+Enter giver ny linje)"
-                className="min-h-[42px] flex-1 resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-raised)] px-3 py-2 text-[12.5px] outline-none focus:border-[var(--accent-primary)]"
+                className="min-h-[42px] flex-1 resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--input)] px-3 py-2 text-[13px] text-[var(--text)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(201,184,255,.18)]"
                 aria-label="Besked til kunden"
               />
               <button
                 type="button"
                 onClick={() => void postMessage()}
                 disabled={pending || draft.trim().length === 0}
-                className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-primary)] px-3 py-2 text-[12px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
+                className="btn btn-accent inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold disabled:opacity-50"
               >
                 {pending ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <Send size={13} aria-hidden />}
                 Send

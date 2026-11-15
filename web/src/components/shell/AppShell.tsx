@@ -10,14 +10,15 @@ import { BrandLockup, BrandMark } from '@/components/ui/BrandMark';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
 import { buttonClass } from '@/components/ui/form';
 import { useFocusTrap } from '@/components/ui/overlay';
+import { SPRING } from '@/lib/motion/springs';
 import { LogoutButton } from './LogoutButton';
 
 const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen, webhook: Webhook, messages: MessagesSquare } satisfies Record<string, LucideIcon>;
 export type IconKey = keyof typeof ICONS;
 export interface NavItem { href: string; label: string; icon: IconKey; exact?: boolean }
 
-/** The spring the nav tile travels on. Matches the segmented control. */
-const NAV_SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.7 } as const;
+/** The spring the nav tile travels on: the shared vocabulary, not a local copy. */
+const NAV_SPRING = SPRING;
 
 export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, toolbar, accountEmail, children }: {
   nav: NavItem[]; brandEyebrow: string; brandName: string; brandHref: string;
