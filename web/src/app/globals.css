@@ -3596,3 +3596,496 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   .wf-toggle,
   .pod__drawer-toggle { transition: none; }
 }
+
+/* =========================================================================
+   Workforce simulation engine — dispatch console and switchboard matrix
+   =========================================================================
+   In-app surfaces. Token-only; the shared status dots are the only chromatic
+   pixels, and the spend bars use brightness rather than hue.
+   ---------------------------------------------------------------------- */
+
+/* ---------- Dispatch console ------------------------------------------- */
+.dsc {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.dsc__tabs { overflow-x: auto; }
+
+.dsc__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--hl);
+  min-width: 0;
+}
+
+.dsc__panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dsc__panel-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dsc__panel-sub {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  max-width: 60ch;
+}
+
+.dsc__run {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid var(--primary-line);
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-button);
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur) var(--ease);
+  flex: none;
+}
+
+.dsc__run:hover:not(:disabled) { transform: translateY(-1px); }
+.dsc__run:active:not(:disabled) { transform: translateY(0) scale(0.985); }
+.dsc__run:disabled { opacity: 0.55; cursor: progress; }
+.dsc__run:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
+.dsc__empty {
+  display: grid;
+  place-items: center;
+  min-height: 168px;
+  padding: 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ---------- Hook list --------------------------------------------------- */
+.hooks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hook {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  min-width: 0;
+}
+
+.hook__angle {
+  flex: none;
+  width: 92px;
+  font-size: 0.5938rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hook__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.hook__strength {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 74px;
+}
+
+.hook__bar {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.hook__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--text) 72%, transparent);
+}
+
+.hook__pct {
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  width: 3ch;
+  text-align: right;
+}
+
+/* ---------- Budget bars ------------------------------------------------- */
+.budget {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.budget__row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 84px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.budget__channel {
+  font-size: 0.75rem;
+  font-weight: 560;
+  color: var(--text);
+}
+
+.budget__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.budget__track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+/* The "before" bar sits behind, dimmer; "after" is the solid ink. */
+.budget__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+
+.budget__fill[data-phase='before'] {
+  background: color-mix(in srgb, var(--text) 26%, transparent);
+}
+
+.budget__fill[data-phase='after'] {
+  background: color-mix(in srgb, var(--text) 80%, transparent);
+}
+
+.budget__values {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.budget__values s {
+  color: var(--muted);
+  text-decoration-thickness: 1px;
+}
+
+.budget__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- Citation gauge --------------------------------------------- */
+.gauge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.gauge__dial {
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 104px;
+}
+
+.gauge__value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.gauge__score {
+  font-size: 1.5rem;
+  font-weight: 620;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge__band {
+  font-size: 0.5938rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.cite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+  font-size: 0.75rem;
+}
+
+.cite__engine { font-weight: 560; color: var(--text); }
+
+.cite__pos {
+  margin-left: auto;
+  font-size: 0.6563rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.cite[data-cited='false'] .cite__engine { color: var(--text-secondary); }
+
+.gaps {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.gaps li { display: flex; gap: 7px; }
+
+.gaps li::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+/* ---------- Call simulator --------------------------------------------- */
+.call {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.call__wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 64px;
+  padding-inline: 2px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+}
+
+.call__bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 999px;
+  height: var(--h, 20%);
+  background: color-mix(in srgb, var(--text) 66%, transparent);
+  /* Played bars are solid; upcoming bars sit back. */
+  opacity: 0.32;
+}
+
+.call__bar[data-played='true'] { opacity: 1; }
+
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.turn {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  min-width: 0;
+}
+
+.turn__who {
+  flex: none;
+  width: 56px;
+  font-size: 0.5938rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-top: 2px;
+  color: var(--muted);
+}
+
+.turn__text { color: var(--text-secondary); min-width: 0; }
+
+.turn[data-speaker='agent'] .turn__text { color: var(--text); }
+
+/* ---------- Switchboard matrix ----------------------------------------- */
+.swm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swm__scroll { overflow-x: auto; }
+
+.swm__grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 520px;
+  font-size: 0.75rem;
+}
+
+.swm__grid th,
+.swm__grid td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.swm__grid thead th {
+  font-size: 0.5938rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom-color: var(--border-control);
+  white-space: nowrap;
+}
+
+.swm__grid tbody tr:last-child td { border-bottom: 0; }
+
+.swm__feature { font-weight: 560; color: var(--text); }
+
+.swm__hint {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.6563rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.swm__cell { white-space: nowrap; }
+
+/* The preview column shows the client-facing result of the row's state. */
+.swm__preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  font-size: 0.6563rem;
+  font-weight: 560;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.swm__preview[data-mode='active'] { color: var(--text); border-color: var(--border-control); }
+.swm__preview[data-mode='teaser'] { border-style: dashed; }
+.swm__preview[data-mode='hidden'] { color: var(--muted); background: transparent; }
+
+.swm__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+}
+
+.swm__counter {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ---------- Reduced motion --------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .dsc__run { transition: none; }
+  .dsc__run:hover:not(:disabled),
+  .dsc__run:active:not(:disabled) { transform: none; }
+}
