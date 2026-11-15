@@ -3048,3 +3048,551 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   .wsec-card:hover,
   .wfoot__cta-primary:hover { transform: none; }
 }
+
+/* =========================================================================
+   Agency workforce console — orchestrator HUD, pods, switchboard, feed
+   =========================================================================
+   In-app surface, so it inherits the shell's ground rather than introducing
+   one. Every value is a token; the only chromatic pixels are the shared
+   status dots.
+   ---------------------------------------------------------------------- */
+
+/* ---------- Orchestrator HUD ------------------------------------------- */
+.wfhud {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-control);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
+  box-shadow: var(--hl);
+  overflow: hidden;
+}
+
+.wfhud__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.wfhud__mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-control);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.wfhud__id { min-width: 0; }
+
+.wfhud__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wfhud__sub {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.wfhud__mode { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.wfhud__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--line);
+  overflow: hidden;
+}
+
+@media (min-width: 720px) {
+  .wfhud__metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.wfhud__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 13px;
+  background: var(--panel);
+  min-width: 0;
+}
+
+.wfhud__metric-label {
+  font-size: 0.5938rem;
+  font-weight: 600;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wfhud__metric-value {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.wfhud__metric-unit {
+  margin-left: 2px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* A live dot, always beside a word so the pulse is never the only signal. */
+.wf-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  font-weight: 560;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.wf-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--dot-online);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot-online) 22%, transparent);
+}
+
+.wf-dot[data-state='idle'] {
+  background: var(--muted);
+  box-shadow: none;
+}
+
+.wf-dot[data-state='live'] { animation: wf-breathe 2200ms var(--ease) infinite; }
+
+@keyframes wf-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ---------- Simulation toggle ------------------------------------------ */
+.wf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  /* --panel-2 is the brief's third elevation, used here as the track. */
+  background: var(--panel-2);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.wf-toggle:hover { color: var(--text); border-color: var(--text-secondary); }
+.wf-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.wf-toggle[aria-pressed='true'] { color: var(--text); }
+
+.wf-toggle__track {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  background: var(--panel);
+  flex: none;
+}
+
+.wf-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--text-secondary);
+}
+
+.wf-toggle[aria-pressed='true'] .wf-toggle__thumb { background: var(--text); }
+
+/* ---------- Employee pods ---------------------------------------------- */
+.pods-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .pods-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.pod {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-control);
+  background: var(--panel);
+  box-shadow: var(--hl);
+  transition: border-color var(--dur) var(--ease), transform 220ms var(--ease);
+  min-width: 0;
+}
+
+.pod:hover { transform: translateY(-2px); }
+
+.pod__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.pod__glyph {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.pod__id { min-width: 0; }
+
+.pod__role {
+  font-size: 0.5938rem;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pod__name {
+  margin: 2px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.pod__status { margin-left: auto; flex: none; }
+
+.pod__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.pod__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  background: var(--panel-2);
+  min-width: 0;
+}
+
+.pod__metric-label {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pod__metric-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pod__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.pod-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  font-size: 0.6563rem;
+  font-weight: 550;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pod__drawer-toggle {
+  align-self: flex-start;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.pod__drawer-toggle:hover { color: var(--text); background: var(--panel-2); }
+.pod__drawer-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.pod__drawer {
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.pod__drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pod__drawer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.pod__drawer-key {
+  flex: none;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.625rem;
+  color: var(--muted);
+  min-width: 74px;
+}
+
+/* ---------- 3-way feature switchboard ---------------------------------- */
+.swb {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .swb { grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr); }
+}
+
+.swb__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.swb__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--panel);
+  min-width: 0;
+}
+
+.swb__row-id { min-width: 0; flex: 1 1 150px; }
+
+.swb__row-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 560;
+  color: var(--text);
+}
+
+.swb__row-hint {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.swb__row-seg { flex: none; }
+
+/* Preview pane: the client portal as the client would see it. */
+.swb__preview {
+  border: 1px solid var(--border-control);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.swb__preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.swb__preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  min-height: 190px;
+}
+
+.swb__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+/* Teaser is visibly an upsell, not a working feature. */
+.swb__item[data-mode='teaser'] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.swb__item-label {
+  font-size: 0.75rem;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.swb__item[data-mode='teaser'] .swb__item-label { color: var(--text-secondary); }
+
+.swb__item-note {
+  margin-left: auto;
+  font-size: 0.6563rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.swb__empty {
+  margin: auto;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+/* ---------- Mission activity feed -------------------------------------- */
+.feed {
+  border: 1px solid var(--border-control);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.feed__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+
+.feed__body {
+  margin: 0;
+  padding: 12px 13px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.72rem;
+  line-height: 1.7;
+}
+
+.feed__line {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.feed__time {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.feed__kind {
+  flex: none;
+  width: 7ch;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.feed__msg { color: var(--text-secondary); min-width: 0; }
+
+/* Verified entries read brighter: the emphasis is brightness, never hue. */
+.feed__line[data-verified='true'] .feed__msg { color: var(--text); }
+
+/* ---------- Reduced motion --------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .wf-dot[data-state='live'] { animation: none; }
+  .pod { transition: none; }
+  .pod:hover { transform: none; }
+  .wf-toggle,
+  .pod__drawer-toggle { transition: none; }
+}
