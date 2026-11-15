@@ -54,6 +54,10 @@ function EndpointActions({ endpoint, tenantId }: { endpoint: WebhookEndpoint; te
   </div>;
 }
 
+/**
+ * The outbound stream list. Kept as its own component so the tab shell can hold
+ * it beside the inbound gateway without either one owning the other's layout.
+ */
 export function WebhookHub({ endpoints, tenantId }: { endpoints: WebhookEndpoint[]; tenantId?: string }) {
   const [editor, setEditor] = useState<WebhookEndpoint | 'new' | null>(null);
   return <div className="space-y-5">

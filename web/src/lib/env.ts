@@ -44,6 +44,14 @@ const EnvSchema = z.object({
   // --- Meta --------------------------------------------------------------------
   META_VERIFY_TOKEN: z.string().default('nordic_omni_verify'),
   META_APP_SECRET: z.string().optional(),
+
+  // --- Vision AI bridge --------------------------------------------------------
+  // Optional: without it the bridge reports itself as unconfigured rather than
+  // pretending to deliver. Vision runs on the operator's own machine, so a
+  // private base URL is only honoured when explicitly allowed below.
+  VISION_AI_BASE_URL: z.string().url().optional(),
+  VISION_AI_SECRET: z.string().min(16).optional(),
+  VISION_AI_ALLOW_PRIVATE: z.enum(['true', 'false']).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
