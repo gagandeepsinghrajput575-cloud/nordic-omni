@@ -2338,3 +2338,296 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   .conv-call:hover:not(:disabled),
   .conv-call:active:not(:disabled) { transform: none; }
 }
+
+/* =========================================================================
+   Piece 4 — Developer console
+   =========================================================================
+   The terminal is a studio surface: it stays obsidian in both themes, the same
+   rule the existing studio instrumentation follows. Standardising on that is
+   what makes it a "high-contrast" card rather than a theme-dependent one.
+   ---------------------------------------------------------------------- */
+
+.devc-section {
+  padding-block: clamp(44px, 6vw, 80px);
+  border-top: 1px solid var(--line);
+}
+
+.devc-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: clamp(22px, 3vw, 32px);
+}
+
+.devc-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--el-ink-muted);
+}
+
+.devc-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+  font-weight: 560;
+  color: var(--text-primary);
+  max-width: 28ch;
+  text-wrap: balance;
+}
+
+/* The docs link mirrors the reference's outline pill. */
+.devc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  text-decoration: none;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.devc-link:hover { background: var(--el-elevated); }
+.devc-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
+/* ---------- Layout: endpoints left, console right ---------------------- */
+.devc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 34px);
+  align-items: start;
+}
+
+@media (min-width: 940px) {
+  .devc-layout { grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); }
+}
+
+.devc-endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.devc-endpoint {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  background: var(--panel);
+  text-align: left;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background var(--dur) var(--ease);
+}
+
+.devc-endpoint:hover { background: var(--el-elevated); }
+
+.devc-endpoint[aria-pressed='true'] {
+  background: var(--el-elevated);
+  box-shadow: inset 2px 0 0 var(--text-primary);
+}
+
+.devc-endpoint:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.devc-endpoint__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.devc-method {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border-control);
+  font-size: 0.5938rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  flex: none;
+}
+
+.devc-endpoint__path {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devc-endpoint__desc {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* ---------- Terminal --------------------------------------------------- */
+.devc-terminal {
+  border: 1px solid var(--studio-line-strong);
+  border-radius: var(--r-lg);
+  background: var(--studio-black);
+  overflow: hidden;
+  box-shadow: var(--studio-shadow);
+  min-width: 0;
+}
+
+.devc-terminal__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--studio-line);
+  background: var(--studio-panel);
+}
+
+/* Three neutral dots: window furniture, not a traffic light. */
+.devc-dots {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}
+
+.devc-dots > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--studio-line-strong);
+}
+
+.devc-dots > span:nth-child(2) { opacity: 0.72; }
+.devc-dots > span:nth-child(3) { opacity: 0.48; }
+
+.devc-terminal__label {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.6875rem;
+  color: var(--studio-ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.devc-terminal__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: none;
+}
+
+/* ---------- Copy button ------------------------------------------------- */
+.devc-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--studio-line-strong);
+  background: transparent;
+  color: var(--studio-ink-secondary);
+  font-size: 0.6875rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.devc-copy:hover { color: var(--studio-ink); border-color: var(--studio-ink-muted); }
+.devc-copy[data-copied='true'] { color: var(--studio-ink); }
+.devc-copy:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* ---------- Code body --------------------------------------------------- */
+.devc-code {
+  margin: 0;
+  padding: 16px 18px 20px;
+  overflow-x: auto;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  tab-size: 2;
+  /* Long lines scroll inside the card rather than widening the page. */
+  max-width: 100%;
+}
+
+.devc-line {
+  display: block;
+  white-space: pre;
+  min-height: 1.65em;
+}
+
+.devc-line__num {
+  display: inline-block;
+  width: 2ch;
+  margin-right: 14px;
+  color: var(--studio-ink-muted);
+  opacity: 0.5;
+  text-align: right;
+  user-select: none;
+}
+
+/* The four token classes. Every tone is a neutral step, so highlights read as
+   brightness rather than colour - there is no hue anywhere in the palette. */
+.devc-tok-kw { color: var(--studio-ink); font-weight: 600; }
+.devc-tok-str { color: color-mix(in srgb, var(--studio-ink) 78%, transparent); }
+.devc-tok-num { color: color-mix(in srgb, var(--studio-ink) 88%, transparent); font-weight: 550; }
+.devc-tok-prop { color: color-mix(in srgb, var(--studio-ink) 66%, transparent); }
+.devc-tok-com { color: var(--studio-ink-muted); font-style: italic; }
+.devc-code__plain { color: var(--studio-ink-secondary); }
+
+/* ---------- Language tabs ---------------------------------------------- */
+.devc-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--studio-line);
+  background: var(--studio-black);
+  overflow-x: auto;
+}
+
+.devc-tabs .el-segment {
+  border-color: var(--studio-line-strong);
+  background: color-mix(in srgb, var(--studio-ink) 5%, transparent);
+}
+
+.devc-tabs .el-segment-button { color: var(--studio-ink-muted); }
+
+.devc-tabs .el-segment-button[aria-selected='true'],
+.devc-tabs .el-segment-button:hover { color: var(--studio-ink); }
+
+.devc-req {
+  margin-left: auto;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.625rem;
+  color: var(--studio-ink-muted);
+  white-space: nowrap;
+  flex: none;
+}
+
+/* ---------- Reduced motion --------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .devc-endpoint,
+  .devc-copy,
+  .devc-link { transition: none; }
+}
