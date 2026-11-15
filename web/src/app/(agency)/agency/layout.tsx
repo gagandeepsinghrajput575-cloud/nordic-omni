@@ -6,6 +6,7 @@ const NAV: NavItem[] = [
   { href: '/agency', label: 'Portfolio', icon: 'dashboard', exact: true },
   { href: '/agency/clients', label: 'Clients', icon: 'building' },
   { href: '/agency/webhooks', label: 'Webhook hub', icon: 'webhook' },
+  { href: '/agency/workforce', label: 'AI workforce', icon: 'users' },
 ];
 
 export default async function AgencyLayout({ children }: { children: React.ReactNode }) {
