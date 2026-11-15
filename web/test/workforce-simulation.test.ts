@@ -11,12 +11,13 @@ import {
   simulateCall,
   synthesizeAngles,
 } from '../src/lib/workforce/simulation';
+import { dispatchFeedEntries } from '../src/lib/workforce/roster';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const engine = read('src/lib/workforce/simulation.ts');
 const console_ = read('src/components/workforce/DispatchSimulationConsole.tsx');
-const matrix = read('src/components/workforce/SwitchboardMatrix.tsx');
+const board = read('src/components/workforce/FeatureSwitchboardSimulator.tsx');
 const css = read('src/app/globals.css');
 
 const code = (source: string) =>
@@ -295,8 +296,8 @@ test('the console states plainly that it is a simulation', () => {
 // 8. Switchboard matrix
 // -----------------------------------------------------------------------------
 
-test('the matrix is real tabular markup with both header axes', () => {
-  const source = code(matrix);
+test('the matrix view is real tabular markup with both header axes', () => {
+  const source = code(board);
   assert.match(source, /<table className="swm__grid">/);
   assert.match(source, /<caption className="sr-only">/);
   assert.match(source, /<th scope="col">Funktion<\/th>/);
@@ -304,17 +305,18 @@ test('the matrix is real tabular markup with both header axes', () => {
 });
 
 test('the matrix reflects state rather than restating it', () => {
-  const source = code(matrix);
+  const source = code(board);
   assert.match(source, /const mode = modes\[feature\.id\] \?\? 'hidden';/);
   assert.match(source, /\{CLIENT_SEES\[mode\]\}/);
   // Counters are derived, not stored.
   assert.match(source, /const tally: Record<FeatureMode, number> = \{ active: 0, teaser: 0, hidden: 0 \}/);
 });
 
-test('the matrix handles the all-hidden case explicitly', () => {
-  const source = code(matrix);
-  assert.match(source, /visibleCount === 0 \?/);
-  assert.match(source, /Alle funktioner er skjult/);
+test('the unified switchboard handles the all-hidden case explicitly', () => {
+  const source = code(board);
+  assert.match(source, /visible\.length === 0 \?/);
+  // The copy wraps across lines in JSX, so match on the collapsed text.
+  assert.match(source.replace(/\s+/g, ' '), /Alle funktioner er skjult/);
 });
 
 test('the three modes differ without colour alone', () => {
@@ -338,7 +340,7 @@ test('the simulation block is token-only and achromatic', () => {
 test('both components ship no colour literal, any, or suppression', () => {
   for (const [name, source] of [
     ['DispatchSimulationConsole.tsx', console_],
-    ['SwitchboardMatrix.tsx', matrix],
+    ['FeatureSwitchboardSimulator.tsx', board],
     ['simulation.ts', engine],
   ] as const) {
     const body = code(source);
@@ -354,4 +356,83 @@ test('the simulation honours reduced motion', () => {
   assert.match(code(console_), /useReducedMotion/);
   assert.match(code(console_), /springFor\(reduceMotion, SPRING\)/);
   assert.match(block, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+// -----------------------------------------------------------------------------
+// 10. Milestone 2 — mount, unify, wire the feed
+// -----------------------------------------------------------------------------
+
+const roster = read('src/lib/workforce/roster.ts');
+const shell = read('src/components/workforce/WorkforceConsole.tsx');
+
+test('the dispatch console is mounted in the console shell', () => {
+  assert.match(code(shell), /import \{ DispatchSimulationConsole \} from '\.\/DispatchSimulationConsole'/);
+  assert.match(code(shell), /<DispatchSimulationConsole onDispatched=\{appendDispatch\} \/>/);
+});
+
+test('the switchboard is one component with two views, not two components', () => {
+  const source = code(board);
+  // One state object drives both renderings.
+  const modeDeclarations = source.match(/useState<ModeByFeature>/g) ?? [];
+  assert.equal(modeDeclarations.length, 1, 'the two views must share one state');
+  assert.match(source, /const \[view, setView\] = useState<SwitchboardView>/);
+  assert.match(source, /view === 'card' \?/);
+  // The deleted duplicate must not be importable.
+  assert.ok(!source.includes('SwitchboardMatrix'), 'no reference to the removed component');
+});
+
+test('both views share the same client portal preview', () => {
+  // The preview sits outside the card/matrix conditional, so it cannot diverge.
+  const source = code(board);
+  const previewAt = source.indexOf('className="swb__preview"');
+  const cardAt = source.indexOf("view === 'card' ?");
+  assert.ok(previewAt > cardAt, 'the preview must render after the view branch, for both');
+  assert.equal((source.match(/swb__preview-body/g) ?? []).length, 1, 'exactly one preview body');
+});
+
+test('toggling from either view writes the same state setter', () => {
+  const source = code(board);
+  const cardSetter = source.indexOf('onChange={(next) => setMode(feature.id, next)}');
+  const matrixSetter = source.lastIndexOf('onChange={(next) => setMode(feature.id, next)}');
+  assert.ok(cardSetter > 0 && matrixSetter > cardSetter, 'both views call setMode');
+  assert.match(source, /const setMode = \(id: string, next: FeatureMode\) =>/);
+});
+
+test('a completed dispatch reports to the feed, not on click', () => {
+  const source = code(console_);
+  // The report fires inside the timeout, after the state flips to done.
+  const body = source.slice(source.indexOf('timerRef.current = setTimeout'));
+  assert.ok(
+    body.indexOf('setState(\'done\')') < body.indexOf('onDispatched?.(runner)'),
+    'the callback must fire after the run completes',
+  );
+  assert.match(source, /onDispatched\?\.\(runner\)/);
+});
+
+test('the shell is the single owner of the feed', () => {
+  assert.match(code(shell), /const \[feed, setFeed\] = useState<ReadonlyArray<FeedEntry>>\(FEED_ENTRIES\)/);
+  assert.match(code(shell), /<MissionActivityFeed entries=\{feed\} \/>/);
+  // The dispatch console must not hold the log itself.
+  assert.doesNotMatch(code(console_), /setFeed|useState<ReadonlyArray<FeedEntry>>/);
+});
+
+test('dispatch entries are prepended, capped, and cover all four runners', () => {
+  const result = dispatchFeedEntries('creative', '12:00:00');
+  assert.ok(result.length >= 2, 'a dispatch reports a dispatch line and an outcome');
+  for (const entry of result) {
+    assert.equal(entry.time, '12:00:00');
+    assert.ok(entry.message.length > 20);
+  }
+  // Each runner has its own copy, so the log names the right specialist.
+  for (const runner of ['creative', 'paid-media', 'seo-geo', 'voice'] as const) {
+    const entries = dispatchFeedEntries(runner, '09:00:00');
+    assert.ok(entries.length >= 2, `${runner} must report`);
+    assert.ok(
+      entries.some((entry) => entry.message.includes(runner)),
+      `${runner} entries must name the runner`,
+    );
+  }
+  // Cap and ordering are in the shell.
+  assert.match(code(shell), /FEED_CAP = 40/);
+  assert.match(code(shell), /\[...dispatchFeedEntries\(runner, at\), \.\.\.current\]\.slice\(0, FEED_CAP\)/);
 });

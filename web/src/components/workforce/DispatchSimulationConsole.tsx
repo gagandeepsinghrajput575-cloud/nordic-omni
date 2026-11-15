@@ -47,10 +47,19 @@ const RUNNERS: ReadonlyArray<{ value: RunnerId; label: string }> = [
 const RUN_MS = 900;
 
 export interface DispatchSimulationConsoleProps {
+  /**
+   * Called once a runner finishes, with the runner id and the wall-clock time
+   * the run completed. The parent owns the feed, so this component reports
+   * rather than appending to shared state itself.
+   */
+  onDispatched?: (runner: RunnerId) => void;
   className?: string;
 }
 
-export function DispatchSimulationConsole({ className }: DispatchSimulationConsoleProps) {
+export function DispatchSimulationConsole({
+  onDispatched,
+  className,
+}: DispatchSimulationConsoleProps) {
   const reduceMotion = useReducedMotion();
   const [runner, setRunner] = useState<RunnerId>('creative');
   const [state, setState] = useState<DispatchState>('idle');
@@ -74,8 +83,13 @@ export function DispatchSimulationConsole({ className }: DispatchSimulationConso
     }
     if (state === 'running') return;
     setState('running');
-    timerRef.current = setTimeout(() => setState('done'), RUN_MS);
-  }, [clearTimer, state]);
+    timerRef.current = setTimeout(() => {
+      setState('done');
+      // Report on completion, not on click: the feed should record what ran,
+      // not what was requested.
+      onDispatched?.(runner);
+    }, RUN_MS);
+  }, [clearTimer, onDispatched, runner, state]);
 
   const choose = useCallback(
     (next: RunnerId) => {

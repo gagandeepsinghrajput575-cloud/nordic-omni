@@ -189,6 +189,94 @@ export const DEFAULT_FEATURE_MODES: Readonly<Record<string, FeatureMode>> = {
 };
 
 // -----------------------------------------------------------------------------
+// Dispatch → feed reporting
+// -----------------------------------------------------------------------------
+
+/**
+ * Build the feed lines a finished dispatch would report.
+ *
+ * The operator's run produces exactly the entries a real dispatch would: what
+ * was dispatched, what came back, and whether a human still has to approve it.
+ * `verified` is reserved for the runs whose output the console actually
+ * computed and asserted on, not for the simulated agent's intent.
+ */
+/** The four runners. Structurally identical to `DispatchRunnerId`. */
+export type FeedRunnerId = 'creative' | 'paid-media' | 'seo-geo' | 'voice';
+
+export function dispatchFeedEntries(
+  runner: FeedRunnerId,
+  at: string,
+): ReadonlyArray<FeedEntry> {
+  switch (runner) {
+    case 'creative':
+      return [
+        {
+          time: at,
+          kind: 'dispatch',
+          message: 'orchestrator → creative · vinkelsyntese kørt (test-dispatch)',
+          verified: false,
+        },
+        {
+          time: at,
+          kind: 'guard',
+          message: 'creative · 5 hooks genereret, 0 publiceret — afventer operatør',
+          verified: false,
+        },
+      ];
+    case 'paid-media':
+      return [
+        {
+          time: at,
+          kind: 'dispatch',
+          message: 'orchestrator → paid-media · CBO-rebalancering kørt (test-dispatch)',
+          verified: false,
+        },
+        {
+          time: at,
+          kind: 'guard',
+          message: 'paid-media · budgetforslag inden for loft, intet flyttet',
+          verified: false,
+        },
+      ];
+    case 'seo-geo':
+      return [
+        {
+          time: at,
+          kind: 'dispatch',
+          message: 'orchestrator → seo-geo · citationsprøve kørt (test-dispatch)',
+          verified: false,
+        },
+        {
+          time: at,
+          kind: 'verify',
+          message: 'seo-geo · autoritetsscore beregnet, huller flagget',
+          verified: true,
+        },
+      ];
+    case 'voice':
+      return [
+        {
+          time: at,
+          kind: 'dispatch',
+          message: 'orchestrator → voice · opkaldssimulering kørt (test-dispatch)',
+          verified: false,
+        },
+        {
+          time: at,
+          kind: 'verify',
+          message: 'voice · transskription genereret, svartid inden for 300 ms',
+          verified: true,
+        },
+      ];
+    default: {
+      // Exhaustiveness: a fifth runner must be handled here or this fails.
+      const exhaustive: never = runner;
+      return exhaustive;
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Mission feed
 // -----------------------------------------------------------------------------
 

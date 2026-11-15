@@ -3995,6 +3995,44 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
 
 .turn[data-speaker='agent'] .turn__text { color: var(--text); }
 
+
+/* Unified switchboard: two views, one state. Layout switches with the view. */
+.swb__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.swb__toolbar-count {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.swb__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .swb__layout { grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr); }
+}
+
+/* The matrix view needs the full width, so the preview drops beneath it. */
+.swb__scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+}
+
+.swb__scroll .swm__grid { min-width: 540px; }
+
 /* ---------- Switchboard matrix ----------------------------------------- */
 .swm {
   display: flex;

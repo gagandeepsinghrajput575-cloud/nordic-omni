@@ -1,6 +1,6 @@
 import { requireAgency } from '@/lib/auth/guard';
 import { PageHeader } from '@/components/ui/feedback';
-import { WorkforceConsole } from '@/components/agency/workforce/WorkforceConsole';
+import { WorkforceConsole } from '@/components/workforce/WorkforceConsole';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'AI workforce' };

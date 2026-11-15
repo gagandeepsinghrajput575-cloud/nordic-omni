@@ -13,11 +13,11 @@ import {
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-const header = read('src/components/agency/workforce/WorkforceHeader.tsx');
-const pod = read('src/components/agency/workforce/EmployeePodCard.tsx');
-const board = read('src/components/agency/workforce/FeatureSwitchboardSimulator.tsx');
-const feed = read('src/components/agency/workforce/MissionActivityFeed.tsx');
-const console_ = read('src/components/agency/workforce/WorkforceConsole.tsx');
+const header = read('src/components/workforce/WorkforceHeader.tsx');
+const pod = read('src/components/workforce/EmployeePodCard.tsx');
+const board = read('src/components/workforce/FeatureSwitchboardSimulator.tsx');
+const feed = read('src/components/workforce/MissionActivityFeed.tsx');
+const console_ = read('src/components/workforce/WorkforceConsole.tsx');
 const page = read('src/app/(agency)/agency/workforce/page.tsx');
 const layout = read('src/app/(agency)/agency/layout.tsx');
 const css = read('src/app/globals.css');
