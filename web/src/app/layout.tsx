@@ -12,15 +12,16 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // One obsidian identity, so the browser chrome matches on every OS setting.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FAF7F2' },
-    { media: '(prefers-color-scheme: dark)', color: '#1C1512' },
+    { media: '(prefers-color-scheme: light)', color: '#050507' },
+    { media: '(prefers-color-scheme: dark)', color: '#050507' },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="da" className="light" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="da" className="dark" data-theme="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

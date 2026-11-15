@@ -37,11 +37,11 @@ export function LiveStatus({
 }) {
   const dotColor =
     tone === "live"
-      ? "bg-[var(--success,#4ade80)]"
+      ? "bg-[var(--success)]"
       : tone === "warn"
-      ? "bg-[var(--warning,#fbbf24)]"
+      ? "bg-[var(--warning)]"
       : tone === "danger"
-      ? "bg-[var(--danger,#f87171)]"
+      ? "bg-[var(--danger)]"
       : tone === "accent"
       ? "bg-[var(--accent-primary)]"
       : "bg-[var(--text-muted)]";
@@ -72,13 +72,13 @@ export function MetricCard({
 }) {
   const iconToneColor =
     tone === "green"
-      ? "text-[var(--success,#4ade80)]"
+      ? "text-[var(--success)]"
       : tone === "blue"
-      ? "text-[var(--accent-primary,#8db4ff)]"
+      ? "text-[var(--accent-primary)]"
       : tone === "sand"
-      ? "text-[var(--accent-primary,#d8c8a6)]"
+      ? "text-[var(--accent-primary)]"
       : tone === "danger"
-      ? "text-[var(--danger,#f87171)]"
+      ? "text-[var(--danger)]"
       : "text-[var(--text-muted)]";
 
   return (
@@ -174,7 +174,7 @@ export function WaveDock({
 }) {
   return (
     <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-ground)] px-2.5 py-1">
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--success,#4ade80)] animate-ping" />
+      <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] animate-ping" />
       <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">{state}</span>
     </div>
   );

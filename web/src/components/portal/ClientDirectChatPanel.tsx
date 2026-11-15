@@ -158,8 +158,8 @@ export function ClientDirectChatPanel({
                 <div
                   className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${
                     mine
-                      ? 'rounded-br-md bg-[var(--accent-primary)] text-[var(--accent-contrast)]'
-                      : 'rounded-bl-md border border-[var(--border-subtle)] bg-[var(--glass-soft)]'
+                      ? 'rounded-br-md border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--text)]'
+                      : 'rounded-bl-md border border-[var(--border-subtle)] bg-[rgba(255,255,255,.05)] text-[var(--text)]'
                   }`}
                 >
                   {!mine ? (
@@ -169,9 +169,7 @@ export function ClientDirectChatPanel({
                   ) : null}
                   <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{message.body}</p>
                   <p
-                    className={`mt-1 text-right text-[10px] ${
-                      mine ? 'text-[color-mix(in_srgb,var(--accent-contrast)_70%,transparent)]' : 'text-[var(--text-muted)]'
-                    }`}
+                    className="mt-1 text-right text-[10px] text-[var(--text-muted)]"
                   >
                     {clockOf(message.createdAt)}
                   </p>
@@ -214,7 +212,7 @@ export function ClientDirectChatPanel({
             rows={1}
             placeholder="Skriv en besked…"
             aria-label="Din besked"
-            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-2.5 text-[13px] outline-none focus:border-[var(--accent-primary)]"
+            className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border border-[var(--border-subtle)] bg-[var(--input)] px-3 py-2.5 text-[13px] text-[var(--text)] outline-none transition-[border-color,box-shadow] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(201,184,255,.18)]"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
@@ -226,7 +224,7 @@ export function ClientDirectChatPanel({
             type="button"
             onClick={() => void send()}
             disabled={pending || draft.trim().length === 0}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-primary)] text-[var(--accent-contrast)] disabled:opacity-50"
+            className="btn btn-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-xl p-0 disabled:opacity-50"
             aria-label="Send besked"
           >
             {pending ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Send size={16} aria-hidden />}

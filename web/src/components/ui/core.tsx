@@ -18,7 +18,7 @@ export function CardHeader({ title, hint, action, className }: {
     <div className={cn('flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4', className)}>
       <div className="min-w-0 flex-1 basis-48">
         <h2 className="section-title text-[var(--text)]">{title}</h2>
-        {hint ? <p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{hint}</p> : null}
+        {hint ? <p className="mt-1 text-[12px] leading-5 text-[var(--text-muted)]">{hint}</p> : null}
       </div>
       {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
     </div>

@@ -249,7 +249,7 @@ export function ProviderPanel({ workspaceSlug, workspaceName, provider, checks }
           </p>
 
           {error ? (
-            <p className="mt-3 rounded-lg border border-[rgba(255,107,107,0.28)] bg-[rgba(255,107,107,0.08)] px-3 py-2 text-[12px] text-[#ffb3b3]">
+            <p className="mt-3 rounded-lg border border-[var(--danger-line)] bg-[var(--danger-soft)] px-3 py-2 text-[12px] text-[var(--danger)]">
               {error}
             </p>
           ) : null}
@@ -259,7 +259,7 @@ export function ProviderPanel({ workspaceSlug, workspaceName, provider, checks }
               className={`mt-3 rounded-lg border px-3 py-2.5 text-[12px] ${
                 result.ok
                   ? "border-[rgba(110,231,183,0.26)] bg-[rgba(110,231,183,0.07)] text-[var(--success)]"
-                  : "border-[rgba(255,107,107,0.26)] bg-[rgba(255,107,107,0.07)] text-[#ffb3b3]"
+                  : "border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)]"
               }`}
             >
               <p className="flex items-center gap-2">

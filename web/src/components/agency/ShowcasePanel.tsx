@@ -162,7 +162,7 @@ export function ShowcasePanel({
                 /showcase/{slugify(title) || "…"}
               </p>
             ) : null}
-            {error ? <p className="text-[12px] text-[#ffb3b3]">{error}</p> : null}
+            {error ? <p className="text-[12px] text-[var(--danger)]">{error}</p> : null}
             <button type="button" className="btn btn-accent w-full" onClick={() => void createShowcase()} disabled={busy}>
               {busy ? "Creating…" : "Create pitch link"}
               <Icon name="spark" className="h-3.5 w-3.5" />

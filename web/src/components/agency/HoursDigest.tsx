@@ -287,7 +287,7 @@ export function HoursDigest({
           </div>
 
           {notice ? <p className="mt-3 text-[12px] text-[var(--success)]">{notice}</p> : null}
-          {error ? <p className="mt-3 text-[12px] text-[#ffb3b3]">{error}</p> : null}
+          {error ? <p className="mt-3 text-[12px] text-[var(--danger)]">{error}</p> : null}
         </section>
 
         <div className="space-y-5">

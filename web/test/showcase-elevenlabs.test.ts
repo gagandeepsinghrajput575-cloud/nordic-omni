@@ -237,7 +237,8 @@ test('the shell is frosted, floating and still fully accessible', () => {
 
 test('the nav indicator glides on a spring rather than switching abruptly', () => {
   assert.match(shell, /layoutId=\{`nav-tile-\$\{scope\}`\}/);
-  assert.match(shell, /const NAV_SPRING = \{ type: 'spring'/);
+  // The spring is the shared preset now, so one curve drives the whole product.
+  assert.match(shell, /const NAV_SPRING = SPRING;/);
   // One shared tile per scope, so the desktop and mobile drawers do not fight.
   assert.match(shell, /navigation\(scope\)/);
 });

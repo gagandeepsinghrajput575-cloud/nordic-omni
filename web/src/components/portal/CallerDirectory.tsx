@@ -28,7 +28,7 @@ export function CallerDirectory({ contacts, isDanish }: { contacts: ContactRow[]
   return (
     <Card className="overflow-hidden">
       <div className="table-toolbar">
-        <div className="table-search"><Search size={16} aria-hidden /><label htmlFor={`${id}-search`} className="sr-only">{t('Søg blandt kunder', 'Search callers')}</label><Input id={`${id}-search`} type="search" placeholder={t('Søg navn, telefon eller email…', 'Search name, phone or email…')} value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+        <div className="table-search" data-search><Search size={16} aria-hidden /><label htmlFor={`${id}-search`} className="sr-only">{t('Søg blandt kunder', 'Search callers')}</label><Input id={`${id}-search`} type="search" placeholder={t('Søg navn, telefon eller email…', 'Search name, phone or email…')} value={query} onChange={(event) => setQuery(event.target.value)} /></div>
         <label htmlFor={`${id}-stage`} className="sr-only">{t('Filtrér på stadie', 'Filter by stage')}</label>
         <Select id={`${id}-stage`} value={stage} onChange={(event) => setStage(event.target.value)} className="w-auto min-w-32"><option value="all">{t('Alle stadier', 'All stages')}</option>{STAGES.map(([value, da, en]) => <option key={value} value={value}>{t(da, en)}</option>)}</Select>
         <label htmlFor={`${id}-ai`} className="sr-only">{t('Filtrér på AI-svar', 'Filter by AI replies')}</label>
@@ -36,7 +36,7 @@ export function CallerDirectory({ contacts, isDanish }: { contacts: ContactRow[]
       </div>
       {filtered.length === 0 ? <EmptyState compact icon={<SearchX size={20} />} title={t('Ingen matchende kunder', 'No matching callers')} description={t('Prøv en anden søgning, eller nulstil filtrene.', 'Try another search, or clear your filters.')} action={<button type="button" onClick={clear} className={buttonClass('secondary', 'sm')}>{t('Nulstil filtre', 'Clear filters')}</button>} /> : (
         <div className="overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table" aria-describedby={`${id}-count`}>
             <caption className="sr-only">{t('Kunder', 'Callers')}, {filtered.length} {t('matchende resultater', 'matching results')}</caption>
             <thead><tr><th scope="col">{t('Kunde', 'Caller')}</th><th scope="col">{t('Stadie', 'Stage')}</th><th scope="col">{t('Score', 'Score')}</th><th scope="col" className="num">{t('Værdi · DKK', 'Value · DKK')}</th><th scope="col">{t('AI-svar', 'AI replies')}</th><th scope="col"><span className="sr-only">{t('Åbn kunde', 'Open caller')}</span></th></tr></thead>
             <tbody>{filtered.map((contact) => (
@@ -52,7 +52,7 @@ export function CallerDirectory({ contacts, isDanish }: { contacts: ContactRow[]
           </table>
         </div>
       )}
-      <div className="table-footer"><span aria-live="polite">{filtered.length} {t('af', 'of')} {contacts.length} {t('indlæste kunder', 'loaded callers')}</span>{query || stage !== 'all' || ai !== 'all' ? <button type="button" onClick={clear} className="font-medium text-[var(--text-secondary)] hover:underline">{t('Nulstil filtre', 'Clear filters')}</button> : <span>{t('Værdi i DKK', 'Value in DKK')}</span>}</div>
+      <div className="table-footer"><span id={`${id}-count`} aria-live="polite">{filtered.length} {t('af', 'of')} {contacts.length} {t('indlæste kunder', 'loaded callers')}</span>{query || stage !== 'all' || ai !== 'all' ? <button type="button" onClick={clear} className="font-medium text-[var(--text-secondary)] hover:underline">{t('Nulstil filtre', 'Clear filters')}</button> : <span>{t('Værdi i DKK', 'Value in DKK')}</span>}</div>
       {contacts.length >= 200 ? <p className="border-t border-[var(--line)] px-5 py-3 text-[12px] text-[var(--muted)]">{t('De 200 senest opdaterede kunder vises.', 'The 200 most recently updated callers are shown.')}</p> : null}
     </Card>
   );
