@@ -54,6 +54,7 @@
   --text-primary: var(--text);
   --text-secondary: #a1a1aa;
   --text-muted: var(--muted);
+  --spotlight: rgba(255, 255, 255, 0.12);
   --accent-primary: var(--a);
   --accent-secondary: var(--b);
   --accent-strong: #ffffff;
@@ -158,6 +159,7 @@
   --text-primary: var(--text);
   --text-secondary: #3f3f46;
   --text-muted: var(--muted);
+  --spotlight: rgba(9, 9, 11, 0.09);
   --accent-primary: var(--a);
   --accent-secondary: var(--b);
   --accent-strong: #000000;
@@ -1500,7 +1502,7 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
 }
 
 /* ---------- Waveform ----------------------------------------------------- */
-.wave-visual {
+.wf-track {
   position: relative;
   display: flex;
   align-items: center;
@@ -1514,13 +1516,13 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   width: 100%;
 }
 
-.wave-visual:focus-visible {
+.wf-track:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
   border-radius: var(--r-sm);
 }
 
-.wave-bar {
+.wf-bar {
   flex: 1 1 0;
   min-width: 1px;
   border-radius: 999px;
@@ -1533,14 +1535,14 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
 }
 
 /* Bars already played read as solid ink; upcoming bars drop back. */
-.wave-bar[data-played='false'] { opacity: 0.34; }
+.wf-bar[data-played='false'] { opacity: 0.34; }
 
-.wave-visual[data-state='idle'] .wave-bar { opacity: 0.42; }
+.wf-track[data-state='idle'] .wf-bar { opacity: 0.42; }
 
-.wave-visual[data-state='paused'] .wave-bar { opacity: 0.5; }
+.wf-track[data-state='paused'] .wf-bar { opacity: 0.5; }
 
 /* The playhead is a 1px rule, not a filled block, so it never hides a bar. */
-.wave-playhead {
+.wf-playhead {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -1550,7 +1552,7 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   pointer-events: none;
 }
 
-.wave-playhead::before {
+.wf-playhead::before {
   content: '';
   position: absolute;
   top: 0;
@@ -1564,9 +1566,9 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
 }
 
 /* Static fallback: identical silhouette, zero motion. */
-.wave-static { width: 100%; height: 78px; display: block; color: var(--text); }
+.wf-static { width: 100%; height: 78px; display: block; color: var(--text); }
 
-.wave-static path { fill: currentColor; opacity: 0.82; }
+.wf-static path { fill: currentColor; opacity: 0.82; }
 
 /* ---------- Transport bar ------------------------------------------------ */
 .studio-transport {
@@ -1630,8 +1632,344 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
 
 /* ---------- Reduced motion ----------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .wave-bar { transition: none; }
+  .wf-bar { transition: none; }
   .studio-play { transition: none; }
   .studio-play:hover:not(:disabled),
   .studio-play:active:not(:disabled) { transform: none; }
+}
+
+/* =========================================================================
+   Piece 2 — Bento grid product ecosystem
+   =========================================================================
+   The spotlight is a hover affordance, so the tone lives in `--spotlight`
+   rather than in this block. That keeps the chromatic scan clean and lets the
+   two themes pick their own weight.
+   ---------------------------------------------------------------------- */
+
+.bento-section {
+  padding-block: clamp(40px, 6vw, 76px) clamp(56px, 8vw, 104px);
+  border-top: 1px solid var(--line);
+}
+
+.bento-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: clamp(22px, 3vw, 34px);
+}
+
+.bento-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--el-ink-muted);
+}
+
+.bento-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+  font-weight: 560;
+  color: var(--text-primary);
+  max-width: 26ch;
+  text-wrap: balance;
+}
+
+.bento-sub {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* An asymmetric 6-column bento: two wide cards over two narrow ones. */
+.bento-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 720px) {
+  .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .bento-cell[data-span='wide'] { grid-column: span 3; }
+  .bento-cell[data-span='narrow'] { grid-column: span 3; }
+  .bento-cell[data-span='tall'] { grid-column: span 3; grid-row: span 1; }
+}
+
+.bento-cell { min-width: 0; }
+
+/* ---------- Card shell ---------------------------------------------------- */
+.bento-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 214px;
+  padding: clamp(18px, 2.2vw, 26px);
+  border: 1px solid var(--border-control);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  overflow: hidden;
+  isolation: isolate;
+  transition: border-color var(--dur) var(--ease), transform 220ms var(--ease);
+}
+
+.bento-card__spotlight {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  /* Positioned by --mx/--my, written from the pointer handler. The mask keeps
+     the tint permanently inside the border so the edge is what lights up. */
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 0%),
+    var(--spotlight),
+    transparent 68%
+  );
+  opacity: 0;
+  transition: opacity 220ms var(--ease);
+}
+
+.bento-card[data-lit='true'] .bento-card__spotlight { opacity: 1; }
+
+.bento-card__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-width: 0;
+}
+
+.bento-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bento-card__glyph {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--el-elevated);
+  color: var(--text-primary);
+}
+
+.bento-card__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  font-weight: 560;
+  letter-spacing: -0.008em;
+  color: var(--text-primary);
+}
+
+.bento-card__blurb {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 42ch;
+}
+
+/* The visual well sits at the bottom and is clipped by the card radius. */
+.bento-card__well {
+  margin-top: auto;
+  padding-top: 12px;
+  min-width: 0;
+}
+
+/* ---------- Well A: reception waveform ----------------------------------- */
+.bento-wave {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 52px;
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 6%, black 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 6%, black 94%, transparent);
+}
+
+.bento-wave__bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 999px;
+  height: var(--h, 30%);
+  background: color-mix(in srgb, var(--text-primary) 70%, transparent);
+  transform-origin: center;
+  animation: bento-pulse 1400ms var(--ease) infinite alternate;
+  animation-delay: var(--d, 0ms);
+}
+
+.bento-wave[data-live='false'] .bento-wave__bar { animation-play-state: paused; opacity: 0.5; }
+
+@keyframes bento-pulse {
+  from { transform: scaleY(0.55); }
+  to { transform: scaleY(1); }
+}
+
+.bento-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--el-ink-muted);
+}
+
+/* ---------- Well B: campaign staging ------------------------------------- */
+.bento-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bento-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--el-elevated);
+  font-size: 0.6875rem;
+  font-weight: 540;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.bento-chip[data-tone='armed'] {
+  border-color: var(--border-control);
+  color: var(--text-primary);
+}
+
+.bento-bars {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.bento-bars__row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.6875rem;
+  color: var(--el-ink-muted);
+}
+
+.bento-bars__track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bento-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--text-primary) 62%, transparent);
+}
+
+/* ---------- Well C: citation graph --------------------------------------- */
+.bento-graph { width: 100%; height: auto; display: block; overflow: visible; }
+
+.bento-graph__node {
+  fill: var(--panel);
+  stroke: var(--border-control);
+  stroke-width: 1;
+}
+
+.bento-graph__node[data-hub='true'] { fill: var(--el-elevated); stroke: var(--text-primary); }
+
+.bento-graph__edge {
+  stroke: var(--border-control);
+  stroke-width: 1;
+  fill: none;
+  opacity: 0.75;
+}
+
+.bento-graph__label {
+  fill: var(--el-ink-muted);
+  font-size: 6.5px;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Well D: inbound pipeline ------------------------------------- */
+.bento-pipe {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-top: 4px;
+}
+
+.bento-pipe__step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--el-elevated);
+}
+
+.bento-pipe__step + .bento-pipe__step { margin-left: -1px; }
+
+.bento-pipe__step[data-stage='final'] {
+  border-color: var(--border-control);
+  background: color-mix(in srgb, var(--el-elevated) 60%, var(--panel));
+}
+
+.bento-pipe__label {
+  font-size: 0.5938rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--el-ink-muted);
+}
+
+.bento-pipe__value {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.6875rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Reduced motion ------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .bento-wave__bar { animation: none; transform: scaleY(1); }
+  .bento-card { transition: none; }
+  .bento-card__spotlight { transition: none; }
+  .bento-card:hover { transform: none; }
 }

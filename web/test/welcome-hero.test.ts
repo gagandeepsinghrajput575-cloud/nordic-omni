@@ -67,15 +67,16 @@ test('the waveform has an explicit static SVG fallback', () => {
   assert.match(wave, /useReducedMotion/);
   // A real second render path, not a CSS opacity trick.
   assert.match(wave, /reduceMotion \? \(\s*<svg/);
-  assert.match(wave, /className="wave-static"/);
+  assert.match(wave, /className="wf-static"/);
   assert.match(wave, /<path/);
 });
 
 test('the stylesheet disables every welcome transition under reduced motion', () => {
-  const block = css.slice(css.indexOf('Piece 1 — Welcome hero'));
+  const block = css.slice(css.indexOf('Piece 1 — Welcome hero'),
+    css.indexOf('Piece 2 — Bento'));
   assert.ok(block.length > 0, 'the welcome block must exist');
   assert.match(block, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(block, /\.wave-bar \{ transition: none; \}/);
+  assert.match(block, /\.wf-bar \{ transition: none; \}/);
   assert.match(block, /\.studio-play \{ transition: none; \}/);
 });
 
@@ -143,7 +144,8 @@ test('decorative geometry is hidden from the accessibility tree', () => {
 // -----------------------------------------------------------------------------
 
 test('the welcome surface reads its colours from tokens', () => {
-  const block = css.slice(css.indexOf('Piece 1 — Welcome hero'));
+  const block = css.slice(css.indexOf('Piece 1 — Welcome hero'),
+    css.indexOf('Piece 2 — Bento'));
   // Every surface, border and ink in the new block resolves from a variable.
   for (const token of [
     'var(--bg)',
@@ -165,7 +167,8 @@ test('the welcome surface reads its colours from tokens', () => {
 });
 
 test('the welcome block declares no hard-coded colour', () => {
-  const block = css.slice(css.indexOf('Piece 1 — Welcome hero'));
+  const block = css.slice(css.indexOf('Piece 1 — Welcome hero'),
+    css.indexOf('Piece 2 — Bento'));
   const literals = block.match(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g) ?? [];
   assert.deepEqual(literals, [], 'the welcome block must be token-only');
 });
@@ -173,7 +176,8 @@ test('the welcome block declares no hard-coded colour', () => {
 test('the orbs are achromatic by construction', () => {
   // Silver -> zinc: the lift is derived from --text, never from a hue.
   assert.match(css, /\.studio-tile-orb \{[\s\S]*?color-mix\(in srgb, var\(--text\)/);
-  assert.doesNotMatch(css.slice(css.indexOf('Piece 1 — Welcome hero')), /hsl\(/);
+  assert.doesNotMatch(css.slice(css.indexOf('Piece 1 — Welcome hero'),
+    css.indexOf('Piece 2 — Bento')), /hsl\(/);
 
   // And no component ships a chromatic literal of its own.
   const offenders: string[] = [];

@@ -152,7 +152,7 @@ export function WaveformVisualizer({
   return (
     <div
       ref={trackRef}
-      className={['wave-visual', className ?? ''].filter(Boolean).join(' ')}
+      className={['wf-track', className ?? ''].filter(Boolean).join(' ')}
       data-state={state}
       role="slider"
       tabIndex={0}
@@ -167,7 +167,7 @@ export function WaveformVisualizer({
     >
       {reduceMotion ? (
         <svg
-          className="wave-static"
+          className="wf-static"
           viewBox={`0 0 ${count} 100`}
           preserveAspectRatio="none"
           aria-hidden="true"
@@ -197,7 +197,7 @@ export function WaveformVisualizer({
             return (
               <span
                 key={index}
-                className="wave-bar"
+                className="wf-bar"
                 data-played={played ? 'true' : 'false'}
                 style={style}
                 aria-hidden="true"
@@ -205,7 +205,7 @@ export function WaveformVisualizer({
             );
           })}
           <span
-            className="wave-playhead"
+            className="wf-playhead"
             style={{ left: `${position * 100}%` }}
             aria-hidden="true"
           />
