@@ -258,7 +258,7 @@ export function ProviderPanel({ workspaceSlug, workspaceName, provider, checks }
             <div
               className={`mt-3 rounded-lg border px-3 py-2.5 text-[12px] ${
                 result.ok
-                  ? "border-[rgba(110,231,183,0.26)] bg-[rgba(110,231,183,0.07)] text-[var(--success)]"
+                  ? "border-[rgba(255,255,255,0.26)] bg-[rgba(255,255,255,0.07)] text-[var(--success)]"
                   : "border-[var(--danger-line)] bg-[var(--danger-soft)] text-[var(--danger)]"
               }`}
             >

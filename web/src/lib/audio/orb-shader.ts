@@ -15,26 +15,43 @@ export interface OrbPalette {
   core: RGB;
   halo: RGB;
   rim: RGB;
-  /** Iridescent ramp sampled around the ring. */
+  /** Monochrome silver ramp sampled around the ring. */
   ramp: readonly RGB[];
   /** Baseline energy with no analyser attached, 0..1. */
   rest: number;
 }
 
-export const AMBER: RGB = [255, 201, 120];
-export const ROSE: RGB = [255, 155, 147];
-export const CYAN: RGB = [91, 227, 255];
-export const VIOLET: RGB = [169, 140, 255];
-export const MINT: RGB = [107, 227, 164];
-export const STEEL: RGB = [166, 174, 190];
+/**
+ * A monochrome acoustic scale.
+ *
+ * Every stop is a true grey (R = G = B), so the orb disperses silver-white light
+ * and can never drift into hue. States are distinguished by *brightness* and by
+ * the label rendered beside the orb, never by colour.
+ */
+export const WHITE: RGB = [255, 255, 255];
+export const SILVER: RGB = [228, 228, 231];
+export const ZINC: RGB = [161, 161, 170];
+export const SLATE: RGB = [113, 113, 122];
+export const STEEL: RGB = [190, 190, 196];
+export const ASH: RGB = [82, 82, 91];
 
-/** Decorative pigments only. Text never uses these; see the globals.css one. */
+/**
+ * Retained under their historical names as grey aliases so existing imports keep
+ * resolving without a rename sweep. None of them carries hue any more.
+ */
+export const AMBER: RGB = ZINC;
+export const ROSE: RGB = SILVER;
+export const CYAN: RGB = WHITE;
+export const VIOLET: RGB = SILVER;
+export const MINT: RGB = WHITE;
+
+/** Decorative greys only. Text never uses these; see the globals.css one. */
 export const STATE_PALETTES: Record<VisualizerState, { ramp: readonly RGB[]; rest: number }> = {
-  idle: { ramp: [STEEL, VIOLET, STEEL], rest: 0.1 },
-  listening: { ramp: [CYAN, VIOLET, MINT], rest: 0.34 },
-  speaking: { ramp: [CYAN, VIOLET, [255, 134, 211], MINT], rest: 0.52 },
-  consulting: { ramp: [AMBER, VIOLET, AMBER], rest: 0.42 },
-  dire_hold: { ramp: [ROSE, AMBER, ROSE], rest: 0.46 },
+  idle: { ramp: [STEEL, SILVER, STEEL], rest: 0.1 },
+  listening: { ramp: [WHITE, SILVER, ZINC], rest: 0.34 },
+  speaking: { ramp: [WHITE, SILVER, STEEL, ZINC], rest: 0.52 },
+  consulting: { ramp: [ZINC, SILVER, ZINC], rest: 0.42 },
+  dire_hold: { ramp: [SILVER, WHITE, SILVER], rest: 0.46 },
 };
 
 export const TAU = Math.PI * 2;

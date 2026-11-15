@@ -109,9 +109,9 @@ test('accent-filled surfaces always pair with dark ink, never white', () => {
 
 test('a perceivable control border exists and clears the 3:1 UI threshold', () => {
   // --line is decorative; --border-control is the one a control may use.
-  assert.equal(token('border-control'), '#666673');
+  assert.equal(token('border-control'), '#71717a');
   for (const ground of [GROUND, SURFACE, ELEVATED]) {
-    const ratio = contrast('#666673', ground);
+    const ratio = contrast('#71717a', ground);
     assert.ok(ratio >= 3, `--border-control on ${ground} is ${ratio.toFixed(2)}:1, below 3:1`);
   }
   // Inputs lift to that grade on hover, so the field edge is perceivable.
@@ -307,3 +307,119 @@ test('the ambient mesh is painted once, not on both body and shell', () => {
 
 // `readdirSync` is imported lazily at module scope above; keep the import honest.
 import { readdirSync } from 'node:fs';
+
+// -----------------------------------------------------------------------------
+// 7. Monochrome enforcement
+// -----------------------------------------------------------------------------
+
+/** Parse a CSS colour literal into [r, g, b], or null when it is not one. */
+function rgbOf(literal: string): [number, number, number] | null {
+  const hex = literal.match(/^#([0-9a-fA-F]{6})$/);
+  if (hex) {
+    const h = hex[1];
+    return [Number.parseInt(h.slice(0, 2), 16), Number.parseInt(h.slice(2, 4), 16), Number.parseInt(h.slice(4, 6), 16)];
+  }
+  const fn = literal.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+  if (fn) return [Number(fn[1]), Number(fn[2]), Number(fn[3])];
+  return null;
+}
+
+/**
+ * The four light-shell literals are pinned by studio-contract.test.ts and the two
+ * status dots are the one Tier-4 exception, so they are allowed by name rather
+ * than by hue. Everything else must be achromatic.
+ */
+const CHROMATIC_ALLOWLIST = new Set(['#4c1d95', '#2c6647', '#8a5a16', '#a13a35', '#34d399', '#fb7185']);
+
+test('the stylesheet carries no chromatic colour outside the documented allowlist', () => {
+  const offenders: string[] = [];
+  for (const match of css.matchAll(/#[0-9a-fA-F]{6}\b|rgba?\(\s*\d+[,\s]+\d+[,\s]+\d+/g)) {
+    const literal = match[0];
+    const rgb = rgbOf(literal);
+    if (!rgb) continue;
+    const [r, g, b] = rgb;
+    // A tolerance of 12 keeps neutral greys (which never have exactly equal
+    // channels once a designer nudges them) while rejecting any real hue.
+    if (Math.max(r, g, b) - Math.min(r, g, b) <= 12) continue;
+    if (CHROMATIC_ALLOWLIST.has(literal.toLowerCase())) continue;
+    offenders.push(literal);
+  }
+  assert.deepEqual([...new Set(offenders)], [], `chromatic colours leaked: ${[...new Set(offenders)].join(', ')}`);
+});
+
+test('no component ship a chromatic colour in a class or inline style', () => {
+  // The stylesheet guard alone was not enough: 21 chromatic rgba() tints lived in
+  // Tailwind arbitrary values and inline styles across six agency components.
+  const offenders: string[] = [];
+  for (const source of componentSources()) {
+    for (const match of source.matchAll(/#[0-9a-fA-F]{6}\b|rgba?\(\s*\d+[,\s]+\d+[,\s]+\d+/g)) {
+      const rgb = rgbOf(match[0]);
+      if (!rgb) continue;
+      const [r, g, b] = rgb;
+      if (Math.max(r, g, b) - Math.min(r, g, b) <= 12) continue;
+      if (CHROMATIC_ALLOWLIST.has(match[0].toLowerCase())) continue;
+      offenders.push(match[0]);
+    }
+  }
+  assert.deepEqual([...new Set(offenders)], [], `chromatic colours in components: ${[...new Set(offenders)].join(', ')}`);
+});
+
+test('the accent is pure white and the CTA ink is jet black', () => {
+  assert.equal(token('a'), '#ffffff');
+  assert.equal(token('accent-contrast'), '#050507');
+  // 20.4:1, comfortably AAA.
+  assert.ok(contrast('#ffffff', '#050507') >= 7);
+  // The retired chromatic accent must be gone from the spine entirely.
+  for (const old of ['#c9b8ff', '#b49bff', '#a98cff', '#7fe4ff', '#5be3ff', '#ff9ad5', '#ff86d3', '#7ce8ae', '#6be3a4']) {
+    assert.ok(!css.toLowerCase().includes(old), `${old} must be gone`);
+  }
+});
+
+test('the --el-* pigment aliases resolve to the neutral scale', () => {
+  for (const name of ['el-accent', 'el-violet', 'el-cyan', 'el-magenta', 'el-mint', 'el-amber', 'el-rose']) {
+    const hex = token(name);
+    const rgb = rgbOf(hex);
+    assert.ok(rgb, `${name} must be a hex colour`);
+    const [r, g, b] = rgb;
+    assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 12, `${name} (${hex}) must be achromatic`);
+  }
+});
+
+test('tier 1 visualisers are monochrome, not iridescent', () => {
+  const shader = read('src/lib/audio/orb-shader.ts');
+  const waveform = read('src/components/audio/Waveform.tsx');
+  // Every palette stop must be a true grey: R = G = B within tolerance.
+  for (const [label, source] of [['orb-shader.ts', shader], ['Waveform.tsx', waveform]] as const) {
+    const triples = source.match(/\[\s*\d{1,3},\s*\d{1,3},\s*\d{1,3}\s*\]/g) ?? [];
+    assert.ok(triples.length > 0, `${label} must declare palette RGB triples`);
+    for (const triple of triples) {
+      const [r, g, b] = triple.replace(/[[\]]/g, '').split(',').map((n) => Number(n.trim()));
+      assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 12, `${label}: ${triple} is chromatic`);
+    }
+  }
+  // The ramp must no longer describe itself as iridescent.
+  assert.doesNotMatch(shader, /Iridescent ramp sampled/i);
+  assert.doesNotMatch(waveform, /iridescent gradient/i);
+});
+
+test('the ambient mesh and every glow are zero-saturation', () => {
+  for (const name of ['--el-mesh-a', '--el-mesh-b', '--el-mesh-c', '--el-iri', '--studio-iri', '--grad', '--grad-strong']) {
+    const line = css.split('\n').find((entry) => entry.includes(`${name}:`));
+    assert.ok(line, `${name} must be declared`);
+    for (const match of line.matchAll(/rgba?\([^)]*\)|#[0-9a-fA-F]{6}/gi)) {
+      const rgb = rgbOf(match[0]);
+      if (!rgb) continue;
+      const [r, g, b] = rgb;
+      assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 12, `${name} contains chromatic ${match[0]}`);
+    }
+  }
+});
+
+test('semantic dots survive, and nothing tints a background with them', () => {
+  // Tier 4 permits a 6px semantic dot; it never becomes a filled surface.
+  assert.equal(token('dot-online'), '#34d399');
+  assert.equal(token('dot-alert'), '#fb7185');
+  // The success/danger *soft* backgrounds must be neutral, not green/red washes.
+  assert.match(css, /--success-soft: rgba\(255, 255, 255/);
+  assert.match(css, /--danger-soft: rgba\(255, 255, 255/);
+});

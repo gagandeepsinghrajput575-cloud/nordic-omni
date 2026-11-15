@@ -30,24 +30,28 @@ export interface WaveformSpectrumProps extends WaveformProps {
 const TONE_TO_ATTR = { accent: "accent", muted: "muted", danger: "danger" } as const;
 
 /**
- * The studio frequency ramp, in the same order as `--studio-iri` in globals.css:
- * cyan → violet → magenta → mint. Sampled across the bar sequence so the hue
- * travels with frequency instead of repeating inside every bar.
+ * The studio ramp, in the same order as `--studio-iri` in globals.css — a
+ * monochrome silver scale. Every stop is a true grey (R = G = B), so the
+ * waveform disperses white light and cannot drift into hue.
+ *
+ * Brightness still travels across the sequence rather than repeating per bar,
+ * which keeps the spectrum legible without colour.
  */
 const STUDIO_RAMP: readonly RGB[] = [
-  [91, 227, 255],
-  [169, 140, 255],
-  [255, 134, 211],
-  [107, 227, 164],
+  [255, 255, 255],
+  [228, 228, 231],
+  [190, 190, 196],
+  [161, 161, 170],
 ];
 
 /**
- * A per-bar iridescent gradient. Painting the hue by index is what makes the
- * waveform read as a real spectrum; a single repeated gradient reads as candy.
+ * A per-bar monochrome gradient. Varying brightness by index is what makes the
+ * waveform read as a real spectrum; a single repeated gradient reads as a slab.
+ * The bars keep a translucent-to-solid falloff so they still look like glass.
  */
 function barGradient(progress: number): string {
   const colour = rampAt(STUDIO_RAMP, 0.04 + progress * 0.9);
-  return `linear-gradient(180deg, ${css(colour, 0.98)} 0%, ${css(colour, 0.72)} 46%, ${css(colour, 0.26)} 100%)`;
+  return `linear-gradient(180deg, ${css(colour, 0.98)} 0%, ${css(colour, 0.7)} 46%, ${css(colour, 0.24)} 100%)`;
 }
 
 /**

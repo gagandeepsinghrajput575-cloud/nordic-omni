@@ -187,7 +187,7 @@ export function HoursDigest({
                     }
                     className={`relative h-[18px] w-[32px] shrink-0 rounded-full border transition-colors ${
                       day.isOpen
-                        ? "border-[rgba(201,242,108,0.45)] bg-[rgba(201,242,108,0.24)]"
+                        ? "border-[rgba(255,255,255,0.45)] bg-[rgba(255,255,255,0.24)]"
                         : "border-[var(--border-subtle)] bg-white/[0.04]"
                     }`}
                     aria-pressed={day.isOpen}

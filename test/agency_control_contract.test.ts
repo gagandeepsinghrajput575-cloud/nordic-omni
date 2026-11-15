@@ -78,7 +78,9 @@ test('the obsidian palette reaches orb tokens and motion has a reduced-motion fa
   const css = read('web/src/app/globals.css');
   // The single identity: obsidian ground, glass elevations, measured inks and the
   // iridescent pigments. These are the values every route resolves against.
-  for (const color of ['#050507', '#0b0b0f', '#121218', '#f4f4f6', '#c6c6d0', '#a9a9b6', '#c9b8ff', '#7fe4ff']) {
+  // The monochrome identity: obsidian ground, glass elevations, white accent and
+  // the neutral zinc scale. No hue is permitted anywhere in the spine.
+  for (const color of ['#050507', '#0b0b0f', '#121218', '#f4f4f6', '#ffffff', '#d4d4d8', '#a1a1aa']) {
     assert.ok(css.includes(color), `globals.css must ship ${color}`);
   }
   // The retired warm shell must not survive anywhere in the stylesheet.
@@ -89,7 +91,9 @@ test('the obsidian palette reaches orb tokens and motion has a reduced-motion fa
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   for (const token of ['--accent-primary', '--accent-secondary', '--danger', '--warning', '--text-muted', '--line']) assert.ok(css.includes(token));
   const orb = read('web/src/components/audio/OrbVisualizer.tsx');
-  assert.match(orb, /getPropertyValue\('--accent-primary'\).*'#7C3AED'/);
+  // The orb falls back to white now, never to the retired amethyst accent.
+  assert.match(orb, /getPropertyValue\('--accent-primary'\).*'#FFFFFF'/);
+  assert.ok(!orb.includes('#7C3AED'), 'the retired amethyst must not survive in the orb');
   assert.match(orb, /prefers-reduced-motion/);
 });
 

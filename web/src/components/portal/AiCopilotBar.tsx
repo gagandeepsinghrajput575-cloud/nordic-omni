@@ -86,8 +86,8 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
         <span
           className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
           style={{
-            background: 'linear-gradient(160deg, rgba(201,184,255,.24), rgba(127,228,255,.12))',
-            border: '1px solid rgba(201,184,255,.32)',
+            background: 'linear-gradient(160deg, rgba(255,255,255,.16), rgba(255,255,255,.05))',
+            border: '1px solid rgba(255,255,255,.22)',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,.16)',
             color: 'var(--accent-primary)',
           }}
@@ -114,9 +114,9 @@ export function AiCopilotBar({ isDanish = true }: { isDanish?: boolean }) {
         <div
           className="flex items-center gap-2 rounded-xl px-2.5 transition-[border-color,box-shadow] duration-200"
           style={{
-            border: `1px solid ${focused ? 'rgba(201,184,255,.55)' : 'rgba(255,255,255,.10)'}`,
+            border: `1px solid ${focused ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.10)'}`,
             background: 'rgba(255,255,255,.045)',
-            boxShadow: focused ? '0 0 0 3px rgba(201,184,255,.16)' : 'inset 0 1px 0 rgba(0,0,0,.24)',
+            boxShadow: focused ? '0 0 0 3px rgba(255,255,255,.16)' : 'inset 0 1px 0 rgba(0,0,0,.24)',
           }}
         >
           <label htmlFor="operations-command" className="sr-only">{t('Skriv en kommando', 'Write a command')}</label>
