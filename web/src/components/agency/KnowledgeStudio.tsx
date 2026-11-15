@@ -321,7 +321,7 @@ export function KnowledgeStudio({
             </p>
           ) : null}
           {notice ? (
-            <p className="rounded-lg border border-[rgba(110,231,183,0.24)] bg-[rgba(110,231,183,0.07)] px-3 py-2 text-[12px] text-[var(--success)]">
+            <p className="rounded-lg border border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.07)] px-3 py-2 text-[12px] text-[var(--success)]">
               {notice}
             </p>
           ) : null}
@@ -382,7 +382,7 @@ export function KnowledgeStudio({
         <section className="card flex h-fit flex-col overflow-hidden xl:sticky xl:top-24">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_30%_25%,rgba(201,242,108,0.35),transparent)] text-[10px] font-medium text-[var(--text-primary)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.35),transparent)] text-[10px] font-medium text-[var(--text-primary)]">
                 {agentName.slice(0, 1)}
               </span>
               <div>
@@ -402,7 +402,7 @@ export function KnowledgeStudio({
                 <div
                   className={`max-w-[86%] rounded-xl px-3 py-2 text-[12.5px] leading-relaxed ${
                     message.role === "caller"
-                      ? "bg-[rgba(201,242,108,0.12)] text-[var(--text-primary)]"
+                      ? "bg-[rgba(255,255,255,0.12)] text-[var(--text-primary)]"
                       : "border border-[var(--border-subtle)] bg-white/[0.025] text-[var(--text-secondary)]"
                   }`}
                 >
@@ -412,7 +412,7 @@ export function KnowledgeStudio({
             ))}
             {streaming ? (
               <div className="flex justify-start">
-                <div className="max-w-[86%] rounded-xl border border-[rgba(201,242,108,0.24)] bg-[rgba(201,242,108,0.05)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
+                <div className="max-w-[86%] rounded-xl border border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.05)] px-3 py-2 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
                   {streaming}
                   <span className="ml-0.5 inline-block h-3 w-[2px] animate-pulse bg-[var(--accent-primary)] align-middle" />
                 </div>

@@ -31,20 +31,19 @@ export interface OrbVisualizerProps {
 /**
  * Fallbacks used only when a token is missing from the cascade.
  *
- * The studio pigments are the primary source because the orb is an instrument
- * on obsidian glass: they are fixed, bright, and legible in both themes. The
- * warm shell's accent is only a last resort, since a dark accent (#7C3AED)
- * would turn the ring into a muddy silhouette.
+ * The studio scale is the primary source because the orb is an instrument on
+ * obsidian glass. Every fallback here is a true grey, so a missing token
+ * degrades to a neutral silver ring and can never reintroduce hue.
  */
 const FALLBACK = {
-  accent: '#7C3AED',
-  secondary: '#5BE3FF',
-  danger: '#FF9B93',
-  warning: '#FFC978',
-  muted: '#A6AEBE',
+  accent: '#FFFFFF',
+  secondary: '#A1A1AA',
+  danger: '#E4E4E7',
+  warning: '#A1A1AA',
+  muted: '#A1A1AA',
 } as const;
 
-const VIOLET: RGB = [169, 140, 255];
+const NEUTRAL: RGB = [161, 161, 170];
 
 const STATE_LABEL: Record<VisualizerState, string> = {
   idle: 'Idle',
@@ -71,7 +70,7 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
   const palette = useMemo<OrbPalette>(() => {
     if (typeof window === 'undefined') {
       return resolvePalette(state, {
-        accent: VIOLET,
+        accent: NEUTRAL,
         secondary: [91, 227, 255],
         danger: [255, 155, 147],
         warning: [255, 201, 120],
@@ -84,12 +83,13 @@ export const OrbVisualizer: React.FC<OrbVisualizerProps> = ({
       return parseColor(value || fallback, preset);
     };
     return resolvePalette(state, {
-      // The historical product accent is the last-resort fallback.
-      accent: parseColor(styles.getPropertyValue('--accent-primary').trim() || '#7C3AED', VIOLET),
-      secondary: read('--studio-cyan', FALLBACK.secondary, [91, 227, 255]),
-      danger: read('--studio-rose', FALLBACK.danger, [255, 155, 147]),
-      warning: read('--studio-amber', FALLBACK.warning, [255, 201, 120]),
-      muted: read('--studio-ink-muted', FALLBACK.muted, [166, 174, 190]),
+      // Every fallback is a true grey, so a missing token degrades to a neutral
+      // ring rather than to the retired amethyst accent.
+      accent: parseColor(styles.getPropertyValue('--accent-primary').trim() || '#FFFFFF', NEUTRAL),
+      secondary: read('--studio-cyan', FALLBACK.secondary, [212, 212, 216]),
+      danger: read('--studio-rose', FALLBACK.danger, [228, 228, 231]),
+      warning: read('--studio-amber', FALLBACK.warning, [161, 161, 170]),
+      muted: read('--studio-ink-muted', FALLBACK.muted, [161, 161, 170]),
     });
     // Theme is a real dependency: a theme switch must re-read the tokens.
   }, [state, theme]);

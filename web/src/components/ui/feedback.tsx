@@ -24,7 +24,7 @@ export function EmptyState({ icon, title, description, action, compact = false }
       {icon ? (
         <div
           className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--accent-line)] bg-[var(--accent-soft)] text-[var(--accent-primary)]"
-          style={{ boxShadow: '0 0 0 6px rgba(201,184,255,.05), inset 0 1px 0 rgba(255,255,255,.12)' }}
+          style={{ boxShadow: '0 0 0 6px rgba(255,255,255,.05), inset 0 1px 0 rgba(255,255,255,.12)' }}
           aria-hidden
         >
           {icon}
@@ -62,7 +62,7 @@ export function ScoreBar({ score, max = 100 }: { score: number; max?: number }) 
       <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[rgba(255,255,255,.09)]" aria-hidden>
         <span
           className="block h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #c9b8ff, #7fe4ff)' }}
+          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, rgba(255,255,255,.55), #ffffff)' }}
         />
       </span>
       <span className="text-[12px] tabular-nums text-[var(--text-secondary)]" aria-hidden>{score}</span>

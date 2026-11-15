@@ -169,7 +169,7 @@ export function Icon({
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[radial-gradient(circle_at_30%_25%,rgba(201,242,108,0.45),rgba(141,180,255,0.16)_60%,rgba(8,9,12,0.9))]">
+      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-strong)] bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.45),rgba(255,255,255,0.16)_60%,rgba(8,9,12,0.9))]">
         <svg viewBox="0 0 18 18" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
           <path
             d="M3 10.4c1.2-2.2 1.5-4.8 3-4.8s1.4 6.8 2.7 6.8 1.6-8.4 3-8.4 1.2 5.4 2.3 6.4"

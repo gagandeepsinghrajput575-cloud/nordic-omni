@@ -136,5 +136,8 @@ test('the studio palette is theme-scoped, not globally overwritten', () => {
   assert.match(css, /\.studio-surface,\s*\.studio-panel \{/);
   const surfaceBlock = css.slice(css.indexOf('.studio-surface,\n.studio-panel {'));
   assert.ok(surfaceBlock.includes('--text-primary: var(--studio-ink)'));
-  assert.ok(surfaceBlock.includes('--accent-primary: #cbb8ff') || surfaceBlock.includes('--accent-primary: var(--studio-ink'));
+  // The studio accent is pure white now, so the instrument has no hue at all.
+  assert.ok(surfaceBlock.includes('--accent-primary: #ffffff') || surfaceBlock.includes('--accent-primary: var(--studio-ink'));
+  // And the studio layer must not reintroduce a chromatic accent.
+  assert.doesNotMatch(surfaceBlock, /--accent-primary: #(?!ffffff)[0-9a-f]{6}/i);
 });

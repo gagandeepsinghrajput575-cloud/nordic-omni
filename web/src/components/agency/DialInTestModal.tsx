@@ -221,7 +221,7 @@ className="relative max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl bo
 <button
 type="button"
 onClick={() => void copyNumber()}
-className="group mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-warm)] bg-[linear-gradient(135deg,rgba(216,200,166,0.14),transparent_70%)] px-3 py-3 transition-colors hover:border-[var(--accent-primary)]"
+className="group mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border-warm)] bg-[linear-gradient(135deg,rgba(255,255,255,0.14),transparent_70%)] px-3 py-3 transition-colors hover:border-[var(--accent-primary)]"
 title="Copy the Danish number"
 >
 <span className="num text-[24px] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[28px]">{pretty}</span>
@@ -249,17 +249,17 @@ INVITE — no app, no headset, no telephony plugin.
 <Equalizer active={state === "listening" || state === "speaking"} bars={5} />
 </div>
 <div className="relative mx-auto mt-2 flex h-[154px] w-[154px] items-center justify-center">
-<span className="absolute inset-0 rounded-full border border-[rgba(126,224,181,0.16)]" />
-<span className="absolute inset-4 rounded-full border border-[rgba(216,200,166,0.18)]" />
-<span className="absolute inset-8 rounded-full border border-[rgba(157,180,255,0.14)]" />
+<span className="absolute inset-0 rounded-full border border-[rgba(255,255,255,0.16)]" />
+<span className="absolute inset-4 rounded-full border border-[rgba(255,255,255,0.18)]" />
+<span className="absolute inset-8 rounded-full border border-[rgba(255,255,255,0.14)]" />
 {state !== "idle" ? (
-<span className="absolute inset-0 animate-ping rounded-full border border-[rgba(126,224,181,0.28)]" style={{ animationDuration: "2.6s" }} />
+<span className="absolute inset-0 animate-ping rounded-full border border-[rgba(255,255,255,0.28)]" style={{ animationDuration: "2.6s" }} />
 ) : null}
 <span
 className={`flex h-14 w-14 items-center justify-center rounded-full border transition-colors ${
 state === "idle"
 ? "border-[var(--border-strong)] bg-[var(--glass-soft)] text-[var(--text-muted)]"
-: "border-[rgba(126,224,181,0.4)] bg-[rgba(126,224,181,0.12)] text-[var(--success)]"
+: "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.12)] text-[var(--success)]"
 }`}
 >
 {state === "idle" ? <Radar className="h-5 w-5" strokeWidth={1.7} /> : <PhoneIncoming className="h-5 w-5" strokeWidth={1.9} />}
