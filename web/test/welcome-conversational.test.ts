@@ -14,7 +14,7 @@ const page = read('src/app/welcome/page.tsx');
 const code = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-const convBlock = css.slice(css.indexOf('Piece 3 — Conversational'), css.length);
+const convBlock = css.slice(css.indexOf('Piece 3 — Conversational'), css.indexOf('Piece 4 — Developer'));
 
 // -----------------------------------------------------------------------------
 // 1. The orb never stops being an orb

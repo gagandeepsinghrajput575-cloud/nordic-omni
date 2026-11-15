@@ -17,7 +17,7 @@ const page = read('src/app/welcome/page.tsx');
 const code = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-const devcBlock = css.slice(css.indexOf('Piece 4 — Developer console'), css.length);
+const devcBlock = css.slice(css.indexOf('Piece 4 — Developer console'), css.indexOf('Pieces 5 & 6'));
 
 // -----------------------------------------------------------------------------
 // 1. The highlighter — real behaviour, executed

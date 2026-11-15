@@ -179,12 +179,17 @@ test('the orbs are achromatic by construction', () => {
   assert.doesNotMatch(css.slice(css.indexOf('Piece 1 — Welcome hero'),
     css.indexOf('Piece 2 — Bento')), /hsl\(/);
 
-  // And no component ships a chromatic literal of its own.
+  // And no component ships a chromatic literal of its own. Scoped to the Piece 1
+  // files: scanning the whole directory would sweep up later pieces, and this
+  // test is about the studio orbs.
   const offenders: string[] = [];
   const dir = new URL('../src/components/welcome/', import.meta.url);
+  const PIECE_ONE = new Set(['HeroHeadline.tsx', 'HeroSection.tsx', 'GlidingTabSwitcher.tsx', 'StudioPlaygroundCard.tsx', 'WaveformVisualizer.tsx']);
   for (const entry of readdirSync(dir)) {
-    if (!/\.tsx$/.test(entry)) continue;
-    const source = readFileSync(new URL(entry, dir), 'utf8');
+    if (!/\.tsx$/.test(entry) || !PIECE_ONE.has(entry)) continue;
+    // Comments removed: several files name the literals to explain why they
+    // are not used.
+    const source = code(readFileSync(new URL(entry, dir), 'utf8'));
     for (const match of source.matchAll(/#[0-9a-fA-F]{6}\b|rgba?\(\s*\d+[,\s]+\d+[,\s]+\d+/g)) {
       const numbers = match[0].match(/\d+/g);
       if (!numbers) continue;
