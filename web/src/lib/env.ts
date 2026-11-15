@@ -41,6 +41,29 @@ const EnvSchema = z.object({
   N8N_ESCALATION_WEBHOOK_URL: z.string().url().optional(),
   N8N_WEBHOOK_SECRET: z.string().optional(),
 
+  // --- ElevenLabs Conversational AI (the voice receptionist synthesizer) ----------
+  // Optional by design: without a key the bridge reports `configured: false` and the
+  // caller is served the browser speech fallback, never a silent half-call.
+  ELEVENLABS_API_KEY: z.string().optional(),
+  ELEVENLABS_BASE_URL: z.string().url().optional(),
+  ELEVENLABS_AGENT_ID: z.string().optional(),
+  // A dedicated English agent is optional; without one the Danish agent follows the
+  // caller's language, which its prompt already instructs it to do.
+  ELEVENLABS_AGENT_ID_EN: z.string().optional(),
+
+  // --- Cal.com (slot synchronisation) ---------------------------------------------
+  CALCOM_API_URL: z.string().url().optional(),
+  CALCOM_API_KEY: z.string().optional(),
+  CALCOM_EVENT_TYPE_ID: z.string().optional(),
+  CALCOM_EVENT_SLUG: z.string().optional(),
+  CALCOM_TIMEZONE: z.string().optional(),
+
+  // --- Telephony bridge ceilings ---------------------------------------------------
+  // Process-wide and per-tenant live-call limits. Refusing at the SIP layer is a
+  // fast busy tone; running out mid-call is a caller alone in a silent room.
+  TELEPHONY_MAX_CONCURRENT_CALLS: z.coerce.number().int().min(1).max(64).default(8),
+  TELEPHONY_MAX_CALLS_PER_TENANT: z.coerce.number().int().min(1).max(64).default(4),
+
   // --- Meta --------------------------------------------------------------------
   META_VERIFY_TOKEN: z.string().default('nordic_omni_verify'),
   META_APP_SECRET: z.string().optional(),

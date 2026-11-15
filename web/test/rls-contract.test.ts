@@ -43,9 +43,30 @@ test('owner-pool imports are limited to explicit infrastructure/trusted-write bo
     'lib/auth/session.ts',
     'lib/db/client.ts',
     'lib/db/trusted-records.ts',
+    'lib/telephony/tenant-grounding.ts',
     'lib/webhooks/dispatcher.ts',
     'lib/webhooks/inbound-dispatch.ts',
   ]);
+
+  // The voice bridge adds exactly one more boundary, and it is the same *kind* of
+  // boundary: a PSTN caller presents a phone number, not a session, so resolving
+  // "which tenant owns this DID" has to happen before any RLS identity exists.
+  // Everything the bridge reads afterwards (grounding, knowledge, the call ledger)
+  // runs through `withUser`/`withPublicContact` and is covered by its own
+  // assertions in telephony-contract.test.ts.
+  const telephonySql = source('../src/lib/telephony/tenant-grounding.ts');
+  // Two owner-pool statements, and both are identity lookups: DID -> tenant, and
+  // tenant -> the owner that may act for it. Nothing else in the file may touch the
+  // pool, which is asserted by splitting on the first RLS-scoped export: everything
+  // after it must be `withUser`/`withPublicContact` only.
+  assert.deepEqual(telephonySql.slice(0, telephonySql.indexOf('export type GroundingActor')).match(/await adminSql/g), [
+    'await adminSql',
+    'await adminSql',
+  ]);
+  const afterIdentity = telephonySql.slice(telephonySql.indexOf('export type GroundingActor'));
+  assert.doesNotMatch(afterIdentity, /adminSql/, 'grounding and ledger reads stay on the RLS connection');
+  assert.match(afterIdentity, /withUser\(/);
+  assert.match(afterIdentity, /withPublicContact\(/);
 
   // The new boundary is held to the same standard: the owner connection may not
   // be used for ordinary reads inside the dispatcher.
