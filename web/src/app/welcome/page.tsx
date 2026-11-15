@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { HeroSection } from '@/components/welcome/HeroSection';
 import { BentoGrid } from '@/components/welcome/BentoGrid';
+import { ConversationalPlatformSection } from '@/components/welcome/ConversationalPlatformSection';
 
 /**
  * The public welcome route.
@@ -21,6 +22,7 @@ export default function WelcomePage() {
     <main className="welcome-shell">
       <HeroSection />
       <BentoGrid />
+      <ConversationalPlatformSection />
     </main>
   );
 }

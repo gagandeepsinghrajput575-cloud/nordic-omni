@@ -1973,3 +1973,368 @@ button.pill[aria-pressed='true'], button.pill.is-active { color: var(--pill-acce
   .bento-card__spotlight { transition: none; }
   .bento-card:hover { transform: none; }
 }
+
+/* =========================================================================
+   Piece 3 — Conversational AI platform
+   =========================================================================
+   Sits on the studio ground rather than the page ground: the orb only reads
+   as luminous against obsidian, and this band is the product's showpiece.
+   The ground is declared once and inherited, so nothing below re-derives it.
+   ---------------------------------------------------------------------- */
+
+.conv-section {
+  position: relative;
+  isolation: isolate;
+  margin-block: clamp(24px, 4vw, 44px);
+  padding-block: clamp(34px, 5vw, 62px);
+  padding-inline: clamp(20px, 4vw, 40px);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border-control);
+  background: var(--studio-black);
+  color: var(--studio-ink, var(--text-primary));
+  overflow: hidden;
+  /* One shadow, not a stack: the band should read as a plate laid on the page. */
+  box-shadow: var(--el-shadow, var(--shadow-float));
+}
+
+/* A soft aurora bed behind the orb row. Studio ramp only, no hue. */
+.conv-section::before {
+  content: '';
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 70%;
+  background: radial-gradient(
+    52% 60% at 30% 0%,
+    color-mix(in srgb, var(--studio-ink) 9%, transparent),
+    transparent 70%
+  );
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.conv-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: clamp(24px, 3vw, 34px);
+}
+
+.conv-eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--studio-ink-muted, var(--text-secondary));
+}
+
+.conv-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+  font-weight: 560;
+  max-width: 24ch;
+  text-wrap: balance;
+}
+
+/* ---------- Stage: orb left, HUD right -------------------------------- */
+.conv-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 46px);
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .conv-stage { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+}
+
+.conv-orb-well {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+}
+
+/* ---------- The orb --------------------------------------------------- */
+.conv-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(360px, 78vw);
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+
+/**
+ * Each ring is a separate concentric layer. Only `scale` and `opacity` are
+ * animated, both of which the compositor can handle without a layout pass.
+ * The stagger comes from a per-ring `--i` index rather than from JS timers.
+ */
+.conv-orb__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid var(--studio-line-strong, var(--border-control));
+  opacity: 0.4;
+  transform: scale(calc(0.42 + var(--i, 0) * 0.14));
+}
+
+.conv-orb__glow {
+  position: absolute;
+  inset: 14%;
+  border-radius: 999px;
+  /* Silver to zinc: a light source at the top-left, falling off into the
+     studio ground. Every stop is derived from a token or a grey keyword. */
+  background:
+    radial-gradient(
+      circle at 34% 28%,
+      color-mix(in srgb, white 26%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      circle at 62% 74%,
+      color-mix(in srgb, var(--studio-ink, white) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      var(--studio-panel),
+      var(--studio-black) 96%
+    );
+  border: 1px solid var(--studio-line-strong, var(--border-control));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 30px 80px -30px rgba(0, 0, 0, 0.9);
+}
+
+/* The core is the only genuinely bright element. */
+.conv-orb__core {
+  position: relative;
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 38% 32%,
+    color-mix(in srgb, white 88%, transparent),
+    color-mix(in srgb, var(--studio-ink, white) 46%, transparent) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 42px 8px color-mix(in srgb, white 16%, transparent);
+}
+
+.conv-orb__label {
+  position: absolute;
+  bottom: -6px;
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--studio-ink-muted, var(--text-secondary));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Telemetry HUD --------------------------------------------- */
+.conv-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.conv-hud__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.conv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--studio-line-strong, var(--border-control));
+  background: color-mix(in srgb, var(--studio-ink, white) 6%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  color: var(--studio-ink, var(--text-primary));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The only chromatic pixel in this band, and it is the shared status dot. */
+.conv-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--dot-online);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot-online) 22%, transparent);
+}
+
+.conv-dot[data-state='idle'] {
+  background: var(--studio-ink-muted, var(--text-secondary));
+  box-shadow: none;
+}
+
+.conv-dot[data-state='live'] {
+  animation: conv-breathe 2200ms var(--ease) infinite;
+}
+
+@keyframes conv-breathe-ring {
+  0%, 100% { transform: scale(1); opacity: 0.34; }
+  50% { transform: scale(1.04); opacity: 0.16; }
+}
+
+@keyframes conv-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.82); }
+}
+
+/* ---------- Telemetry grid -------------------------------------------- */
+.conv-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border: 1px solid var(--studio-line, var(--line));
+  border-radius: var(--r-md);
+  background: var(--studio-line, var(--line));
+  overflow: hidden;
+}
+
+@media (min-width: 620px) {
+  .conv-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.conv-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 13px;
+  background: var(--studio-black);
+  min-width: 0;
+}
+
+.conv-stat__label {
+  font-size: 0.5938rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--studio-ink-muted, var(--text-secondary));
+}
+
+.conv-stat__value {
+  font-size: 1.0625rem;
+  font-weight: 560;
+  line-height: 1.15;
+  color: var(--studio-ink, var(--text-primary));
+  /* Tabular figures so a live read-out does not shuffle its own width. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+.conv-stat__unit {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--studio-ink-muted, var(--text-secondary));
+  margin-left: 2px;
+}
+
+/* ---------- Duplex meter ---------------------------------------------- */
+.conv-duplex {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border: 1px solid var(--studio-line, var(--line));
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--studio-ink, white) 3%, transparent);
+  font-size: 0.75rem;
+  color: var(--studio-ink-muted, var(--text-secondary));
+  min-width: 0;
+}
+
+.conv-duplex__track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--studio-line, var(--line));
+  overflow: hidden;
+}
+
+.conv-duplex__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--studio-ink, white) 62%, transparent);
+}
+
+/* ---------- Demo bar -------------------------------------------------- */
+.conv-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: clamp(24px, 3vw, 34px);
+  padding-top: clamp(18px, 2.4vw, 24px);
+  border-top: 1px solid var(--studio-line, var(--line));
+}
+
+.conv-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--primary-line, var(--border-control));
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur) var(--ease);
+}
+
+.conv-call:hover:not(:disabled) { transform: translateY(-1px); }
+.conv-call:active:not(:disabled) { transform: translateY(0) scale(0.985); }
+.conv-call:disabled { opacity: 0.55; cursor: progress; }
+.conv-call:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
+.conv-bar__note {
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--studio-ink-muted, var(--text-secondary));
+  min-width: 0;
+}
+
+/* Persona selector is the shared segmented pill; it only needs a nudge of
+   scale so it reads as a control rather than a chip on this dark plate. */
+.conv-bar .el-segment {
+  border-color: var(--studio-line-strong, var(--border-control));
+  background: color-mix(in srgb, var(--studio-ink, white) 5%, transparent);
+}
+
+.conv-bar .el-segment-button { color: var(--studio-ink-muted, var(--text-secondary)); }
+
+.conv-bar .el-segment-button[aria-selected='true'],
+.conv-bar .el-segment-button:hover { color: var(--studio-ink, var(--text-primary)); }
+
+/* ---------- Reduced motion -------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .conv-dot[data-state='live'] { animation: none; }
+  .conv-call { transition: none; }
+  .conv-call:hover:not(:disabled),
+  .conv-call:active:not(:disabled) { transform: none; }
+}

@@ -15,7 +15,7 @@ const code = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 /** The Piece 2 block only — bounded so Piece 1 assertions stay independent. */
-const bentoBlock = css.slice(css.indexOf('Piece 2 — Bento'), css.length);
+const bentoBlock = css.slice(css.indexOf('Piece 2 — Bento'), css.indexOf('Piece 3 — Conversational'));
 
 // -----------------------------------------------------------------------------
 // 1. Spotlight cursor glow
