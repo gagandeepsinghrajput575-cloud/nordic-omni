@@ -215,3 +215,46 @@ test('Check 2 Polish: Instant Global EN | DA i18n & Client Access Handoff', () =
   // Zero hex color literals in UI component
   assert.doesNotMatch(accessCardCode, /#[0-9a-fA-F]{3,6}/);
 });
+
+
+test('Pre-Signoff Security Sweep: API routes and Server Actions hardened', () => {
+  // 1. /api/ai/test must require agency auth and assert public URL
+  const aiTestCode = read('src/app/api/ai/test/route.ts');
+  assert.match(aiTestCode, /apiRequireAgency\(\)/);
+  assert.match(aiTestCode, /assertPublicUrl\(baseURL\)/);
+  assert.match(aiTestCode, /Never forward a server-stored API key to a caller-overridden baseURL/);
+
+  // 2. /api/ai/chat must rate limit
+  const aiChatCode = read('src/app/api/ai/chat/route.ts');
+  assert.match(aiChatCode, /FixedWindowRateLimiter\(20, 5 \* 60_000\)/);
+  assert.match(aiChatCode, /429/);
+
+  // 3. next.config.mjs must allow camera for mobile photo upload
+  const nextConfig = read('next.config.mjs');
+  assert.match(nextConfig, /camera=\(self\)/);
+
+  // 4. Token minting routes must verify contact belongs to tenant
+  const mediaTokenCode = read('src/app/api/media/token/route.ts');
+  assert.match(mediaTokenCode, /getContactTenantIdRecord\(contactId\)/);
+  assert.match(mediaTokenCode, /contact does not belong to this workspace/i);
+
+  const reviewTokenCode = read('src/app/api/review/token/route.ts');
+  assert.match(reviewTokenCode, /getContactTenantIdRecord\(contactId\)/);
+  assert.match(reviewTokenCode, /contact does not belong to this workspace/i);
+
+  // 5. Inbound customer chat cancels pending follow-ups
+  const customerChatRoute = read('src/app/api/chat/[contactId]/route.ts');
+  assert.match(customerChatRoute, /cancelPendingFollowupsAdmin/);
+  assert.match(customerChatRoute, /customer_replied/);
+
+  // 6. Trusted records queries enforce tenant_id
+  const trustedRecordsCode = read('src/lib/db/trusted-records.ts');
+  assert.match(trustedRecordsCode, /where id = \$\{contactId\} and tenant_id = \$\{tenantId\}/);
+  assert.match(trustedRecordsCode, /where tenant_id = \$\{tenantId\}[\s\S]*?and contact_id = \$\{contactId\}/);
+
+  // 7. Leads server action bounds coercion
+  const leadsActionsCode = read('src/app/(client)/portal/leads/actions.ts');
+  assert.match(leadsActionsCode, /Math\.max\(0, Math\.min\(100, Math\.round\(parsedScore\)\)\)/);
+  assert.match(leadsActionsCode, /Math\.min\(100_000_000, parsedValue\)/);
+  assert.match(leadsActionsCode, /summary\.slice\(0, 12000\)/);
+});

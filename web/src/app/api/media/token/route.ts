@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { apiSession } from '@/lib/auth/guard';
 import { jsonError, readJson } from '@/lib/api-utils';
 import { signMediaUploadToken } from '@/lib/media/tokens';
+import { getContactTenantIdRecord } from '@/lib/db/trusted-records';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const TokenRequestSchema = z.object({
   tenantId: z.string().uuid(),
   contactId: z.string().uuid(),
-  ttlSeconds: z.number().int().positive().optional(),
+  ttlSeconds: z.number().int().positive().max(30 * 24 * 3600).optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -23,9 +24,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const { tenantId, contactId, ttlSeconds } = parsed.data;
 
-  // Authorization: enforce tenant match unless agency
   if (!session.isAgency && !session.tenantIds.includes(tenantId)) {
     return jsonError('Forbidden: workspace mismatch', 403);
+  }
+
+  // Verify the contact actually belongs to the target tenant before minting.
+  const contactTenantId = await getContactTenantIdRecord(contactId);
+  if (!contactTenantId || contactTenantId !== tenantId) {
+    return jsonError('Forbidden: contact does not belong to this workspace', 403);
   }
 
   const token = signMediaUploadToken(tenantId, contactId, ttlSeconds || 7 * 24 * 3600);

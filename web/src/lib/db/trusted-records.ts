@@ -295,7 +295,7 @@ export async function getTenantReviewInfoRecord(tenantId: string, contactId: str
   const [contact] = await adminSql`
     select full_name
       from public.contacts
-     where id = ${contactId}
+     where id = ${contactId} and tenant_id = ${tenantId}
      limit 1
   `;
   return { tenant: tenant ?? null, contact: contact ?? null };
@@ -356,12 +356,15 @@ export async function recordBallparkQuoteEstimate(input: {
     insert into public.project_estimates (
       tenant_id, contact_id, call_log_id, project_type, scope_details,
       square_meters, estimated_min_dkk, estimated_max_dkk, estimated_value_dkk, followup_notes
-    ) values (
-      ${input.tenantId}, ${input.contactId}, null, ${input.projectType}, ${input.scopeDetails},
-      ${input.squareMeters}, ${input.minDkkWithVat}, ${input.maxDkkWithVat}, ${input.midpointWithVat}, ${input.notes}
     )
+    select ${input.tenantId}, ${input.contactId}, null, ${input.projectType}, ${input.scopeDetails},
+           ${input.squareMeters}, ${input.minDkkWithVat}, ${input.maxDkkWithVat}, ${input.midpointWithVat}, ${input.notes}
+     where exists (
+       select 1 from public.contacts where id = ${input.contactId} and tenant_id = ${input.tenantId}
+     )
     returning id
   `;
+  if (!inserted) throw new Error('Estimate contact is outside the tenant');
 
   await adminSql`
     update public.contacts
@@ -399,7 +402,8 @@ export async function recordScheduleFollowupsAdmin(
        set status = 'cancelled',
            payload = payload || ${jsonb({ cancellation_reason: 'rescheduled_on_new_estimate' })}::jsonb,
            updated_at = now()
-     where contact_id = ${contactId}
+     where tenant_id = ${tenantId}
+       and contact_id = ${contactId}
        and status = 'pending'
   `;
 

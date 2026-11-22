@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, MessageSquare, Mic, MicOff, Phone, PhoneOff, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, Copy, MessageSquare, Mic, MicOff, Phone, PhoneOff, ShieldCheck } from 'lucide-react';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import { OrbVisualizer } from '@/components/audio/OrbVisualizer';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher';
+import { useLocale } from '@/lib/i18n/LocaleContext';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { Badge } from '@/components/ui/core';
 import { buttonClass } from '@/components/ui/form';
@@ -41,6 +43,7 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
   const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [starting, setStarting] = useState(false);
+  const [copiedMeetLink, setCopiedMeetLink] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const roomRef = useRef<Room | null>(null);
   const audioTracksRef = useRef(new Map<RemoteTrack, HTMLAudioElement>());
@@ -54,10 +57,19 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
   const cancelAgentWaitRef = useRef<(() => void) | null>(null);
   const muteInFlightRef = useRef(false);
 
-  const isDanish = contact.preferred_language
-    ? contact.preferred_language.startsWith('da')
-    : tenant.default_language.startsWith('da');
+  const { locale } = useLocale();
+  const isDanish = locale === 'da';
   const t = (da: string, en: string) => (isDanish ? da : en);
+
+  const copyMeetLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiedMeetLink(true);
+      setTimeout(() => setCopiedMeetLink(false), 2000);
+    } catch {
+      // Clipboard unavailable.
+    }
+  };
 
   useEffect(() => {
     if (stage === 'active') timerRef.current = setInterval(() => setDuration((value) => value + 1), 1000);
@@ -460,10 +472,15 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
           <span className="truncate text-[14px] font-semibold tracking-[-0.02em]">{tenant.name}</span>
         </Link>
         <div className="flex items-center gap-2">
+          <button type="button" onClick={() => void copyMeetLink()} className={buttonClass('secondary', 'sm')}>
+            {copiedMeetLink ? <Check size={13} /> : <Copy size={13} />}
+            <span className="hidden sm:inline">{copiedMeetLink ? t('Link kopieret', 'Link copied') : t('Del i Google Meet', 'Share in Google Meet')}</span>
+          </button>
           <Link href={`/chat/${contact.id}`} className={buttonClass('ghost', 'sm')} aria-label={t('Chat i stedet', 'Chat instead')}>
             <MessageSquare size={14} />
             <span className="hidden sm:inline">{t('Chat i stedet', 'Chat instead')}</span>
           </Link>
+          <LocaleSwitcher />
           <ThemeSwitcher />
         </div>
       </header>

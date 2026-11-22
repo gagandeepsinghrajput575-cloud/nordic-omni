@@ -8,6 +8,7 @@ import {
   updateChatContactState,
 } from '@/lib/db/chat';
 import { recordChatEstimate, requestChatInspection } from '@/lib/db/trusted-records';
+import { cancelPendingFollowupsAdmin } from '@/lib/followup/sequences';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { generateChatTurn } from '@/lib/ai/customer-chat';
 import { recordEscalation, type EscalationReason } from '@/lib/ai/escalation';
@@ -88,6 +89,9 @@ export async function POST(
     content: text,
     metadata: { source: 'public_chat' },
   });
+
+  // Auto-cancel any pending timed follow-ups as soon as the customer replies.
+  void cancelPendingFollowupsAdmin(context.tenant.id, contactId, 'customer_replied').catch(() => undefined);
 
   if (context.tenant.reception_mode === 'human_forward') {
     return NextResponse.json({ ok: true, handedOver: true, reply: null,

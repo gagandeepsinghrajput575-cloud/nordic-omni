@@ -1,10 +1,12 @@
 import { getHours, getKnowledge, getPortalWorkspace, getWorkspaceBySlug } from "@/lib/data";
 import { describeProviderError, streamReceptionistReply, type ReceptionistEvent } from "@/lib/ai/service";
 import { isLanguage, isRecord, jsonError, readJson, readString } from "@/lib/api-utils";
+import { FixedWindowRateLimiter } from "@/lib/livekit/policy";
 import type { ChatTurn, Channel, Language } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+const chatLimiter = new FixedWindowRateLimiter(20, 5 * 60_000);
 
 function parseHistory(value: unknown): ChatTurn[] {
   if (!Array.isArray(value)) return [];
@@ -21,8 +23,15 @@ function parseHistory(value: unknown): ChatTurn[] {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "127.0.0.1";
   const body = await readJson(request);
   const slug = readString(body, "workspaceSlug").trim();
+  if (!chatLimiter.allow(`${clientIp}:${slug || "default"}`)) {
+    return jsonError("Too many messages. Please wait a few minutes and try again.", 429);
+  }
   const workspace = slug ? await getWorkspaceBySlug(slug) : await getPortalWorkspace();
   if (!workspace) {
     return jsonError("Unknown workspace for this showcase", 404);

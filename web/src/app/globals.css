@@ -6,7 +6,7 @@
    Sand and oat surfaces give the operational chrome a quiet, tactile rhythm.
    All legacy token names remain aliases so existing surfaces transition safely. */
 :root {
-  --font-sans: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Satoshi', 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
   --r-xs: 6px;
   --r-sm: 10px;
   --r-md: 12px;

@@ -155,9 +155,19 @@ export async function updateCallerAction(
   if (typeof stage === 'string' && stageEnum.safeParse(stage).success) {
     patch.pipelineStage = stage;
   }
-  if (typeof score === 'string' && score !== '') patch.leadScore = Number(score);
-  if (typeof value === 'string' && value !== '') patch.estimatedValueDkk = Number(value);
-  if (typeof summary === 'string') patch.sharedMemorySummary = summary;
+  if (typeof score === 'string' && score !== '') {
+    const parsedScore = Number(score);
+    if (Number.isFinite(parsedScore)) {
+      patch.leadScore = Math.max(0, Math.min(100, Math.round(parsedScore)));
+    }
+  }
+  if (typeof value === 'string' && value !== '') {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue) && parsedValue >= 0) {
+      patch.estimatedValueDkk = Math.min(100_000_000, parsedValue);
+    }
+  }
+  if (typeof summary === 'string') patch.sharedMemorySummary = summary.slice(0, 12000);
   if (autoReplyValues.length > 0) {
     patch.aiAutoReplyEnabled = autoReplyValues.includes('on') || autoReplyValues.includes('true');
   }
