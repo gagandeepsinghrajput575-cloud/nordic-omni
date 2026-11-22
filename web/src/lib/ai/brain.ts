@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { inferenceJson, DEFAULT_INFERENCE_MODEL } from './inference';
 
 const shortText = z.string().trim().max(600);
-const BrainSchema = z.object({
+export const BrainSchema = z.object({
   business_summary: z.string().trim().min(20).max(1400),
   services: z
     .array(
@@ -39,6 +39,27 @@ const BrainSchema = z.object({
   escalation_triggers: z.array(shortText).max(30).default([]),
   tone_notes: z.array(shortText).max(10).default([]),
   uncertainties: z.array(shortText).max(30).default([]),
+  pricing_catalog_draft: z
+    .array(
+      z.object({
+        service: z.string().trim().min(2).max(160),
+        price_dkk: z.number().nonnegative().default(0),
+        unit: z.string().trim().default('fixed'),
+        estimate_min_dkk: z.number().nullable().default(null),
+        estimate_max_dkk: z.number().nullable().default(null),
+      }),
+    )
+    .default([]),
+  proof_points: z
+    .array(
+      z.object({
+        project_type: z.string().trim().min(2).max(160),
+        location: z.string().trim().default(''),
+        description: shortText,
+      }),
+    )
+    .default([]),
+  brand_safety_prep: z.array(shortText).max(20).default([]),
 });
 
 export type BrainPayload = z.infer<typeof BrainSchema>;
@@ -70,9 +91,14 @@ gap in uncertainties. Write in the requested language. Keep every FAQ answer con
 Extract qualification questions that help a receptionist scope real work without interrogating the customer.
 Guardrails must include: stay polite under pressure, never argue, acknowledge frustration, admit uncertainty,
 never claim a human transfer, never promise a booking, and mark every price as a non-binding guide.
+Compile:
+(a) services and pricing_catalog_draft,
+(b) faqs and objection bank,
+(c) proof_points (past project references, locations, and outcomes for the agent to cite naturally),
+(d) brand_safety_prep (custom brand guidelines and hostility de-escalation).
 Return one JSON object with exactly these keys:
 business_summary, services, faqs, policies, qualification_questions, estimate_rules,
-guardrails, escalation_triggers, tone_notes, uncertainties.`;
+guardrails, escalation_triggers, tone_notes, uncertainties, pricing_catalog_draft, proof_points, brand_safety_prep.`;
 
 export function parseBrainPayload(value: unknown): BrainPayload {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -90,10 +116,53 @@ export function parseBrainPayload(value: unknown): BrainPayload {
     escalation_triggers: textArray(source.escalation_triggers),
     tone_notes: textArray(source.tone_notes),
     uncertainties: textArray(source.uncertainties),
+    pricing_catalog_draft: normalizePricingDraft(source.pricing_catalog_draft),
+    proof_points: normalizeProofPoints(source.proof_points),
+    brand_safety_prep: textArray(source.brand_safety_prep),
   };
   const parsed = BrainSchema.safeParse(normalized);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Invalid brain payload.');
   return parsed.data;
+}
+
+function normalizePricingDraft(value: unknown): Array<{
+  service: string;
+  price_dkk: number;
+  unit: string;
+  estimate_min_dkk: number | null;
+  estimate_max_dkk: number | null;
+}> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v) => v && typeof v === 'object')
+    .map((v) => {
+      const rec = v as Record<string, unknown>;
+      return {
+        service: String(rec.service || rec.name || 'Ydelse').slice(0, 160),
+        price_dkk: typeof rec.price_dkk === 'number' && rec.price_dkk >= 0 ? rec.price_dkk : 0,
+        unit: String(rec.unit || 'fixed').slice(0, 32),
+        estimate_min_dkk: typeof rec.estimate_min_dkk === 'number' ? rec.estimate_min_dkk : null,
+        estimate_max_dkk: typeof rec.estimate_max_dkk === 'number' ? rec.estimate_max_dkk : null,
+      };
+    });
+}
+
+function normalizeProofPoints(value: unknown): Array<{
+  project_type: string;
+  location: string;
+  description: string;
+}> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v) => v && typeof v === 'object')
+    .map((v) => {
+      const rec = v as Record<string, unknown>;
+      return {
+        project_type: String(rec.project_type || rec.title || 'Referenceprojekt').slice(0, 160),
+        location: String(rec.location || '').slice(0, 120),
+        description: String(rec.description || rec.text || '').slice(0, 600),
+      };
+    });
 }
 
 function textValue(value: unknown): string | null {
@@ -206,6 +275,9 @@ export function fallbackBrain(warning: string): BrainCompilation {
       escalation_triggers: [],
       tone_notes: [],
       uncertainties: ['AI-kompilering fejlede. Kilderne kræver manuel gennemgang.'],
+      pricing_catalog_draft: [],
+      proof_points: [],
+      brand_safety_prep: [],
     },
     warnings: ['inference_failed', warning],
     model: 'fallback',
@@ -307,6 +379,27 @@ export function brainKnowledgeItems(payload: BrainPayload): BrainKnowledgeItem[]
       content: payload.tone_notes.join('\n'),
     });
   }
+  for (const draft of payload.pricing_catalog_draft ?? []) {
+    items.push({
+      category: 'pricing',
+      title: `Priskatalog: ${draft.service}`,
+      content: `Vejledende pris: ${draft.price_dkk} kr. (${draft.unit})${draft.estimate_min_dkk && draft.estimate_max_dkk ? `\nSpænd: ${draft.estimate_min_dkk} - ${draft.estimate_max_dkk} kr.` : ''}`,
+    });
+  }
+  for (const proof of payload.proof_points ?? []) {
+    items.push({
+      category: 'reference',
+      title: `Reference: ${proof.project_type}${proof.location ? ` (${proof.location})` : ''}`,
+      content: proof.description,
+    });
+  }
+  (payload.brand_safety_prep ?? []).forEach((rule, index) => {
+    items.push({
+      category: 'guardrail',
+      title: `Brand-Safety Regel ${index + 1}`,
+      content: rule,
+    });
+  });
 
   return items
     .filter((item) => item.title.trim() && item.content.trim())

@@ -21,6 +21,7 @@ import hashlib
 import hmac
 import json
 import os
+import pathlib
 import time
 from typing import Any
 
@@ -39,6 +40,21 @@ VALID_STAGES = (
     "closed_won",
     "closed_lost",
 )
+
+
+def load_brand_safety_policy() -> str:
+    candidates = [
+        pathlib.Path(__file__).resolve().parents[2] / "shared" / "guardrails" / "brand_safety_policy.md",
+        pathlib.Path(__file__).resolve().parents[1] / "shared" / "guardrails" / "brand_safety_policy.md",
+        pathlib.Path.cwd() / "shared" / "guardrails" / "brand_safety_policy.md",
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                return p.read_text(encoding="utf-8").strip()
+            except Exception:
+                pass
+    return ""
 
 
 def is_danish(tenant: dict[str, Any], contact: dict[str, Any]) -> bool:
@@ -297,9 +313,14 @@ These are the only figures you may say out loud. Nothing else.
 - For renovations (badeværelse, køkken, tilbygning, tagarbejde), ask one focused question at a time about catalog item, square meters when relevant, property type, condition, and materials.
 - Use only the configured catalog brackets. Never calculate or choose the saved amount yourself: call `record_project_estimate` with the exact `catalog_item_id` and scope. The tool calculates the minimum, maximum and midpoint deterministically.
 - Always say the full legal guardrail: "et vejledende overslag, ikke et bindende tilbud".
+- Hidden Conditions Warning: Always explicitly clarify that hidden conditions not visible in photos or videos (such as subfloor moisture/damage, hidden plumbing, or wiring behind walls) cannot be evaluated before an on-site physical inspection.
+- Budget Alignment: Always ask the caller if the ballpark bracket aligns with what they had in mind: "Passer det vejledende prisspænd nogenlunde med det budget, du havde i tankerne?".
 - Offer a free, non-binding inspection ("gratis uforpligtende besigtigelse"). If the caller wants one, call `request_inspection`; this records a request only and is not a confirmed booking.
 - For standard hourly craft services, quote the exact rates above.
 - If the job or bracket is not listed, say a colleague will confirm the price — never estimate.
+
+## BRAND-SAFETY & CUSTOMER INTERACTION POLICY
+{load_brand_safety_policy()}
 
 ## STANDING NOTICE
 {broadcast or 'No special notice today.'}
@@ -531,11 +552,18 @@ class CustomerAgent(Agent):
             return (
                 f"Et vejledende overslag ligger mellem {low} og {high} kroner inkl. moms. "
                 "Det er et vejledende overslag, ikke et bindende tilbud. "
+                "Bemærk venligst, at skjulte forhold, som ikke kan ses på fotos (f.eks. fugtskader under gulv, skjult rørføring eller elinstallationer bag vægge), "
+                "først kan vurderes endeligt ved en fysisk besigtigelse. "
+                "Passer det vejledende prisspænd nogenlunde med det budget, du havde i tankerne? "
                 "Tilbyd en gratis uforpligtende besigtigelse."
             )
         return (
             f"A non-binding estimate is between DKK {low} and {high} incl. VAT. "
-            "This is a guide, not a binding quote. Offer a free inspection."
+            "This is a guide, not a binding quote. "
+            "Please note that hidden conditions not visible in photos or videos (such as subfloor moisture, piping, or wiring behind walls) "
+            "cannot be quoted before an on-site physical inspection. "
+            "Does this ballpark estimate align with the budget you had in mind? "
+            "Offer a free inspection."
         )
 
     @function_tool()

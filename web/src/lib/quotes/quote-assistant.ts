@@ -3,6 +3,7 @@ import {
   recordBallparkQuoteEstimate,
 } from '@/lib/db/trusted-records';
 import { calculateEstimate, type CatalogItem } from '@/lib/estimation';
+import { scheduleFollowupSequenceAdmin } from '@/lib/followup/sequences';
 
 export interface BallparkQuoteInput {
   tenantId: string;
@@ -30,6 +31,8 @@ export interface BallparkQuoteResult {
   isNonBinding: true;
   danishSummary: string;
   danishDisclaimer: string;
+  hiddenConditionsWarning: string;
+  budgetAlignmentQuestion: string;
 }
 
 const VAT_RATE = 0.25; // 25% Danish moms
@@ -56,8 +59,11 @@ export async function generateBallparkQuote(
   const maxDkkWithVat = Math.round(estimate.maximum * (1 + VAT_RATE));
   const midpointWithVat = Math.round(estimate.midpoint * (1 + VAT_RATE));
 
+  const hiddenConditionsWarning =
+    'Bemærk venligst, at skjulte forhold, som ikke kan ses på fotos eller video (f.eks. fugtskader under gulv, skjult rørføring eller elinstallationer bag vægge), først kan vurderes endeligt ved en fysisk besigtigelse.';
+  const budgetAlignmentQuestion = 'Passer det vejledende prisspænd nogenlunde med det budget, du havde i tankerne?';
   const danishDisclaimer =
-    'Dette er et vejledende overslag inkl. 25% moms, ikke et bindende tilbud. Endelig fast pris fastsættes ved besigtigelse.';
+    `Dette er et vejledende overslag inkl. 25% moms, ikke et bindende tilbud. ${hiddenConditionsWarning} ${budgetAlignmentQuestion}`;
   const danishSummary = `Vejledende overslag: ${minDkkWithVat.toLocaleString('da-DK')} - ${maxDkkWithVat.toLocaleString('da-DK')} kr. inkl. moms`;
 
   const notes = `${followupNotes || ''}\n${danishDisclaimer}`.trim();
@@ -75,6 +81,13 @@ export async function generateBallparkQuote(
     notes,
   });
 
+  // Schedule timed follow-up sequences (+3.5h and +24h) for qualified lead
+  await scheduleFollowupSequenceAdmin({
+    tenantId,
+    contactId,
+    projectType,
+  }).catch(() => null);
+
   return {
     ok: true,
     estimateId,
@@ -90,5 +103,7 @@ export async function generateBallparkQuote(
     isNonBinding: true,
     danishSummary,
     danishDisclaimer,
+    hiddenConditionsWarning,
+    budgetAlignmentQuestion,
   };
 }

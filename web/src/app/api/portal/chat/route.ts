@@ -10,6 +10,8 @@ import {
 } from '@/lib/db/client-chat';
 import { buildCopilotContext } from '@/lib/copilot/context';
 import { respondToClient, summariseDelegationAnswer } from '@/lib/copilot/engine';
+import { listContactMedia } from '@/lib/db/queries';
+import { signMediaUploadToken } from '@/lib/media/tokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +70,7 @@ export async function POST(request: Request): Promise<Response> {
     body: body.body,
     kind: body.kind ?? 'message',
     delegationId: body.delegationId ?? null,
+    attachments: Array.isArray(body.attachments) ? body.attachments : [],
   });
   if (!parsed.success) {
     return jsonError(parsed.error.issues[0]?.message ?? 'Ugyldig besked', 422);
@@ -75,8 +78,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const contactId = typeof body.contactId === 'string' ? body.contactId : null;
 
-  // 1. Persist the client's own message first, so it is never lost to a
-  //    downstream failure in the co-pilot path.
+  // 1. Persist the client's own message first with attachments
   const clientMessage = await appendChatMessage(session.userId, {
     tenantId,
     contactId,
@@ -85,6 +87,7 @@ export async function POST(request: Request): Promise<Response> {
     channel: 'web_chat',
     kind: parsed.data.kind,
     body: parsed.data.body,
+    attachments: parsed.data.attachments,
   });
 
   // 2. If this message answers an open delegation, capture it and summarise for
@@ -119,6 +122,24 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ ok: true, message: clientMessage, replied: false, state });
   }
 
+  // Build co-pilot attachments (signed photo links / project documents)
+  const aiAttachments: Array<Record<string, unknown>> = [];
+  if (contactId) {
+    try {
+      const contactMedia = await listContactMedia(session.userId, contactId);
+      for (const media of contactMedia.slice(0, 3)) {
+        const signedToken = signMediaUploadToken(tenantId, contactId);
+        aiAttachments.push({
+          type: 'photo',
+          id: media.id,
+          name: media.file_name,
+          description: media.description,
+          url: `/api/media/file/${media.id}?token=${signedToken}`,
+        });
+      }
+    } catch {}
+  }
+
   const reply = respondToClient(copilot, parsed.data.body);
   const aiMessage = await appendChatMessage(session.userId, {
     tenantId,
@@ -128,6 +149,7 @@ export async function POST(request: Request): Promise<Response> {
     channel: 'web_chat',
     kind: 'message',
     body: reply.body,
+    attachments: aiAttachments,
     metadata: {
       intent: reply.intent,
       needsAgencyInput: reply.needsAgencyInput,

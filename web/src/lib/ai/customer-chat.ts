@@ -1,6 +1,24 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { z } from 'zod';
 import { inferenceJson } from './inference';
 import type { ChatContactContext, ChatMessageRow } from '@/lib/db/chat';
+
+export function loadBrandSafetyPolicy(): string {
+  const candidates = [
+    path.resolve(process.cwd(), '..', 'shared', 'guardrails', 'brand_safety_policy.md'),
+    path.resolve(process.cwd(), 'shared', 'guardrails', 'brand_safety_policy.md'),
+    path.resolve(__dirname, '../../../../shared/guardrails/brand_safety_policy.md'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return fs.readFileSync(candidate, 'utf8').trim();
+      }
+    } catch {}
+  }
+  return '';
+}
 
 const ResultSchema = z.object({
   reply: z.string().trim().min(1).max(1000),
@@ -82,7 +100,12 @@ ESTIMATES
 - The server calculates the amount; you never choose the actual price.
 - Every estimate must be called "et vejledende overslag, ikke et bindende tilbud"
   (or the exact English equivalent).
+- Explicitly warn that hidden conditions not visible in photos or videos (such as subfloor damage, hidden moisture, or plumbing/wiring behind walls) cannot be estimated before physical inspection.
+- Ask: "Passer det vejledende prisspænd nogenlunde med det budget, du havde i tankerne?"
 - Recommend a free, non-binding inspection for certainty.
+
+BRAND-SAFETY & ESCAPE HATCH
+${loadBrandSafetyPolicy()}
 
 QUALIFICATION
 - Ask one scoping question at a time: project type, size, condition, materials,

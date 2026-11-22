@@ -37,6 +37,7 @@ interface MessageRow {
   kind: MessageKind;
   body: string;
   delegation_id: string | null;
+  attachments?: Array<Record<string, unknown>>;
   metadata: Record<string, unknown>;
   created_at: string;
 }
@@ -73,6 +74,7 @@ function toMessage(row: MessageRow): AgencyClientMessage {
     kind: row.kind,
     body: row.body,
     delegationId: row.delegation_id,
+    attachments: Array.isArray(row.attachments) ? row.attachments : [],
     metadata: row.metadata ?? {},
     createdAt: row.created_at,
   };
@@ -116,7 +118,7 @@ export async function listChatMessages(
   return withUser(userId, async (tx) => {
     const rows = await tx`
       select id, tenant_id, sender_role, sender_ref, channel, kind, body,
-             delegation_id, metadata, created_at
+             delegation_id, coalesce(attachments, '[]'::jsonb) as attachments, metadata, created_at
       from agency_client_messages
       where tenant_id = ${tenantId}
         and (${contactId}::uuid is null or contact_id = ${contactId}::uuid)
@@ -142,25 +144,40 @@ export async function appendChatMessage(
     kind: MessageKind;
     body: string;
     delegationId?: string | null;
+    attachments?: Array<Record<string, unknown>>;
     metadata?: Record<string, unknown>;
   },
 ): Promise<AgencyClientMessage> {
   const metadata = input.metadata ?? {};
+  const attachments = input.attachments ?? [];
 
   return withUser(userId, async (tx) => {
     const rows = await tx`
       insert into agency_client_messages
-        (tenant_id, contact_id, sender_role, sender_ref, channel, kind, body, delegation_id, metadata)
+        (tenant_id, contact_id, sender_role, sender_ref, channel, kind, body, delegation_id, metadata, attachments)
       values (
         ${input.tenantId}, ${input.contactId}, ${input.senderRole}::chat_sender_role,
         ${input.senderRef}, ${input.channel}, ${input.kind}::chat_message_kind,
-        ${input.body}, ${input.delegationId ?? null}, ${tx.json(metadata)}::jsonb
+        ${input.body}, ${input.delegationId ?? null}, ${tx.json(metadata)}::jsonb, ${tx.json(attachments)}::jsonb
       )
       returning id, tenant_id, sender_role, sender_ref, channel, kind, body,
-                delegation_id, metadata, created_at
+                delegation_id, metadata, attachments, created_at
     `;
     const row = (rows as unknown as MessageRow[])[0];
     if (!row) throw new Error('message insert returned no row');
+
+    // Also persist into client_chat_messages
+    await tx`
+      insert into client_chat_messages
+        (id, tenant_id, contact_id, sender_role, sender_ref, channel, kind, body, attachments, metadata, created_at)
+      values (
+        ${row.id}, ${input.tenantId}, ${input.contactId}, ${input.senderRole},
+        ${input.senderRef}, ${input.channel}, ${input.kind},
+        ${input.body}, ${tx.json(attachments)}::jsonb, ${tx.json(metadata)}::jsonb, ${row.created_at}
+      )
+      on conflict (id) do nothing
+    `;
+
     return toMessage(row);
   });
 }

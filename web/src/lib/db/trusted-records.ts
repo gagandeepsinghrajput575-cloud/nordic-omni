@@ -1,4 +1,4 @@
-import { adminSql } from '@/lib/db/client';
+import { adminSql, jsonb } from '@/lib/db/client';
 
 /**
  * Server-owned estimate/inspection history. No browser or portal code imports
@@ -378,3 +378,78 @@ export async function recordBallparkQuoteEstimate(input: {
   return inserted.id as string;
 }
 
+
+export async function getContactTenantIdRecord(contactId: string): Promise<string | null> {
+  const rows = await adminSql`
+    select tenant_id from public.contacts where id = ${contactId} limit 1
+  `;
+  return rows.length > 0 ? (rows[0].tenant_id as string) : null;
+}
+
+export async function recordScheduleFollowupsAdmin(
+  tenantId: string,
+  contactId: string,
+  step1Iso: string,
+  payload1: Record<string, unknown>,
+  step2Iso: string,
+  payload2: Record<string, unknown>,
+) {
+  await adminSql`
+    update public.followup_sequences
+       set status = 'cancelled',
+           payload = payload || ${jsonb({ cancellation_reason: 'rescheduled_on_new_estimate' })}::jsonb,
+           updated_at = now()
+     where contact_id = ${contactId}
+       and status = 'pending'
+  `;
+
+  const rows = await adminSql`
+    insert into public.followup_sequences (
+      tenant_id, contact_id, step, channel, scheduled_at, status, payload
+    ) values
+      (${tenantId}, ${contactId}, 1, 'sms', ${step1Iso}, 'pending', ${jsonb(payload1)}::jsonb),
+      (${tenantId}, ${contactId}, 2, 'sms', ${step2Iso}, 'pending', ${jsonb(payload2)}::jsonb)
+    returning id, tenant_id, contact_id, step, channel, scheduled_at, status, payload, created_at, updated_at
+  `;
+
+  return rows;
+}
+
+export async function recordCancelPendingFollowupsAdmin(
+  tenantId: string,
+  contactId: string,
+  reason: string,
+): Promise<number> {
+  const rows = await adminSql`
+    update public.followup_sequences
+       set status = 'cancelled',
+           payload = payload || ${jsonb({ cancellation_reason: reason, cancelled_at: new Date().toISOString() })}::jsonb,
+           updated_at = now()
+     where tenant_id = ${tenantId}
+       and contact_id = ${contactId}
+       and status = 'pending'
+    returning id
+  `;
+  return rows.length;
+}
+
+export async function recordSweepPendingFollowups(limit = 50) {
+  const rows = await adminSql`
+    with due as (
+      select id
+        from public.followup_sequences
+       where status = 'pending'
+         and scheduled_at <= now()
+       order by scheduled_at asc
+       limit ${limit}
+       for update skip locked
+    )
+    update public.followup_sequences f
+       set status = 'sent',
+           updated_at = now()
+      from due
+     where f.id = due.id
+    returning f.id, f.tenant_id, f.contact_id, f.step, f.channel, f.scheduled_at, f.status, f.payload, f.created_at, f.updated_at
+  `;
+  return rows;
+}

@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
 const MAX_BYTES = 450_000;
-const MAX_PAGES = 4;
+const MAX_PAGES = 8;
 const MAX_TEXT_PER_PAGE = 32_000;
 const MAX_REDIRECTS = 3;
 
@@ -168,7 +168,7 @@ export function extractReadableHtml(html: string): { title: string; text: string
 }
 
 function discoverPages(html: string, base: URL): URL[] {
-  const keywords = /om|about|ydelse|service|pris|price|kontakt|contact|faq/i;
+  const keywords = /om|about|ydelse|service|pris|price|kontakt|contact|faq|projekter|projekt|referencer|reference|galleri|gallery|cases/i;
   const seen = new Set<string>();
   const pages: URL[] = [];
   for (const match of html.matchAll(/href=["']([^"'#]+)["']/gi)) {

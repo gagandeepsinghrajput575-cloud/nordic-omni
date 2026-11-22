@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 from services.phone import normalize_phone
@@ -441,6 +441,30 @@ class Database:
                     tenant_id,
                     json.dumps({"contactId": contact_id, "callLogId": call_log_id,
                                 "estimatedValueDkk": estimated_value_dkk}),
+                )
+                # Auto-schedule timed follow-up sequence (+3.5h and +24h)
+                now_dt = _now()
+                step1_dt = now_dt + timedelta(hours=3.5)
+                step2_dt = now_dt + timedelta(hours=24)
+                await conn.execute(
+                    """
+                    UPDATE followup_sequences
+                       SET status = 'cancelled', updated_at = now()
+                     WHERE contact_id = $1 AND status = 'pending'
+                    """,
+                    contact_id,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO followup_sequences (
+                      tenant_id, contact_id, step, channel, scheduled_at, status, payload
+                    ) VALUES
+                      ($1, $2, 1, 'sms', $3, 'pending', $5::jsonb),
+                      ($1, $2, 2, 'sms', $4, 'pending', $6::jsonb)
+                    """,
+                    tenant_id, contact_id, step1_dt, step2_dt,
+                    json.dumps({"projectType": project_type, "step": 1}),
+                    json.dumps({"projectType": project_type, "step": 2}),
                 )
 
     async def request_inspection(

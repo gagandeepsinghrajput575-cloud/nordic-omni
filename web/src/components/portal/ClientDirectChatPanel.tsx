@@ -65,6 +65,7 @@ export function ClientDirectChatPanel({
       kind: 'message',
       body,
       delegationId: null,
+      attachments: [],
       metadata: { optimistic: true },
       createdAt: new Date().toISOString(),
     };

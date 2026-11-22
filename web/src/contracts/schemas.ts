@@ -705,6 +705,7 @@ export const AgencyClientMessageSchema = z
     body: z.string().trim().min(1).max(4000),
     /** Set when this message belongs to a delegation thread. */
     delegationId: z.string().uuid().nullable(),
+    attachments: z.array(z.record(z.string(), z.unknown())).default([]),
     metadata: z.record(z.string(), z.unknown()).default({}),
     createdAt: z.string(),
   })
@@ -717,6 +718,7 @@ export const PostChatMessageSchema = z
     body: z.string().trim().min(1, 'Skriv en besked').max(4000, 'Beskeden er for lang'),
     kind: MessageKindSchema.default('message'),
     delegationId: z.string().uuid().nullish(),
+    attachments: z.array(z.record(z.string(), z.unknown())).optional().default([]),
   })
   .strict();
 export type PostChatMessage = z.infer<typeof PostChatMessageSchema>;
