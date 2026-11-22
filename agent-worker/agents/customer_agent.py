@@ -552,7 +552,9 @@ class CustomerAgent(Agent):
         Args:
             project_description: Short note about the project or scope (e.g. 'badeværelse renovering', 'køkken', 'tagarbejde').
         """
-        secret = os.getenv("SESSION_SECRET") or "development-only-session-secret"
+        secret = os.getenv("SESSION_SECRET", "").strip()
+        if not secret:
+            raise RuntimeError("SESSION_SECRET must be configured to mint media upload tokens")
         now_ts = int(time.time())
         exp = now_ts + 7 * 24 * 3600
         payload_data = json.dumps({
@@ -579,12 +581,12 @@ class CustomerAgent(Agent):
 
         if self.danish:
             return (
-                f"Jeg har sendt et sikkert link på SMS til kunden ({upload_url}), så de kan uploade billeder af opgaven direkte fra mobilen. "
-                "Fortæl venligt kunden, at de modtager en SMS med linket, og at vi beregner et hurtigt overslag så snart de har uploadet billederne."
+                f"Et sikkert fotolink er klargjort til sagen ({upload_url}), så kunden kan uploade fotos af opgaven. "
+                "Fortæl venligt kunden, at fotolinket er gjort klar på deres sag, og at vi beregner et hurtigt overslag så snart billederne er uploadet."
             )
         return (
-            f"I have sent an SMS with the photo upload link ({upload_url}) to the caller's mobile. "
-            "Kindly inform the customer they will receive the SMS to upload photos for their estimate."
+            f"A secure photo upload link has been prepared for the case ({upload_url}). "
+            "Kindly inform the caller that the upload link is ready on their case to provide photos for the estimate."
         )
 
     @function_tool()

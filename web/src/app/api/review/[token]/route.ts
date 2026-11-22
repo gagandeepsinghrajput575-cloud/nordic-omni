@@ -24,7 +24,7 @@ export async function GET(
 
   const { tenantId, contactId } = verified;
 
-  const { tenant, contact } = (await getTenantReviewInfoRecord(tenantId, contactId)) as {
+  const { tenant, contact } = (await getTenantReviewInfoRecord(tenantId, contactId)) as unknown as {
     tenant: { name: string; owner_name: string; google_review_url: string | null } | null;
     contact: { full_name: string | null } | null;
   };
@@ -61,7 +61,7 @@ export async function POST(
 
   const { rating, feedbackText, platform } = parsed.data;
 
-  const { tenant } = (await getTenantReviewInfoRecord(tenantId, contactId)) as {
+  const { tenant } = (await getTenantReviewInfoRecord(tenantId, contactId)) as unknown as {
     tenant: { name: string; owner_name: string; google_review_url: string | null } | null;
   };
 

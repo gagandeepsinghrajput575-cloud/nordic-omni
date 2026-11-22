@@ -13,7 +13,8 @@ const ReviewTokenRequestSchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
-  const session = await apiSession().catch(() => null);
+  const session = await apiSession();
+  if (!session) return jsonError('Unauthorized', 401);
 
   const parsed = ReviewTokenRequestSchema.safeParse(await readJson(request));
   if (!parsed.success) {
@@ -22,11 +23,9 @@ export async function POST(request: Request): Promise<Response> {
 
   const { tenantId, contactId, ttlSeconds } = parsed.data;
 
-  // Authorization: if session exists, enforce tenant match unless agency
-  if (session) {
-    if (!session.isAgency && !session.tenantIds.includes(tenantId)) {
-      return jsonError('Forbidden: workspace mismatch', 403);
-    }
+  // Authorization: enforce tenant match unless agency
+  if (!session.isAgency && !session.tenantIds.includes(tenantId)) {
+    return jsonError('Forbidden: workspace mismatch', 403);
   }
 
   const token = signReviewToken(tenantId, contactId, ttlSeconds || 30 * 24 * 3600);

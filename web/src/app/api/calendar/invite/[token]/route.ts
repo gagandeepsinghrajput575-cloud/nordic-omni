@@ -46,7 +46,9 @@ export async function GET(
     const start = new Date(row.start_iso);
     const end = new Date(row.end_iso);
     const organizerName = row.tenant_name;
-    const organizerEmail = 'noreply@nordic-omni.local';
+    const siteOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const siteHost = new URL(siteOrigin).host;
+    const organizerEmail = `noreply@${siteHost}`;
 
     const icsContent = buildIcs(
       {
@@ -61,7 +63,7 @@ export async function GET(
         attendeeName: row.attendee_name,
         attendeeEmail: row.attendee_email,
         label: row.topic,
-        url: `https://nordic-omni.local/calendar/${row.id}`,
+        url: `${siteOrigin}/calendar/${row.id}`,
       },
       {
         organizerName,

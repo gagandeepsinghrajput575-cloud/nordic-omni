@@ -42,6 +42,9 @@ class Config:
     tts_model: str
     tts_voice: str
 
+    # Shared HMAC secret matching web SESSION_SECRET for signed upload/review tokens
+    session_secret: str
+
     # Microsoft Azure Speech credentials (optional)
     azure_speech_key: Optional[str] = None
     azure_speech_region: Optional[str] = None
@@ -53,6 +56,7 @@ def load() -> Config:
         livekit_api_key=_require("LIVEKIT_API_KEY"),
         livekit_api_secret=_require("LIVEKIT_API_SECRET"),
         database_url=_require("DATABASE_URL"),
+        session_secret=_require("SESSION_SECRET"),
         stt_model=os.getenv("STT_MODEL") or "deepgram/nova-3",
         llm_model=os.getenv("LLM_MODEL") or "google/gemini-2.5-flash",
         tts_model=os.getenv("TTS_MODEL") or "cartesia/sonic-3",

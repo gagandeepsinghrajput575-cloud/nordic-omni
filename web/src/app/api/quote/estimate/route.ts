@@ -18,7 +18,8 @@ const BallparkQuoteSchema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
-  const session = await apiSession().catch(() => null);
+  const session = await apiSession();
+  if (!session) return jsonError('Unauthorized', 401);
 
   const parsed = BallparkQuoteSchema.safeParse(await readJson(request));
   if (!parsed.success) {
@@ -28,10 +29,8 @@ export async function POST(request: Request): Promise<Response> {
   const { tenantId, contactId, catalogItemId, projectType, scopeDetails, squareMeters, followupNotes, photoIds } =
     parsed.data;
 
-  if (session) {
-    if (!session.isAgency && !session.tenantIds.includes(tenantId)) {
-      return jsonError('Forbidden: workspace mismatch', 403);
-    }
+  if (!session.isAgency && !session.tenantIds.includes(tenantId)) {
+    return jsonError('Forbidden: workspace mismatch', 403);
   }
 
   try {
