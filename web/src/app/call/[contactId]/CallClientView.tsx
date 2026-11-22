@@ -2,7 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Check, CheckCircle2, Copy, MessageSquare, Mic, MicOff, Phone, PhoneOff, ShieldCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  Copy,
+  Headphones,
+  MessageSquare,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneOff,
+  ShieldCheck,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import { OrbVisualizer } from '@/components/audio/OrbVisualizer';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
@@ -33,6 +46,10 @@ interface CallClientViewProps {
   compact?: boolean;
 }
 
+type SinkableAudioElement = HTMLAudioElement & {
+  setSinkId?: (sinkId: string) => Promise<void>;
+};
+
 type CallStage = 'idle' | 'connecting' | 'waiting_for_agent' | 'active' | 'ended' | 'error';
 const AGENT_TIMEOUT_MS = 30_000;
 
@@ -44,6 +61,13 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
   const [errorMessage, setErrorMessage] = useState('');
   const [starting, setStarting] = useState(false);
   const [copiedMeetLink, setCopiedMeetLink] = useState(false);
+  const [showAudioRouter, setShowAudioRouter] = useState(false);
+  const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
+  const [speakers, setSpeakers] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicId, setSelectedMicId] = useState('');
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState('');
+  const [sinkSupported, setSinkSupported] = useState(true);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const roomRef = useRef<Room | null>(null);
   const audioTracksRef = useRef(new Map<RemoteTrack, HTMLAudioElement>());
@@ -56,10 +80,68 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
   const agentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelAgentWaitRef = useRef<(() => void) | null>(null);
   const muteInFlightRef = useRef(false);
+  const selectedSpeakerRef = useRef('');
 
   const { locale } = useLocale();
   const isDanish = locale === 'da';
   const t = (da: string, en: string) => (isDanish ? da : en);
+
+  useEffect(() => {
+    selectedSpeakerRef.current = selectedSpeakerId;
+  }, [selectedSpeakerId]);
+
+  const refreshDevices = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices();
+      setMics(list.filter((d) => d.kind === 'audioinput'));
+      setSpeakers(list.filter((d) => d.kind === 'audiooutput'));
+      const probe = document.createElement('audio') as SinkableAudioElement;
+      setSinkSupported(typeof probe.setSinkId === 'function');
+    } catch {
+      // Device enumeration unavailable before mic permission.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshDevices();
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.addEventListener) return;
+    const onDeviceChange = () => {
+      void refreshDevices();
+    };
+    navigator.mediaDevices.addEventListener('devicechange', onDeviceChange);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', onDeviceChange);
+  }, [refreshDevices]);
+
+  const applySinkToElement = useCallback(async (el: HTMLAudioElement, sinkId: string) => {
+    if (!sinkId) return;
+    const sinkable = el as SinkableAudioElement;
+    if (typeof sinkable.setSinkId !== 'function') return;
+    try {
+      await sinkable.setSinkId(sinkId);
+    } catch {
+      // Ignore unsupported or disconnected sink errors.
+    }
+  }, []);
+
+  const handleMicChange = async (deviceId: string) => {
+    setSelectedMicId(deviceId);
+    const room = roomRef.current;
+    if (room && deviceId) {
+      try {
+        await room.switchActiveDevice('audioinput', deviceId);
+      } catch {
+        // Fallback to applying on next call start.
+      }
+    }
+  };
+
+  const handleSpeakerChange = async (deviceId: string) => {
+    setSelectedSpeakerId(deviceId);
+    selectedSpeakerRef.current = deviceId;
+    const elements = Array.from(audioTracksRef.current.values());
+    await Promise.all(elements.map((el) => applySinkToElement(el, deviceId)));
+  };
 
   const copyMeetLink = async () => {
     try {
@@ -104,7 +186,6 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
   const recoverCurrentAttempt = useCallback(() => {
     const attemptId = attemptIdRef.current;
     attemptIdRef.current = null;
-    // Release unreached attempts via /api/livekit/abandon
     abandonCallAttempt(attemptId, reachedAgentRef.current);
   }, []);
 
@@ -200,6 +281,9 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
         audioElement.autoplay = true;
         audioElement.style.display = 'none';
         document.body.appendChild(audioElement);
+        if (selectedSpeakerRef.current) {
+          void applySinkToElement(audioElement, selectedSpeakerRef.current);
+        }
         audioTracksRef.current.set(track, audioElement);
         updateAgentStream();
         signalAgentAudio();
@@ -226,10 +310,12 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
       await room.startAudio();
       if (!isCurrent()) throw new Error('Call attempt superseded');
       await room.localParticipant.setMicrophoneEnabled(true, {
+        ...(selectedMicId ? { deviceId: { exact: selectedMicId } } : {}),
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       });
+      void refreshDevices();
       if (!isCurrent()) throw new Error('Call attempt superseded');
 
       setStage('waiting_for_agent');
@@ -259,6 +345,9 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
       await Promise.all(
         audioElements.map(async (audioElement) => {
           try {
+            if (selectedSpeakerRef.current) {
+              await applySinkToElement(audioElement, selectedSpeakerRef.current);
+            }
             await audioElement.play();
           } catch (error) {
             if (Array.from(audioTracksRef.current.values()).includes(audioElement)) {
@@ -341,8 +430,74 @@ export function CallClientView({ contact, tenant, compact = false }: CallClientV
     <section className="glass enter flex flex-col overflow-hidden" aria-label={t('Browseropkald', 'Browser call')}>
       <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-4">
         <Badge tone={stageTone} dot>{stageLabel}</Badge>
-        <span className="text-[13px] tabular-nums text-[var(--muted)]">{stage === 'active' ? formatTimer(duration) : '00:00'}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setShowAudioRouter((v) => !v);
+              void refreshDevices();
+            }}
+            aria-expanded={showAudioRouter}
+            title={t('Lydbro til Google Meet / BlackHole', 'Audio bridge for Google Meet / BlackHole')}
+            className={buttonClass('ghost', 'sm')}
+          >
+            <SlidersHorizontal size={13} aria-hidden />
+            <span>{t('Lydbro', 'Audio bridge')}</span>
+          </button>
+          <span className="text-[13px] tabular-nums text-[var(--muted)]">{stage === 'active' ? formatTimer(duration) : '00:00'}</span>
+        </div>
       </div>
+
+      {showAudioRouter ? (
+        <div className="space-y-3 border-b border-[var(--line)] bg-[var(--surface-raised)] px-5 py-3.5 text-[12px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 font-medium text-[var(--text)]">
+              <Headphones size={13} aria-hidden />
+              {t('Google Meet / BlackHole lydrouting', 'Google Meet / BlackHole audio routing')}
+            </span>
+            <button type="button" onClick={() => void refreshDevices()} className="text-[11px] text-[var(--muted)] underline">
+              {t('Opdater', 'Refresh')}
+            </button>
+          </div>
+          <label className="block space-y-1">
+            <span className="text-[11px] text-[var(--muted)]">{t('Mikrofon-input (f.eks. BlackHole 2ch)', 'Mic input (e.g. BlackHole 2ch)')}</span>
+            <select
+              className="input min-h-9 py-1.5 text-[12px]"
+              value={selectedMicId}
+              onChange={(e) => void handleMicChange(e.target.value)}
+            >
+              <option value="">{t('Standard mikrofon', 'System default microphone')}</option>
+              {mics.map((device, index) => (
+                <option key={device.deviceId || `mic-${index}`} value={device.deviceId}>
+                  {device.label || `Microphone ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] text-[var(--muted)]">{t('Højttaler-output (f.eks. BlackHole 16ch)', 'Speaker output (e.g. BlackHole 16ch)')}</span>
+            <select
+              className="input min-h-9 py-1.5 text-[12px]"
+              value={selectedSpeakerId}
+              disabled={!sinkSupported}
+              onChange={(e) => void handleSpeakerChange(e.target.value)}
+            >
+              <option value="">{t('Standard højttaler', 'System default speaker')}</option>
+              {speakers.map((device, index) => (
+                <option key={device.deviceId || `spk-${index}`} value={device.deviceId}>
+                  {device.label || `Speaker ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!sinkSupported ? (
+            <p className="text-[11px] text-[var(--muted)]">
+              {t('Brug Chrome på Mac for at vælge virtuel højttaler (setSinkId).', 'Use Chrome on Mac to route speaker output to BlackHole (setSinkId).')}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="call-stage flex-1 px-6 py-8">
         {stage === 'idle' ? (
           <>
