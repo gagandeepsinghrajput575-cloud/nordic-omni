@@ -278,6 +278,114 @@ export async function insertBooking(
   });
 }
 
+export interface ConfirmAndInsertBookingInput {
+  tenantId: string;
+  holdId?: string | null;
+  contactId: string | null;
+  callLogId: string | null;
+  provider: CalendarProvider;
+  startIso: string;
+  endIso: string;
+  label: string;
+  topic: string;
+  notes?: string;
+  attendeeName: string;
+  attendeeEmail: string | null;
+  attendeePhone: string | null;
+  icsUid: string;
+  id: string;
+}
+
+export type ConfirmBookingResult =
+  | { ok: true; booking: BookingRecord }
+  | { ok: false; reason: 'hold_expired' | 'slot_taken' };
+
+/**
+ * Atomically verifies hold or slot availability, claims hold, and inserts booking
+ * under a single PostgreSQL transaction with pg_advisory_xact_lock.
+ */
+export async function confirmAndInsertBookingAtomic(
+  userId: string,
+  input: ConfirmAndInsertBookingInput,
+): Promise<ConfirmBookingResult> {
+  return withUser(userId, async (tx: Tx) => {
+    const { tenantId } = input;
+    await tx`select pg_advisory_xact_lock(hashtext(${`calendar_slot_hold:${tenantId}`}))`;
+
+    if (input.holdId) {
+      const claimed = await tx`
+        update public.calendar_slot_holds
+           set status = 'confirmed', confirmed_at = now()
+         where id = ${input.holdId}
+           and tenant_id = ${tenantId}
+           and status = 'held'
+           and expires_at > now()
+        returning id
+      `;
+      if (claimed.length === 0) {
+        return { ok: false, reason: 'hold_expired' } as const;
+      }
+    } else {
+      const conflict = await tx`
+        select 1 as blocked
+          from public.calendar_slot_holds
+         where tenant_id = ${tenantId}
+           and status = 'held'
+           and expires_at > now()
+           and start_iso < ${input.endIso}::timestamptz
+           and ${input.startIso}::timestamptz < end_iso
+        union all
+        select 1 as blocked
+          from public.calendar_bookings
+         where tenant_id = ${tenantId}
+           and status = 'confirmed'
+           and start_iso < ${input.endIso}::timestamptz
+           and ${input.startIso}::timestamptz < end_iso
+         limit 1
+      `;
+      if (conflict.length > 0) {
+        return { ok: false, reason: 'slot_taken' } as const;
+      }
+    }
+
+    const rows = await tx`
+      insert into public.calendar_bookings (
+        id, tenant_id, contact_id, call_log_id, provider, status,
+        start_iso, end_iso, label, topic, attendee_name,
+        attendee_email, attendee_phone, ics_uid
+      ) values (
+        ${input.id}, ${tenantId}, ${input.contactId}, ${input.callLogId},
+        ${input.provider}, 'confirmed',
+        ${input.startIso}::timestamptz, ${input.endIso}::timestamptz,
+        ${input.label}, ${input.topic}, ${input.attendeeName},
+        ${input.attendeeEmail}, ${input.attendeePhone}, ${input.icsUid}
+      )
+      returning id
+    `;
+    if (!rows[0]) throw new Error('Booking insert returned no row');
+
+    return {
+      ok: true,
+      booking: {
+        id: input.id,
+        tenantId,
+        contactId: input.contactId,
+        callLogId: input.callLogId,
+        provider: input.provider,
+        startIso: new Date(input.startIso).toISOString(),
+        endIso: new Date(input.endIso).toISOString(),
+        label: input.label,
+        topic: input.topic,
+        attendeeName: input.attendeeName,
+        attendeeEmail: input.attendeeEmail,
+        attendeePhone: input.attendeePhone,
+        icsUid: input.icsUid,
+        createdAtIso: new Date().toISOString(),
+      },
+    } as const;
+  });
+}
+
 export async function listBookings(
   userId: string,
   tenantId: string,

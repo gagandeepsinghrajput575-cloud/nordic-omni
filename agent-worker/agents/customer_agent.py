@@ -16,7 +16,12 @@ decorated with `@function_tool`. No inheritance chain, no shared FunctionContext
 from __future__ import annotations
 
 from datetime import datetime
+import base64
+import hashlib
+import hmac
 import json
+import os
+import time
 from typing import Any
 
 from livekit.agents import Agent, RunContext, function_tool
@@ -262,6 +267,10 @@ def build_prompt(
         else "No previous cross-channel messages."
     )
 
+    tenant_name = (tenant.get("name") or "virksomheden").strip()
+    owner_name = (tenant.get("owner_name") or "mesteren").strip()
+    service_area = (tenant.get("service_area") or "området").strip()
+
     return f"""{business_prompt}
 
 ## LANGUAGE
@@ -306,10 +315,10 @@ In hybrid mode, use the escalation tool for urgent or human-requested cases.
 When you escalate, say only that the urgent request has been recorded for the on-call person. Never claim a live owner connection unless the system has explicitly confirmed one. Never say you sent, forwarded or delivered the request to the owner unless the tool result explicitly confirms delivery; even then, do not claim the owner has seen it.
 
 ## HOW TO SPEAK (NATURAL CONVERSATIONAL FLUENCY, WARMTH & HUMAN EMOTION)
-- Real Human Conversational Character: You are {persona_name}, a warm, knowledgeable, and calm coordinator for Dansk Byg & Renovering. Speak with natural human warmth, grounded confidence, and authentic trade pride. Never sound like an aggressive salesperson, a rigid bot, or a repetitive telemarketer.
+- Real Human Conversational Character: You are {persona_name}, a warm, knowledgeable, and calm coordinator for {tenant_name}. Speak with natural human warmth, grounded confidence, and authentic trade pride. Never sound like an aggressive salesperson, a rigid bot, or a repetitive telemarketer.
 - Dynamic Conversational Rhythm (Never Sound Like a Telemarketer or Questionnaire):
   * DO NOT force a question at the end of every turn. A real person speaks in statements, comments, thoughtful reactions, and pleasant observations.
-  * Answer the caller's actual point first. If the caller asks about Morten ("Is Morten a good guy?"), answer warmly about Morten and let the answer breathe naturally — do NOT immediately pivot back to a sales pitch or repeat "Shall we book an inspection for Lyngby?".
+  * Answer the caller's actual point first. If the caller asks about {owner_name} ("Is {owner_name} a good guy?"), answer warmly about {owner_name} and let the answer breathe naturally — do NOT immediately pivot back to a sales pitch or repeat "Shall we book an inspection for {service_area}?".
   * Never repeat the same question or call-to-action if you already asked it in recent turns and the caller moved on or didn't respond to it. Follow the customer's conversational flow.
   * Vary your turn endings: often end with a warm affirmation ("Det finder vi helt sikkert en god løsning på.", "Det er altid spændende med et nyt projekt."), a reassuring statement, or an observation. Only ask a question when you genuinely need new information or the customer is waiting for direction.
 - Authentic Grounded Danish Demeanor:
@@ -520,13 +529,62 @@ class CustomerAgent(Agent):
         high = f"{estimate.maximum:,.0f}".replace(",", ".")
         if self.danish:
             return (
-                f"Et vejledende overslag ligger mellem {low} og {high} kroner. "
+                f"Et vejledende overslag ligger mellem {low} og {high} kroner inkl. moms. "
                 "Det er et vejledende overslag, ikke et bindende tilbud. "
                 "Tilbyd en gratis uforpligtende besigtigelse."
             )
         return (
-            f"A non-binding estimate is between DKK {low} and {high}. "
+            f"A non-binding estimate is between DKK {low} and {high} incl. VAT. "
             "This is a guide, not a binding quote. Offer a free inspection."
+        )
+
+    @function_tool()
+    async def send_photo_upload_link(
+        self,
+        context: RunContext,
+        project_description: str = "",
+    ) -> str:
+        """Send a mobile photo-upload link by SMS so the caller can take and upload pictures of the project.
+
+        Use this naturally during lead qualification whenever the caller asks for a quote, discusses renovations
+        (e.g., badeværelse, køkken, tag), or reports damages where photos would help evaluate the scope.
+
+        Args:
+            project_description: Short note about the project or scope (e.g. 'badeværelse renovering', 'køkken', 'tagarbejde').
+        """
+        secret = os.getenv("SESSION_SECRET") or "development-only-session-secret"
+        now_ts = int(time.time())
+        exp = now_ts + 7 * 24 * 3600
+        payload_data = json.dumps({
+            "tenantId": str(self.tenant["id"]),
+            "contactId": str(self.contact["id"]),
+            "exp": exp,
+        }, separators=(',', ':')).encode("utf-8")
+        encoded = base64.urlsafe_b64encode(payload_data).decode("ascii").rstrip("=")
+        sig = hmac.new(secret.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256).hexdigest()[:32]
+        token = f"{encoded}.{sig}"
+
+        app_url = os.getenv("NEXT_PUBLIC_APP_URL") or "http://localhost:3000"
+        upload_url = f"{app_url}/media/upload?token={token}"
+
+        await self.db.emit_event(
+            str(self.tenant["id"]),
+            "MEDIA_UPLOAD_LINK_SENT",
+            {
+                "contactId": str(self.contact["id"]),
+                "uploadUrl": upload_url,
+                "projectDescription": project_description,
+            },
+        )
+
+        if self.danish:
+            return (
+                f"Jeg har sendt et sikkert link på SMS til kunden ({upload_url}), så de kan uploade billeder af opgaven direkte fra mobilen. "
+                "Fortæl venligt kunden, at de modtager en SMS med linket, og at vi beregner et hurtigt overslag så snart de har uploadet billederne."
+            )
+        return (
+            f"I have sent an SMS with the photo upload link ({upload_url}) to the caller's mobile. "
+            "Kindly inform the customer they will receive the SMS to upload photos for their estimate."
         )
 
     @function_tool()

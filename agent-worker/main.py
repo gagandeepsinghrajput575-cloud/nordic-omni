@@ -31,6 +31,7 @@ from livekit.agents import (
     WorkerOptions,
     cli,
     inference,
+    room_io,
 )
 from livekit.plugins import azure, silero
 
@@ -109,6 +110,17 @@ async def close_db() -> None:
 
 def prewarm(proc: JobProcess) -> None:
     proc.userdata[VAD_KEY] = silero.VAD.load()
+
+
+def get_room_input_options() -> room_io.RoomInputOptions:
+    """Provide BVC PSTN noise cancellation with safe fallback for local development."""
+    nc_option = None
+    try:
+        from livekit.plugins import noise_cancellation
+        nc_option = noise_cancellation.BVC()
+    except Exception as exc:
+        logger.warning("LiveKit BVC noise cancellation unavailable: %s; using standard audio", exc)
+    return room_io.RoomInputOptions(noise_cancellation=nc_option)
 
 
 def build_session(
@@ -193,8 +205,8 @@ def build_session(
             "interruption": {
                 "enabled": True,
                 "mode": "vad",
-                "min_duration": 0.15,
-                "resume_false_interruption": False,
+                "min_duration": 0.30,
+                "resume_false_interruption": True,
             },
         },
     )
@@ -453,7 +465,18 @@ async def entrypoint(ctx: JobContext) -> None:
         def _on_owner_session_close(*_: Any) -> None:
             ctx.shutdown("owner session closed")
 
-        await session.start(OwnerCopilotAgent(tenant=tenant, db=db), room=ctx.room)
+        try:
+            await session.start(
+                OwnerCopilotAgent(tenant=tenant, db=db),
+                room=ctx.room,
+                room_input_options=get_room_input_options(),
+            )
+        except Exception as exc:
+            logger.warning("Owner session.start with noise cancellation failed: %s; retrying standard", exc)
+            await session.start(
+                OwnerCopilotAgent(tenant=tenant, db=db),
+                room=ctx.room,
+            )
         await session.generate_reply(
             instructions="Greet the owner in one short sentence and ask what they need."
         )
@@ -546,7 +569,20 @@ async def entrypoint(ctx: JobContext) -> None:
         logger.info("Customer session closed; requesting job shutdown for %s", ctx.room.name)
         ctx.shutdown("customer session closed")
 
-    await session.start(agent, room=ctx.room, record=record_opts)
+    try:
+        await session.start(
+            agent,
+            room=ctx.room,
+            record=record_opts,
+            room_input_options=get_room_input_options(),
+        )
+    except Exception as exc:
+        logger.warning("Customer session.start with noise cancellation failed: %s; retrying standard", exc)
+        await session.start(
+            agent,
+            room=ctx.room,
+            record=record_opts,
+        )
     # Brief grace period so WebRTC client audio track subscription completes before first utterance.
     await asyncio.sleep(0.6)
     # Consent and identity must be exact, not an LLM paraphrase of instructions.

@@ -1,5 +1,6 @@
-import { buildSoundProfile, getWorkspaceById, getWorkspaceBySlug } from "@/lib/data";
+import { buildSoundProfile, getAgencyWorkspace, getWorkspaceById, getWorkspaceBySlug } from "@/lib/data";
 import { jsonError, readJson, readNumber, readString } from "@/lib/api-utils";
+import { apiSession } from "@/lib/auth/guard";
 import type { PersonaVoiceModel, SoundProfile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +19,34 @@ const EQ_PROFILES: Record<string, { lowShelf: string; mid: string; highShelf: st
 };
 
 export async function GET(request: Request): Promise<Response> {
+  const session = await apiSession();
+  if (!session) return jsonError("Unauthorized", 401);
+
   const slug = new URL(request.url).searchParams.get("workspace") ?? "";
-  const workspace = slug ? await getWorkspaceBySlug(slug) : null;
-  if (!workspace) return jsonError("Workspace not found", 404);
+  let workspace = null;
+
+  if (slug) {
+    workspace = await getWorkspaceBySlug(slug);
+    if (!session.isAgency) {
+      if (!workspace || !session.tenantIds.includes(workspace.id)) {
+        return jsonError("Forbidden: caller session lacks authority for requested workspace", 403);
+      }
+    } else if (!workspace) {
+      return jsonError("Workspace not found", 404);
+    }
+  } else {
+    if (!session.isAgency) {
+      const tenantId = session.tenantIds[0];
+      if (!tenantId) {
+        return jsonError("Forbidden: client session has no assigned workspace", 403);
+      }
+      workspace = await getWorkspaceById(tenantId);
+    } else {
+      workspace = await getAgencyWorkspace();
+    }
+    if (!workspace) return jsonError("Workspace not found", 404);
+  }
+
   return Response.json({
     profile: buildSoundProfile(workspace),
     voiceModels: Object.entries(VOICE_MODELS).map(([key, value]) => ({ key, ...value })),
@@ -29,10 +55,34 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function PUT(request: Request): Promise<Response> {
+  const session = await apiSession();
+  if (!session) return jsonError("Unauthorized", 401);
+
   const body = await readJson(request);
   const slug = readString(body, "workspaceSlug").trim();
-  const workspace = slug ? await getWorkspaceBySlug(slug) : null;
-  if (!workspace) return jsonError("Workspace not found", 404);
+  let workspace = null;
+
+  if (slug) {
+    workspace = await getWorkspaceBySlug(slug);
+    if (!session.isAgency) {
+      if (!workspace || !session.tenantIds.includes(workspace.id)) {
+        return jsonError("Forbidden: caller session lacks authority for requested workspace", 403);
+      }
+    } else if (!workspace) {
+      return jsonError("Workspace not found", 404);
+    }
+  } else {
+    if (!session.isAgency) {
+      const tenantId = session.tenantIds[0];
+      if (!tenantId) {
+        return jsonError("Forbidden: client session has no assigned workspace", 403);
+      }
+      workspace = await getWorkspaceById(tenantId);
+    } else {
+      workspace = await getAgencyWorkspace();
+    }
+    if (!workspace) return jsonError("Workspace not found", 404);
+  }
 
   const voiceModel = readString(body, "voiceModel") as PersonaVoiceModel;
   const speed = readNumber(body, "speechRate", 1);

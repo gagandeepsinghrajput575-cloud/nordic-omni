@@ -240,3 +240,141 @@ export async function listAllTenantsRecord(): Promise<Array<Record<string, unkno
   return rows as unknown as Array<Record<string, unknown>>;
 }
 
+export async function getPublicBookingInvite(bookingId: string) {
+  const rows = await adminSql`
+    select b.id, b.tenant_id, b.topic, b.label, b.start_iso, b.end_iso, b.ics_uid,
+           b.attendee_name, b.attendee_email,
+           t.name as tenant_name, t.owner_name, t.owner_email
+      from public.calendar_bookings b
+      join public.tenants t on t.id = b.tenant_id
+     where b.id = ${bookingId}
+     limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function recordContactMediaFile(input: {
+  fileId: string;
+  tenantId: string;
+  contactId: string;
+  filePath: string;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  description: string;
+}) {
+  const [row] = await adminSql`
+    insert into public.contact_media (
+      id, tenant_id, contact_id, file_path, file_name, mime_type, file_size_bytes, description
+    ) values (
+      ${input.fileId}, ${input.tenantId}, ${input.contactId}, ${input.filePath},
+      ${input.fileName}, ${input.mimeType}, ${input.fileSizeBytes}, ${input.description}
+    )
+    returning id, tenant_id, contact_id, file_name, mime_type, file_size_bytes, description, created_at
+  `;
+  return row;
+}
+
+export async function getContactMediaFileRecord(id: string) {
+  const [row] = await adminSql`
+    select id, tenant_id, contact_id, file_path, file_name, mime_type, file_size_bytes
+      from public.contact_media
+     where id = ${id}
+     limit 1
+  `;
+  return row ?? null;
+}
+
+export async function getTenantReviewInfoRecord(tenantId: string, contactId: string) {
+  const [tenant] = await adminSql`
+    select name, owner_name, google_review_url
+      from public.tenants
+     where id = ${tenantId}
+     limit 1
+  `;
+  const [contact] = await adminSql`
+    select full_name
+      from public.contacts
+     where id = ${contactId}
+     limit 1
+  `;
+  return { tenant: tenant ?? null, contact: contact ?? null };
+}
+
+export async function recordGoogleReviewSubmission(input: {
+  tenantId: string;
+  contactId: string;
+  rating: number;
+  feedbackText: string;
+  status: string;
+  platform: string;
+}) {
+  await adminSql`
+    insert into public.google_reviews (
+      tenant_id, contact_id, rating, feedback_text, status, platform
+    ) values (
+      ${input.tenantId}, ${input.contactId}, ${input.rating},
+      ${input.feedbackText}, ${input.status}, ${input.platform}
+    )
+  `;
+  if (input.rating < 2.8) {
+    const alertNote = `[KUNDEFEEDBACK ${input.rating}★]: ${input.feedbackText || 'Ingen kommentar angivet.'}`;
+    await adminSql`
+      update public.contacts
+         set shared_memory_summary = case
+               when shared_memory_summary is null or shared_memory_summary = '' then ${alertNote}
+               else shared_memory_summary || E'\n' || ${alertNote}
+             end,
+             sentiment_score = least(sentiment_score, -0.6)
+       where id = ${input.contactId} and tenant_id = ${input.tenantId}
+    `;
+  }
+}
+
+export async function getTenantPricingCatalogRecord(tenantId: string) {
+  const [row] = await adminSql`
+    select pricing_catalog
+      from public.tenants
+     where id = ${tenantId}
+     limit 1
+  `;
+  return row?.pricing_catalog ?? null;
+}
+
+export async function recordBallparkQuoteEstimate(input: {
+  tenantId: string;
+  contactId: string;
+  projectType: string;
+  scopeDetails: string;
+  squareMeters: number | null;
+  minDkkWithVat: number;
+  maxDkkWithVat: number;
+  midpointWithVat: number;
+  notes: string;
+}) {
+  const [inserted] = await adminSql`
+    insert into public.project_estimates (
+      tenant_id, contact_id, call_log_id, project_type, scope_details,
+      square_meters, estimated_min_dkk, estimated_max_dkk, estimated_value_dkk, followup_notes
+    ) values (
+      ${input.tenantId}, ${input.contactId}, null, ${input.projectType}, ${input.scopeDetails},
+      ${input.squareMeters}, ${input.minDkkWithVat}, ${input.maxDkkWithVat}, ${input.midpointWithVat}, ${input.notes}
+    )
+    returning id
+  `;
+
+  await adminSql`
+    update public.contacts
+       set estimated_value_dkk = ${input.midpointWithVat},
+           pipeline_stage = case
+             when pipeline_stage in ('new_lead', 'contacted') then 'qualified'::pipeline_stage
+             else pipeline_stage
+           end,
+           lead_score = greatest(lead_score, 85),
+           updated_at = now()
+     where id = ${input.contactId} and tenant_id = ${input.tenantId}
+  `;
+
+  return inserted.id as string;
+}
+

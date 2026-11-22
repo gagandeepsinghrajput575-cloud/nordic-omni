@@ -285,6 +285,58 @@ export async function listInspectionRequests(
   });
 }
 
+export interface ContactMediaRow {
+  id: string;
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  description: string;
+  created_at: string;
+}
+
+export async function listContactMedia(
+  userId: string,
+  contactId: string,
+  limit = 20,
+): Promise<ContactMediaRow[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, file_name, mime_type, file_size_bytes::bigint, description, created_at
+        from public.contact_media
+       where contact_id = ${contactId}
+       order by created_at desc
+       limit ${limit}
+    `;
+    return rows as unknown as ContactMediaRow[];
+  });
+}
+
+export interface GoogleReviewRow {
+  id: string;
+  rating: number;
+  feedback_text: string;
+  status: string;
+  platform: string;
+  created_at: string;
+}
+
+export async function listContactReviews(
+  userId: string,
+  contactId: string,
+  limit = 20,
+): Promise<GoogleReviewRow[]> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      select id, rating::float8, feedback_text, status, platform, created_at
+        from public.google_reviews
+       where contact_id = ${contactId}
+       order by created_at desc
+       limit ${limit}
+    `;
+    return rows as unknown as GoogleReviewRow[];
+  });
+}
+
 /** Conversation history for one contact, oldest first (reads like a chat). */
 export interface MessageRow {
   id: string;

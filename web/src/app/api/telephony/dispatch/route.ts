@@ -6,6 +6,9 @@ import {
   recordSipSession,
 } from "@/lib/data";
 import { isRecord, jsonError, readJson, readString } from "@/lib/api-utils";
+import { apiSession } from "@/lib/auth/guard";
+import { env } from "@/lib/env";
+import { WebhookReceiver } from "livekit-server-sdk";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -22,7 +25,26 @@ export const maxDuration = 30;
  * gateway must join.
  */
 export async function POST(request: Request): Promise<Response> {
-  const body = await readJson(request);
+  const sessionUser = await apiSession();
+  const authHeader = request.headers.get("authorization");
+  let body: Record<string, unknown>;
+
+  if (sessionUser?.isAgency) {
+    // Agency simulation calls from the dashboard
+    body = await readJson(request);
+  } else if (authHeader && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET) {
+    // LiveKit SIP inbound webhook verification
+    const rawBody = await request.text();
+    try {
+      const receiver = new WebhookReceiver(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET);
+      const event = await receiver.receive(rawBody, authHeader);
+      body = (typeof event === "object" && event !== null ? event : JSON.parse(rawBody)) as Record<string, unknown>;
+    } catch {
+      return jsonError("Unauthorized: Invalid LiveKit webhook signature", 401);
+    }
+  } else {
+    return jsonError("Unauthorized: Agency session or valid LiveKit authorization signature required", 401);
+  }
   const event = readString(body, "event", "dispatch.simulate");
 
   const dialedRaw =

@@ -21,9 +21,7 @@ import {
 import { SLOT_HOLDS } from '@/lib/calendar/holds';
 import { cacheInvite, signBookingToken } from '@/lib/calendar/invites';
 import {
-  claimSlotHold,
-  createSlotHold,
-  insertBooking,
+  confirmAndInsertBookingAtomic,
   listBusyIntervals,
 } from '@/lib/db/calendar';
 import { getTenantFacts } from '@/lib/db/queries';
@@ -197,43 +195,43 @@ export async function POST(request: Request): Promise<Response> {
 
   SLOT_HOLDS.addBooking(booking);
 
-  // Persistence is best-effort at the route boundary but never silent: a failed
-  // write is reported so the agent does not promise a calendar invite that was
-  // not durably recorded.
-  let persisted = true;
-  try {
-    if (payload.holdId) await claimSlotHold(session.userId, tenantId, payload.holdId);
-    else {
-      await createSlotHold(session.userId, {
-        tenantId,
-        contactId: payload.contactId ?? null,
-        callLogId: payload.callLogId ?? null,
-        provider: payload.provider,
-        startIso: start.toISOString(),
-        endIso: end.toISOString(),
-        topic: payload.topic,
-        notes: payload.notes,
-        label,
-        holdSeconds: 60,
-      });
-    }
-    await insertBooking(session.userId, {
-      id: booking.id,
-      tenantId,
-      contactId: booking.contactId,
-      callLogId: booking.callLogId,
-      provider: booking.provider,
-      startIso: booking.startIso,
-      endIso: booking.endIso,
-      label: booking.label,
-      topic: booking.topic,
-      attendeeName: booking.attendeeName,
-      attendeeEmail: booking.attendeeEmail,
-      attendeePhone: booking.attendeePhone,
-      icsUid: booking.icsUid,
-    });
-  } catch {
-    persisted = false;
+  // Durable PostgreSQL persistence under RLS with pg_advisory_xact_lock.
+  // Never swallow errors: if claiming hold or booking fails, return 409 or 503.
+  const atomicResult = await confirmAndInsertBookingAtomic(session.userId, {
+    id: booking.id,
+    tenantId,
+    holdId: payload.holdId,
+    contactId: booking.contactId,
+    callLogId: booking.callLogId,
+    provider: booking.provider,
+    startIso: booking.startIso,
+    endIso: booking.endIso,
+    label: booking.label,
+    topic: booking.topic,
+    notes: payload.notes,
+    attendeeName: booking.attendeeName,
+    attendeeEmail: booking.attendeeEmail,
+    attendeePhone: booking.attendeePhone,
+    icsUid: booking.icsUid,
+  }).catch((err) => {
+    console.error('Booking transaction failed:', err);
+    return null;
+  });
+
+  if (!atomicResult) {
+    return jsonError('Calendar persistence failed', 503);
+  }
+  if (!atomicResult.ok) {
+    return NextResponse.json(
+      {
+        error:
+          atomicResult.reason === 'hold_expired'
+            ? 'Holdet er udløbet eller findes ikke i databasen.'
+            : 'Tidspunktet er lige blevet booket. Vælg et andet.',
+        reason: atomicResult.reason,
+      },
+      { status: 409 },
+    );
   }
 
   // The Danish post-call SMS. The link must work on a phone with no session, so
@@ -283,7 +281,7 @@ export async function POST(request: Request): Promise<Response> {
   return NextResponse.json(
     {
       ...body,
-      persisted,
+      persisted: true,
       inviteUrl,
       metrics: computeSmsMetrics(SMS_STORE),
     },

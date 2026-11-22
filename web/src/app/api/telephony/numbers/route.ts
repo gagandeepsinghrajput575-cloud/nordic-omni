@@ -7,6 +7,7 @@ import {
   updateTelephonyNumber,
 } from "@/lib/data";
 import { jsonError, readJson, readString, resolveRequestWorkspace } from "@/lib/api-utils";
+import { apiRequireAgency } from "@/lib/auth/guard";
 import type { RingBehavior, SipCodec, TelephonyMode, TelephonyNumberView } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,9 @@ const CODECS: SipCodec[] = ["PCMA", "PCMU", "OPUS", "AMR-WB"];
 const RING_DELAY: Record<RingBehavior, number> = { immediate: 0, "one-ring": 1200, "two-rings": 2400 };
 
 export async function GET(): Promise<Response> {
+  const session = await apiRequireAgency();
+  if (!session) return jsonError("Unauthorized: Agency staff required", 401);
+
   const agency = await getAgencyWorkspace();
   const [numbers, health, clients] = await Promise.all([
     getTelephonyNumbers(agency.id),
@@ -32,6 +36,9 @@ export async function GET(): Promise<Response> {
 }
 
 export async function PUT(request: Request): Promise<Response> {
+  const session = await apiRequireAgency();
+  if (!session) return jsonError("Unauthorized: Agency staff required", 401);
+
   const agency = await getAgencyWorkspace();
   const body = await readJson(request);
   const id = readString(body, "id").trim();
@@ -100,6 +107,9 @@ export async function PUT(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const session = await apiRequireAgency();
+  if (!session) return jsonError("Unauthorized: Agency staff required", 401);
+
   const agency = await getAgencyWorkspace();
   const body = await readJson(request);
   const workspace = await resolveRequestWorkspace(body);

@@ -17,14 +17,21 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
+  const session = await apiSession();
+  if (!session) return jsonError("Unauthorized", 401);
+
   const url = new URL(request.url);
   const limitParam = url.searchParams.get("limit");
   const limit = limitParam ? Math.max(1, Math.min(100, parseInt(limitParam, 10) || 50)) : 50;
 
+  const visible = session.isAgency
+    ? SMS_STORE
+    : SMS_STORE.filter((r) => session.tenantIds.includes(r.workspaceId));
+
   return Response.json({
     ok: true,
-    records: SMS_STORE.slice(0, limit),
-    metrics: computeSmsMetrics(SMS_STORE),
+    records: visible.slice(0, limit),
+    metrics: computeSmsMetrics(visible),
   });
 }
 
@@ -65,13 +72,20 @@ export async function POST(request: Request): Promise<Response> {
 
     // Enforce Tenant Boundary & Authorization Invariants (Migration 0013)
     const session = await apiSession();
+    if (!session) {
+      return jsonError("Unauthorized", 401);
+    }
+    if (!session.isAgency && session.tenantIds.length === 0) {
+      return jsonError("Forbidden: client session has no assigned workspace", 403);
+    }
+
     const agency = await getAgencyWorkspace();
     let workspaceName = agency.name;
     let targetWorkspaceId = agency.id;
 
     if (workspaceIdParam) {
       // Caller cannot widen scope to arbitrary tenant unless agency or member
-      if (session && !session.isAgency && !session.tenantIds.includes(workspaceIdParam)) {
+      if (!session.isAgency && !session.tenantIds.includes(workspaceIdParam)) {
         return jsonError("Forbidden: caller session lacks authority for requested workspace", 403);
       }
       const tenant = await getWorkspaceById(workspaceIdParam);
@@ -79,7 +93,7 @@ export async function POST(request: Request): Promise<Response> {
         workspaceName = tenant.name;
         targetWorkspaceId = tenant.id;
       }
-    } else if (session && !session.isAgency && session.tenantIds[0]) {
+    } else if (!session.isAgency) {
       const tenant = await getWorkspaceById(session.tenantIds[0]);
       if (tenant) {
         workspaceName = tenant.name;
@@ -132,10 +146,14 @@ export async function POST(request: Request): Promise<Response> {
       SMS_STORE.pop();
     }
 
+    const visible = session.isAgency
+      ? SMS_STORE
+      : SMS_STORE.filter((r) => session.tenantIds.includes(r.workspaceId));
+
     return Response.json({
       ok: true,
       record,
-      metrics: computeSmsMetrics(SMS_STORE),
+      metrics: computeSmsMetrics(visible),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error during SMS dispatch";

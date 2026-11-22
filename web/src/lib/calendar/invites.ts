@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { env } from '@/lib/env';
 
 /**
  * Public, signed calendar invites.
@@ -23,8 +24,7 @@ const MAX_ENTRIES = 500;
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function secret(): string {
-  // SESSION_SECRET is already a hard requirement of the environment contract.
-  return process.env.SESSION_SECRET ?? 'development-only-calendar-secret';
+  return process.env.SESSION_SECRET || env.SESSION_SECRET;
 }
 
 function sign(bookingId: string): string {

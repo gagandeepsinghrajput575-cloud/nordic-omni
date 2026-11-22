@@ -1,9 +1,13 @@
 import { getAgencyWorkspace, getSipSessions, getTelephonyHealth, updateSipSession } from "@/lib/data";
 import { jsonError, readJson, readString } from "@/lib/api-utils";
+import { apiRequireAgency } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
+  const sessionUser = await apiRequireAgency();
+  if (!sessionUser) return jsonError("Unauthorized: Agency staff required", 401);
+
   const agency = await getAgencyWorkspace();
   const limitParam = Number(new URL(request.url).searchParams.get("limit") ?? "12");
   const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(50, Math.round(limitParam))) : 12;
@@ -12,6 +16,9 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function PUT(request: Request): Promise<Response> {
+  const sessionUser = await apiRequireAgency();
+  if (!sessionUser) return jsonError("Unauthorized: Agency staff required", 401);
+
   const agency = await getAgencyWorkspace();
   const body = await readJson(request);
   const id = readString(body, "id").trim();

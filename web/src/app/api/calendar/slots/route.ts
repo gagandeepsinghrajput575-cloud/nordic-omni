@@ -16,7 +16,7 @@ import {
   type TimeInterval,
 } from '@/lib/calendar/time';
 import { SLOT_HOLDS } from '@/lib/calendar/holds';
-import { listBusyIntervals, createSlotHold } from '@/lib/db/calendar';
+import { listBusyIntervals, createSlotHold, releaseSlotHold } from '@/lib/db/calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -210,12 +210,23 @@ export async function POST(request: Request): Promise<Response> {
 export async function DELETE(request: Request): Promise<Response> {
   const session = await apiSession();
   if (!session) return jsonError('Unauthorized', 401);
-  const holdId = new URL(request.url).searchParams.get('holdId');
+  const url = new URL(request.url);
+  const holdId = url.searchParams.get('holdId');
   if (!holdId) return jsonError('holdId is required', 400);
 
-  // The in-process store mirrors the SQL table for preview/dev parity; when the
-  // hold lives only in Postgres the release is a no-op here and the DB update
-  // below is authoritative.
+  const tenantId = session.isAgency
+    ? url.searchParams.get('tenantId') || session.tenantIds[0]
+    : session.tenantIds[0];
+
   SLOT_HOLDS.release(holdId);
+
+  if (tenantId) {
+    try {
+      await releaseSlotHold(session.userId, tenantId, holdId);
+    } catch {
+      // hold might already be expired or released in Postgres
+    }
+  }
+
   return NextResponse.json({ ok: true, released: holdId });
 }
