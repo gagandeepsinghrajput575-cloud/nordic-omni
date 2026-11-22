@@ -3,6 +3,8 @@ import '@fontsource-variable/inter';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { themeInitScript } from '@/lib/theme/theme-script';
+import { LocaleProvider } from '@/lib/i18n/LocaleContext';
+import { getServerLocale } from '@/lib/i18n/server';
 
 export const metadata: Metadata = {
   title: { default: 'Nordic Omni — Your business, in conversation', template: '%s · Nordic Omni' },
@@ -20,14 +22,17 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const initialLocale = await getServerLocale('en');
   return (
-    <html lang="da" className="light" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang={initialLocale} className="light" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <LocaleProvider initialLocale={initialLocale}>{children}</LocaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

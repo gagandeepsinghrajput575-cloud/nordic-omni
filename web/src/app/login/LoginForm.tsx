@@ -5,9 +5,12 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Field, Input, FormAlert, buttonClass } from '@/components/ui/form';
 import { Spinner } from '@/components/ui/SubmitButton';
+import { useLocale } from '@/lib/i18n/LocaleContext';
 
 export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
   const router = useRouter();
+  const { dict } = useLocale();
+  const t = dict.login;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +46,7 @@ export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
   return (
     <div className="space-y-7">
       <form onSubmit={handleSubmit} className="space-y-5" aria-busy={isBusy}>
-        <Field htmlFor="email" label="Email address">
+        <Field htmlFor="email" label={t.emailLabel}>
           <Input
             id="email"
             type="email"
@@ -57,7 +60,7 @@ export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
             disabled={isBusy}
           />
         </Field>
-        <Field htmlFor="password" label="Password">
+        <Field htmlFor="password" label={t.passwordLabel}>
           <div className="relative">
             <Input
               id="password"
@@ -66,7 +69,7 @@ export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter your password"
+              placeholder={t.passwordPlaceholder}
               className="pr-12"
               disabled={isBusy}
             />
@@ -89,7 +92,7 @@ export function LoginForm({ redirectTo = '/' }: { redirectTo?: string }) {
           aria-busy={isBusy}
           className={buttonClass('primary', 'md', 'min-h-11 w-full justify-between px-4')}
         >
-          <span>{isBusy ? 'Opening your workspace…' : 'Sign in to workspace'}</span>
+          <span>{isBusy ? t.signingIn : t.signInCta}</span>
           {isBusy ? <Spinner /> : <ArrowRight size={16} aria-hidden />}
         </button>
       </form>

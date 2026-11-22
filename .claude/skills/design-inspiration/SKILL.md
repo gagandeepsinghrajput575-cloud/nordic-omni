@@ -1,0 +1,1 @@
+/Users/gaganrajput11/.agents/skills/design-inspiration/SKILL.md

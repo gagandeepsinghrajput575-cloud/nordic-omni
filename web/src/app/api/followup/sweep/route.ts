@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { apiSession } from '@/lib/auth/guard';
 import { jsonError } from '@/lib/api-utils';
@@ -5,17 +6,27 @@ import { sweepPendingFollowups } from '@/lib/followup/sequences';
 
 export const dynamic = 'force-dynamic';
 
+function verifyCronBearer(authHeader: string, cronSecret: string | undefined): boolean {
+  if (!cronSecret || !authHeader.startsWith('Bearer ')) return false;
+  const provided = authHeader.slice(7).trim();
+  if (!provided) return false;
+  const a = Buffer.from(provided, 'utf8');
+  const b = Buffer.from(cronSecret, 'utf8');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function POST(request: Request): Promise<Response> {
-  const session = await apiSession().catch(() => null);
-
-  // Allow either signed-in session or system cron bearer token
   const authHeader = request.headers.get('Authorization') || '';
-  const cronSecret = process.env.CRON_SECRET || process.env.SESSION_SECRET;
-  const isBearerAuthorized =
-    !!cronSecret && authHeader.startsWith('Bearer ') && authHeader.slice(7) === cronSecret;
+  const isCronAuthorized = verifyCronBearer(authHeader, process.env.CRON_SECRET?.trim());
 
-  if (!session && !isBearerAuthorized) {
-    return jsonError('Unauthorized: valid session or Bearer token required', 401);
+  if (!isCronAuthorized) {
+    const session = await apiSession().catch(() => null);
+    if (!session) {
+      return jsonError('Unauthorized: valid agency session or CRON_SECRET required', 401);
+    }
+    if (!session.isAgency) {
+      return jsonError('Forbidden: agency administrator access required', 403);
+    }
   }
 
   try {

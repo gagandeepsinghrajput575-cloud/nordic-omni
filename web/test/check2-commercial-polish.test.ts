@@ -79,11 +79,17 @@ test('Check 2 Item 4: Follow-up Sequences Library & Logic', () => {
 test('Check 2 Item 4: /api/followup/sweep Route Security', () => {
   const sweepCode = read('src/app/api/followup/sweep/route.ts');
 
-  // Must reject unauthenticated callers without valid session or Bearer secret
+  // Must verify bearer secret with timing-safe comparison
+  assert.match(sweepCode, /timingSafeEqual/);
+  assert.match(sweepCode, /verifyCronBearer/);
+  assert.match(sweepCode, /isCronAuthorized/);
+
+  // Must reject unauthenticated callers without valid session or CRON_SECRET
   assert.match(sweepCode, /const session = await apiSession\(\)/);
-  assert.match(sweepCode, /isBearerAuthorized/);
-  assert.match(sweepCode, /if \(!session && !isBearerAuthorized\)/);
-  assert.match(sweepCode, /jsonError\('Unauthorized: valid session or Bearer token required', 401\)/);
+  assert.match(sweepCode, /if \(!session\)[\s\S]*?return jsonError\('Unauthorized: valid agency session or CRON_SECRET required', 401\)/);
+
+  // Must reject authenticated callers who are not agency operators
+  assert.match(sweepCode, /if \(!session\.isAgency\)[\s\S]*?return jsonError\('Forbidden: agency administrator access required', 403\)/);
 });
 
 test('Check 2 Item 4: /api/followup/cancel Route Security', () => {
@@ -181,4 +187,31 @@ test('Check 2 Item 6: One-URL Self-Training Importer handles Projects & Extended
   assert.ok(titles.some((t) => t.startsWith('Priskatalog:')));
   assert.ok(titles.some((t) => t.startsWith('Reference:')));
   assert.ok(titles.some((t) => t.startsWith('Brand-Safety Regel')));
+});
+
+
+test('Check 2 Polish: Instant Global EN | DA i18n & Client Access Handoff', () => {
+  // Verify i18n locale normalization and dictionary integrity
+  const { normalizeLocale, LOCALE_COOKIE, getDictionary } = require('../src/lib/i18n/locale');
+  assert.equal(LOCALE_COOKIE, 'omni_locale');
+  assert.equal(normalizeLocale('da'), 'da');
+  assert.equal(normalizeLocale('da-DK'), 'da');
+  assert.equal(normalizeLocale('en'), 'en');
+  assert.equal(normalizeLocale('en-US'), 'en');
+  assert.equal(normalizeLocale(null), 'en');
+
+  const enDict = getDictionary('en');
+  const daDict = getDictionary('da');
+  assert.ok(enDict.shell.agencyConsole);
+  assert.ok(daDict.shell.agencyConsole);
+  assert.ok(enDict.clientAccess.title);
+  assert.ok(daDict.clientAccess.title);
+
+  // Verify ClientAccessCard implementation
+  const accessCardCode = read('src/components/agency/ClientAccessCard.tsx');
+  assert.match(accessCardCode, /export function ClientAccessCard/);
+  assert.match(accessCardCode, /useLocale/);
+  assert.match(accessCardCode, /navigator\.clipboard\.writeText/);
+  // Zero hex color literals in UI component
+  assert.doesNotMatch(accessCardCode, /#[0-9a-fA-F]{3,6}/);
 });

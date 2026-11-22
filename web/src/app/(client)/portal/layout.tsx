@@ -4,14 +4,8 @@ import { requireUser } from '@/lib/auth/guard';
 import { getTenantFacts } from '@/lib/db/queries';
 import { AppShell, type NavItem } from '@/components/shell/AppShell';
 import { Badge } from '@/components/ui/core';
-
-type NavSpec = Omit<NavItem, 'label'> & { labelDa: string; labelEn: string };
-const NAV: NavSpec[] = [
-  { href: '/portal', labelDa: 'Overblik', labelEn: 'Overview', icon: 'dashboard', exact: true },
-  { href: '/portal/leads', labelDa: 'Kunder', labelEn: 'Callers', icon: 'users' },
-  { href: '/portal/chat', labelDa: 'Beskeder', labelEn: 'Messages', icon: 'messages' },
-  { href: '/portal/settings', labelDa: 'Indstillinger', labelEn: 'Settings', icon: 'settings' },
-];
+import { getServerLocale } from '@/lib/i18n/server';
+import { getDictionary } from '@/lib/i18n/locale';
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const session = await requireUser();
@@ -20,13 +14,39 @@ export default async function ClientLayout({ children }: { children: React.React
   if (!tenantId) redirect('/no-access');
   const tenant = await getTenantFacts(session.userId, tenantId);
   if (!tenant) redirect('/no-access');
-  const isDanish = tenant.default_language === 'da-DK';
-  const nav: NavItem[] = NAV.map(({ labelDa, labelEn, ...rest }) => ({ ...rest, label: isDanish ? labelDa : labelEn }));
+
+  const tenantDefault = tenant.default_language === 'da-DK' ? 'da' : 'en';
+  const locale = await getServerLocale(tenantDefault);
+  const dict = getDictionary(locale);
+
+  const nav: NavItem[] = [
+    { href: '/portal', label: dict.portalNav.overview, icon: 'dashboard', exact: true },
+    { href: '/portal/leads', label: dict.portalNav.callers, icon: 'users' },
+    { href: '/portal/chat', label: dict.portalNav.messages, icon: 'messages' },
+    { href: '/portal/settings', label: dict.portalNav.settings, icon: 'settings' },
+  ];
 
   return (
-    <AppShell nav={nav} brandEyebrow={isDanish ? 'Arbejdsrum' : 'Workspace'} brandName={tenant.name} brandHref="/portal" accountEmail={session.email}
-      toolbar={<Badge tone="neutral">{isDanish ? 'Dansk' : 'English'}</Badge>}
-      footer={<div className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">{tenant.flynumber_did ? <Phone size={14} strokeWidth={1.7} aria-hidden /> : <PhoneOff size={14} strokeWidth={1.7} aria-hidden />}<span className="truncate">{tenant.flynumber_did || (isDanish ? 'Kun browseropkald' : 'Browser calls only')}</span></div>}>
+    <AppShell
+      nav={nav}
+      brandEyebrow={dict.shell.clientEyebrow}
+      brandName={tenant.name}
+      brandHref="/portal"
+      accountEmail={session.email}
+      toolbar={<Badge tone="neutral">{locale === 'da' ? 'Dansk' : 'English'}</Badge>}
+      footer={
+        <div className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)]">
+          {tenant.flynumber_did ? (
+            <Phone size={14} strokeWidth={1.7} aria-hidden />
+          ) : (
+            <PhoneOff size={14} strokeWidth={1.7} aria-hidden />
+          )}
+          <span className="truncate">
+            {tenant.flynumber_did || dict.shell.browserCallsOnly}
+          </span>
+        </div>
+      }
+    >
       {children}
     </AppShell>
   );

@@ -8,6 +8,8 @@ import { Menu, X, LayoutDashboard, Users, Settings, Building2, MessagesSquare, P
 import { cn } from '@/components/ui/core';
 import { BrandLockup, BrandMark } from '@/components/ui/BrandMark';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
+import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher';
+import { useLocale } from '@/lib/i18n/LocaleContext';
 import { buttonClass } from '@/components/ui/form';
 import { useFocusTrap } from '@/components/ui/overlay';
 import { SPRING, pageIn, pageRest } from '@/lib/motion/springs';
@@ -26,6 +28,7 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
 }) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
+  const { dict } = useLocale();
   const [open, setOpen] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
@@ -42,6 +45,7 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
 
   const isActive = (item: NavItem) => item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
   const current = [...nav].reverse().find(isActive);
+  const isAgencyShell = brandHref === '/agency';
 
   const navigation = (scope: string) => (
     <nav aria-label={`${brandEyebrow} navigation`} className="flex flex-col gap-1 px-3">
@@ -70,13 +74,13 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
   const sidebarContent = (scope: string) => (
     <>
       <Link href={brandHref} onClick={close} className="flex min-h-[74px] items-center px-5" aria-label="Nordic Omni home">
-        <BrandLockup eyebrow="Voice-led business" />
+        <BrandLockup eyebrow={dict.shell.brandTagline} />
       </Link>
       <div className="mx-3 mb-5 rounded-xl border border-[var(--el-line)] bg-[color-mix(in_srgb,var(--el-elevated)_55%,transparent)] px-3 py-2.5">
         <div className="mb-1 flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.1em] text-[var(--el-ink-muted)]"><BrandMark size={12} />{brandEyebrow}</div>
         <p className="truncate text-[13px] font-semibold tracking-[-0.015em]" title={brandName}>{brandName}</p>
       </div>
-      <p className="mb-2 px-5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--el-ink-muted)]">{brandEyebrow === 'Agency' ? 'Management' : 'Workspace'}</p>
+      <p className="mb-2 px-5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--el-ink-muted)]">{isAgencyShell ? dict.shell.management : dict.shell.workspace}</p>
       <div className="min-h-0 flex-1 overflow-y-auto pb-6">{navigation(scope)}</div>
       <div className="border-t border-[var(--el-line)] px-4 py-4">
         {footer ? <div className="mb-4">{footer}</div> : null}
@@ -88,7 +92,7 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
 
   return (
     <div className="el-canvas app-shell-el min-h-dvh">
-      <a href="#main-content" className="skip-link">Skip to content</a>
+      <a href="#main-content" className="skip-link">{dict.shell.skipToContent}</a>
       <div className="flex min-h-dvh">
         <aside className="el-sidebar sticky top-0 hidden h-dvh w-[var(--sidebar-width)] shrink-0 lg:flex lg:flex-col">
           {sidebarContent('desktop')}
@@ -97,8 +101,9 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
           <header className="el-header sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-2.5 lg:hidden">
             <Link href={brandHref} aria-label={`${brandName} overview`}><BrandLockup eyebrow={brandEyebrow} name={brandName} compact /></Link>
             <div className="flex items-center gap-2">
+              <LocaleSwitcher />
               <ThemeSwitcher />
-              <button ref={menuRef} type="button" onClick={() => setOpen(true)} aria-label="Open navigation" aria-expanded={open} className={buttonClass('secondary', 'sm', 'icon-button')}><Menu size={18} /></button>
+              <button ref={menuRef} type="button" onClick={() => setOpen(true)} aria-label={dict.shell.openNav} aria-expanded={open} className={buttonClass('secondary', 'sm', 'icon-button')}><Menu size={18} /></button>
             </div>
           </header>
 
@@ -110,7 +115,7 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
                 <ChevronRight size={13} className="shrink-0 text-[var(--el-ink-muted)]" aria-hidden />
                 <span className="shrink-0 font-medium text-[var(--el-ink)]">{current?.label ?? brandEyebrow}</span>
               </div>
-              <div className="flex shrink-0 items-center gap-3">{toolbar}<ThemeSwitcher /></div>
+              <div className="flex shrink-0 items-center gap-2.5">{toolbar}<LocaleSwitcher /><ThemeSwitcher /></div>
             </div>
           </div>
 
@@ -135,9 +140,9 @@ export function AppShell({ nav, brandEyebrow, brandName, brandHref, footer, tool
       <AnimatePresence>
         {open ? (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.button type="button" tabIndex={-1} aria-label="Close navigation" className="absolute inset-0 bg-[var(--overlay)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18 }} onClick={close} />
+            <motion.button type="button" tabIndex={-1} aria-label={dict.shell.closeNav} className="absolute inset-0 bg-[var(--overlay)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduceMotion ? 0 : 0.18 }} onClick={close} />
             <motion.aside ref={drawerRef} role="dialog" aria-modal="true" aria-label="Workspace navigation" tabIndex={-1} className="el-sidebar absolute inset-y-0 left-0 flex w-[min(320px,88vw)] flex-col shadow-2xl" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 320, damping: 34 }}>
-              <button type="button" onClick={close} aria-label="Close navigation" className={cn(buttonClass('ghost', 'sm', 'icon-button'), 'absolute right-3 top-5')}><X size={18} /></button>
+              <button type="button" onClick={close} aria-label={dict.shell.closeNav} className={cn(buttonClass('ghost', 'sm', 'icon-button'), 'absolute right-3 top-5')}><X size={18} /></button>
               {sidebarContent('mobile')}
             </motion.aside>
           </div>
