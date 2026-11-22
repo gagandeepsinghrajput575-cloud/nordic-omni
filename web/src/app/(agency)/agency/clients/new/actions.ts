@@ -29,7 +29,7 @@ const schema = z.object({
   ownerName: z.string().trim().min(2, 'Enter the owner’s name.').max(120),
   ownerPhone: z.string().trim().min(6, 'Enter a phone number the agent can escalate to.').max(40),
   ownerEmail: z.string().trim().email('Enter a valid email address.'),
-  ownerPassword: z.string().min(8, 'Enter an initial portal password (at least 8 characters).').max(200),
+  ownerPassword: z.string().min(8, 'Enter an initial portal password (at least 8 characters).').max(200).optional(),
   defaultLanguage: z.enum(['da-DK', 'en-US']).default('da-DK'),
   did: z.string().trim().max(40).optional().transform((value) => value?.replace(/[^0-9+]/g, '') || null)
     .refine((value) => !value || /^\+[1-9]\d{6,14}$/.test(value), 'Use an international DID, e.g. +4532123456.'),
@@ -45,6 +45,8 @@ export async function createWorkspaceAction(
 
   const rawName = String(formData.get('name') ?? '').trim();
   const rawSlug = String(formData.get('slug') ?? '').trim();
+  const rawInitialPassword = String(formData.get('initialPassword') ?? '').trim();
+  const rawOwnerPassword = String(formData.get('ownerPassword') ?? rawInitialPassword).trim();
 
   const parsed = schema.safeParse({
     name: rawName,
@@ -52,10 +54,10 @@ export async function createWorkspaceAction(
     ownerName: formData.get('ownerName'),
     ownerPhone: formData.get('ownerPhone'),
     ownerEmail: formData.get('ownerEmail'),
-    ownerPassword: String(formData.get('ownerPassword') ?? ''),
+    ownerPassword: rawOwnerPassword || rawInitialPassword,
     defaultLanguage: formData.get('defaultLanguage') ?? 'da-DK',
     did: formData.get('did'),
-    initialPassword: formData.get('initialPassword'),
+    initialPassword: rawInitialPassword,
   });
 
   if (!parsed.success) {
