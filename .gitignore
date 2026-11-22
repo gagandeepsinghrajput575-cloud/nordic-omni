@@ -1,5 +1,7 @@
-# Arena-local preview tools, browser captures and database
-.arena/
+# Database files
+database.sqlite
+*.sqlite
+*.sqlite3
 
 # Dependencies
 node_modules/

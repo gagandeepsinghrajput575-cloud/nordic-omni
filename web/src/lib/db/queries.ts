@@ -59,6 +59,9 @@ export interface TenantFacts {
   active_broadcast_message: string | null;
   business_hours: Record<string, { open: string; close: string; closed: boolean }>;
   pricing_catalog: import('@/lib/estimation').CatalogItem[];
+  enabled_features?: string[];
+  master_opt_out?: boolean;
+  allowed_sender_emails?: string[];
 }
 
 export async function getTenantFacts(userId: string, tenantId: string): Promise<TenantFacts | null> {
@@ -67,8 +70,36 @@ export async function getTenantFacts(userId: string, tenantId: string): Promise<
       select id, name, slug, owner_name, owner_phone, owner_email,
              default_language::text as default_language, flynumber_did,
              active_broadcast_message, business_hours, pricing_catalog,
-             status, reception_mode, telephony_mode::text as telephony_mode
+             status, reception_mode, telephony_mode::text as telephony_mode,
+             enabled_features, master_opt_out, allowed_sender_emails
       from tenants where id = ${tenantId} limit 1
+    `;
+    return (rows[0] as unknown as TenantFacts) ?? null;
+  });
+}
+
+export async function updateTenantFeatures(
+  userId: string,
+  tenantId: string,
+  data: {
+    enabled_features: string[];
+    master_opt_out: boolean;
+    allowed_sender_emails: string[];
+  }
+): Promise<TenantFacts | null> {
+  return withUser(userId, async (tx) => {
+    const rows = await tx`
+      update tenants
+      set enabled_features = ${JSON.stringify(data.enabled_features)}::jsonb,
+          master_opt_out = ${data.master_opt_out},
+          allowed_sender_emails = ${JSON.stringify(data.allowed_sender_emails)}::jsonb,
+          updated_at = now()
+      where id = ${tenantId}
+      returning id, name, slug, owner_name, owner_phone, owner_email,
+                default_language::text as default_language, flynumber_did,
+                active_broadcast_message, business_hours, pricing_catalog,
+                status, reception_mode, telephony_mode::text as telephony_mode,
+                enabled_features, master_opt_out, allowed_sender_emails
     `;
     return (rows[0] as unknown as TenantFacts) ?? null;
   });

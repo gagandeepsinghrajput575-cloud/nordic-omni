@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Menu, X, LayoutDashboard, Users, Settings, Building2, MessagesSquare, Phone, BookOpen, Webhook, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Users, Settings, Building2, MessagesSquare, Phone, BookOpen, Webhook, ChevronRight, Bot, type LucideIcon } from 'lucide-react';
 import { cn } from '@/components/ui/core';
 import { BrandLockup, BrandMark } from '@/components/ui/BrandMark';
 import { ThemeSwitcher } from '@/components/theme/ThemeSwitcher';
@@ -13,7 +13,7 @@ import { useFocusTrap } from '@/components/ui/overlay';
 import { SPRING, pageIn, pageRest } from '@/lib/motion/springs';
 import { LogoutButton } from './LogoutButton';
 
-const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen, webhook: Webhook, messages: MessagesSquare } satisfies Record<string, LucideIcon>;
+const ICONS = { dashboard: LayoutDashboard, users: Users, settings: Settings, building: Building2, phone: Phone, knowledge: BookOpen, webhook: Webhook, messages: MessagesSquare, bot: Bot } satisfies Record<string, LucideIcon>;
 export type IconKey = keyof typeof ICONS;
 export interface NavItem { href: string; label: string; icon: IconKey; exact?: boolean }
 

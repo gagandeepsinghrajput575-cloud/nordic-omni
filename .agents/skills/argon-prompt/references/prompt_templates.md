@@ -410,3 +410,54 @@ When auditing or generating prompts, ensure none of the following down-routing t
 | **Raw Repository Code Dumps** (>10,000 tokens) | Triggers Context Bloat Penalty ($P_{\text{bloat}}$), DOM freezes in web client, and dilutes attention heads. | **Surgical Type Spine (< 3,500 tokens)** extracted via AST tools with function bodies stripped to `...`. |
 | **Vague or Missing Verification** ("Please test your code") | Fails to signal deterministic falsifiability ($S_{\text{verif}}$) to the router. | **Concrete container shell commands** (`(cd web && npx tsc --noEmit)`, `npm test`, `pytest`). |
 | **Single-File Trivial Helpers** | Low cross-boundary complexity ($S_{\text{cross}}$) signals a task suitable for routine utility models. | **Multi-tier problem formulation** coupling database, transport, and client layers simultaneously. |
+
+---
+
+## 6. Template E: The 4-to-8 Hour Autonomous Marathon Protocol
+
+Use this template when delegating large multi-hour engineering missions (e.g. implementing full sub-systems, refactoring entire tiers, or continuous test-hardened feature builds) to LM Arena agents under external monitoring by Antigravity.
+
+```markdown
+## Objective: Long-Running Autonomous Marathon Execution
+[State high-level goal, e.g.: "Implement the complete multi-tenant Feature Switchboard, Meta Ads Campaign Manager, and AI SEO (GEO) citation engine across database, API routes, and client portal."]
+
+## Connected Environment & Tooling
+- Integration: Google Drive Connector is active (Folder: `skillgods`).
+- Mandatory Guides: Read `CHIEF_SOFTWARE_ENGINEER_CHECKLIST.md` and `arena-context-compactor.md` from Google Drive before beginning.
+- Continuous Oversight: Antigravity Chief Software Engineer is monitoring outputs and validating test suites.
+
+## Mandatory Autonomous Epoch Loop Protocol
+You are running in Autonomous Marathon Mode. You are NOT permitted to stop after completing a single file or sub-task. You must execute continuous work cycles until the entire task backlog is 100% complete and verified.
+
+### Epoch Step 1: Backlog Initialization (Turn 1)
+1. Inspect the workspace and create/initialize `TASKS.json` in the root with 15–30 granular, sequential micro-tasks covering the entire objective.
+2. Initialize `PROGRESS.md` and `LESSONS.md` on disk.
+3. Update `skillgods/STATE.md` with the active mission plan.
+
+### Epoch Step 2: The Continuous Execution Loop
+For EACH task in `TASKS.json` with status `pending`:
+1. **Targeted Read**: Read ONLY the specific files and tests needed for this task. Check `LESSONS.md` for known pitfalls.
+2. **Red-Green TDD**: Write or update failing automated unit/integration tests first.
+3. **Surgical Implementation**: Write the minimal typed production code to make the tests pass. No placeholders, no `as any`, no synthetic styling.
+4. **Deterministic Verification Gate**:
+   - Run: `(cd web && npx tsc --noEmit)`
+   - Run: `npm test`
+5. **On Verification Pass**:
+   - Stage and commit: `git add . && git commit -m "feat([scope]): [task title]"`
+   - Mark task as `completed` in `TASKS.json`.
+   - Append a 2-line summary to `PROGRESS.md`.
+6. **On Verification Fail**:
+   - Revert dirty changes: `git checkout -- .`
+   - Log the failure reason into `LESSONS.md` to prevent repeating it.
+   - Adjust hypothesis and retry once.
+7. **Attention Pruning (Context Compaction)**:
+   - Search Google Drive for `arena-context-compactor.md`.
+   - Prune intermediate terminal dumps from your active memory.
+   - Update `skillgods/STATE.md`.
+   - **DO NOT STOP**. Immediately proceed to the next pending task in `TASKS.json`.
+
+### Epoch Step 3: Mission Completion & Final Deliverable
+Only when ALL tasks in `TASKS.json` are marked `completed` and all tests pass (0 failures, 0 TypeScript errors):
+1. Download the cumulative git patch: `git diff main...HEAD > marathon_deliverable.patch`.
+2. Output the final summary report with total tasks completed, passing test count, and list of modified files.
+```

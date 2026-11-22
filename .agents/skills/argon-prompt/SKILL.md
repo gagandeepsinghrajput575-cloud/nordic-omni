@@ -3,9 +3,9 @@ name: argon-prompt
 description: >-
   Architects surgical, high-density, non-handcuffed prompts for Frontier Models (Claude Fable 5.2 Max, Claude Opus 5.5 Max, Gemini 4 Carbon, Gemini 4 Argon High) on LM Arena (arena.ai).
   Implements capability gating (connectors, multimodal inputs, structured archives), early-turn diagnostics (60s re-roll sentinel),
-  deterministic selection (arena.ai/direct), and the mandatory 3-Phase Execution Protocol (Audit -> Implement -> Verify).
+  deterministic selection (arena.ai/direct), the mandatory 3-Phase Execution Protocol, and the Long-Running Autonomous Marathon Protocol (4-8 hour continuous execution).
   Extracts minimal Type Spines (< 3,500 tokens) and enforces Interaction-as-a-Judge steering strategies.
-  Trigger whenever the user asks for an Argon prompt, Arena prompt, tags Argon (@argon), tags Arena prompt (@arena-prompt), mentions 64k/1M model limits, or exports tasks to LM Arena.
+  Trigger whenever the user asks for an Argon prompt, Arena prompt, tags Argon (@argon), tags Arena prompt (@arena-prompt), mentions 64k/1M model limits, exports tasks to LM Arena, or requests multi-hour autonomous execution.
 ---
 
 # Arena & Frontier Agent Prompt Architect
@@ -116,6 +116,107 @@ When reviewing code delivered from Arena:
 1. **Frontier Capability Recognition**: Claude Fable 5.2 Max, Claude Opus 5.5 Max, and Gemini 4 Carbon operate with deep reasoning. Unconventional patterns are often deliberate optimizations (race condition prevention, zero-allocation memory paths, soundness guarantees).
 2. **Reason-First Mandate**: Deducing *why* the model chose the pattern before flagging an issue.
 3. **Definitive Bug Threshold**: Flag as a bug ONLY if `tsc --noEmit` fails, a test breaks, or an RLS/security boundary is violated.
+
+---
+
+## 6. Long-Running Autonomous Marathon Protocol (Multi-Hour Execution Harness)
+
+Standard agents terminate prematurely after 30–60 minutes because single-session context bloats, hits token limits, or assumes completion after a single sub-task.
+
+To achieve **4–8 hours of uninterrupted, continuous engineering** on LM Arena, the agent must be prompted to operate as an **Autonomous Epoch Loop** governed by persistent external memory files on disk and Google Drive (`skillgods`), supervised by Antigravity as the Chief Software Engineer.
+
+```mermaid
+flowchart TD
+    subgraph Persistent External Memory [Google Drive & Disk]
+        T["TASKS.json / skillgods/TASKS.md (Decomposed Backlog)"]
+        P["PROGRESS.md (Rolling History of Verified Milestones)"]
+        L["LESSONS.md (Error Signatures & Hard Constraints)"]
+        S["skillgods/STATE.md (Live Checkpoint)"]
+    end
+
+    subgraph Autonomous Epoch Loop [LM Arena Continuous Execution]
+        A["1. Read Backlog & Pick Next Task"] --> B["2. Audit Relevant Files & LESSONS.md"]
+        B --> C["3. Red-Green TDD & Implementation"]
+        C --> D{"4. Verification Gate (npm test && tsc)"}
+        D -->|Pass| E["5. Git Commit & Append to PROGRESS.md"]
+        D -->|Fail| F["6. Rollback Git & Log to LESSONS.md"]
+        E --> G["7. Memory Pruning via arena-context-compactor.md"]
+        G --> H{"More Pending Tasks?"}
+        H -->|Yes| A
+        H -->|No| DONE["8. Export Complete Patch Diff & Report"]
+    end
+
+    T <--> A
+    L <--> B
+    E --> P
+    F --> L
+    G --> S
+```
+
+### The Long-Running Marathon Prompt Template (Copy-Paste for LM Arena)
+
+When launching a multi-hour autonomous session on LM Arena, use this exact prompt:
+
+```markdown
+## Objective: Long-Running Autonomous Marathon Execution
+[State high-level goal, e.g.: "Implement the complete multi-tenant Feature Switchboard, Meta Ads Campaign Manager, and AI SEO (GEO) citation engine across database, API routes, and client portal."]
+
+## Connected Environment & Tooling
+- Integration: Google Drive Connector is active (Folder: `skillgods`).
+- Mandatory Guides: Read `CHIEF_SOFTWARE_ENGINEER_CHECKLIST.md` and `arena-context-compactor.md` from Google Drive before beginning.
+- Continuous Oversight: Antigravity Chief Software Engineer is monitoring outputs and validating test suites.
+
+## Mandatory Autonomous Epoch Loop Protocol
+You are running in Autonomous Marathon Mode. You are NOT permitted to stop after completing a single file or sub-task. You must execute continuous work cycles until the entire task backlog is 100% complete and verified.
+
+### Epoch Step 1: Backlog Initialization (Turn 1)
+1. Inspect the workspace and create/initialize `TASKS.json` in the root with 15–30 granular, sequential micro-tasks covering the entire objective.
+2. Initialize `PROGRESS.md` and `LESSONS.md` on disk.
+3. Update `skillgods/STATE.md` with the active mission plan.
+
+### Epoch Step 2: The Continuous Execution Loop
+For EACH task in `TASKS.json` with status `pending`:
+1. **Targeted Read**: Read ONLY the specific files and tests needed for this task. Check `LESSONS.md` for known pitfalls.
+2. **Red-Green TDD**: Write or update failing automated unit/integration tests first.
+3. **Surgical Implementation**: Write the minimal typed production code to make the tests pass. No placeholders, no `as any`, no synthetic styling.
+4. **Deterministic Verification Gate**:
+   - Run: `(cd web && npx tsc --noEmit)`
+   - Run: `npm test`
+5. **On Verification Pass**:
+   - Stage and commit: `git add . && git commit -m "feat([scope]): [task title]"`
+   - Mark task as `completed` in `TASKS.json`.
+   - Append a 2-line summary to `PROGRESS.md`.
+6. **On Verification Fail**:
+   - Revert dirty changes: `git checkout -- .`
+   - Log the failure reason into `LESSONS.md` to prevent repeating it.
+   - Adjust hypothesis and retry once.
+7. **Attention Pruning (Context Compaction)**:
+   - Search Google Drive for `arena-context-compactor.md`.
+   - Prune intermediate terminal dumps from your active memory.
+   - Update `skillgods/STATE.md`.
+   - **DO NOT STOP**. Immediately proceed to the next pending task in `TASKS.json`.
+
+### Epoch Step 3: Mission Completion & Final Deliverable
+Only when ALL tasks in `TASKS.json` are marked `completed` and all tests pass (0 failures, 0 TypeScript errors):
+1. Download the cumulative git patch: `git diff main...HEAD > marathon_deliverable.patch`.
+2. Output the final summary report with total tasks completed, passing test count, and list of modified files.
+```
+
+---
+
+## 7. How Antigravity Monitors & Steers the Arena Marathon
+
+While LM Arena executes the multi-hour marathon, Antigravity functions as the **Senior Engineering Lead / Monitor**:
+
+1. **Periodic Observation**: Antigravity uses the browser subagent to periodically inspect the Arena tab's HUD, output stream, and `skillgods/STATE.md` on Google Drive.
+2. **Mid-Flight Steerability Injections**:
+   - If the Arena model gets stuck on a syntax edge-case or flails, Antigravity sends a surgical 1-line diagnostic prompt:
+     `[STEERING] Task 4 failed due to [exact root cause]. Review LESSONS.md line 12 and inspect web/src/lib/auth.ts lines 25-45.`
+3. **Mid-Flight Compaction**:
+   - If token bloat begins slowing down the Arena container after 6+ turns, Antigravity dispatches:
+     `[COMPACT & RESUME] Execute arena-context-compactor.md, emit State Ledger, and proceed to Task 5.`
+4. **Local Verification & Merge**:
+   - When the marathon concludes, Antigravity pulls the patch, runs local security audits, validates all 234+ tests locally, and merges into `main`.
 
 ---
 
